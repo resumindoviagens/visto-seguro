@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
 function escapeHtml(value) {
@@ -26,7 +27,12 @@ export default async function EmailModelPage({ params }) {
     );
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
+  const headerStore = await headers();
+  const host = headerStore.get("x-forwarded-host") || headerStore.get("host");
+  const protocol = headerStore.get("x-forwarded-proto") || "https";
+  const currentSiteUrl = host ? `${protocol}://${host}` : "";
+  const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+  const siteUrl = currentSiteUrl || envSiteUrl;
   const link = `${siteUrl}/acesso/${client.access_token}`;
   const logoUrl = `${siteUrl}/logo.png`;
   const name = escapeHtml(client.name);

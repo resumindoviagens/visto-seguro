@@ -35,7 +35,10 @@ export default function ClientAccessPage() {
   const [verifying, setVerifying] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
 
-  useEffect(() => { setNeedsVerification(true); setLoading(false); }, [token]);
+  useEffect(() => {
+    if (!token) return;
+    load();
+  }, [token]);
 
   async function load() {
     setLoading(true);
@@ -82,7 +85,9 @@ export default function ClientAccessPage() {
     const data = await res.json();
     if (res.status === 401 && data.needs_verification) { setNeedsVerification(true); return; }
     if (!res.ok) return alert(data.error || "Erro ao enviar.");
-    window.location.reload();
+    setClient((previous) => previous ? { ...previous, is_locked: true, status: "submitted" } : previous);
+    setSubmittedAt(new Date().toISOString());
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   if (loading) return <main style={{ padding: 30 }}>Carregando...</main>;
