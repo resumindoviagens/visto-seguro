@@ -105,7 +105,7 @@ function Dashboard({ loginWithPassword }) {
     notes: ""
   });
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://visto-seguro.vercel.app";
 
   async function loadClients() {
     const res = await fetch("/api/admin/clients");
