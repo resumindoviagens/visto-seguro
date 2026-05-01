@@ -12,11 +12,18 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from("clients")
-    .select("*")
+    .select("*, form_responses(answers, submitted_at)")
     .order("created_at", { ascending: false });
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ clients: data || [] });
+  const clients = (data || []).map((client) => ({
+    ...client,
+    answers: Array.isArray(client.form_responses)
+      ? (client.form_responses[0]?.answers || {})
+      : (client.form_responses?.answers || {})
+  }));
+
+  return Response.json({ clients });
 }
 
 export async function POST(request) {

@@ -23,6 +23,36 @@ function statusLabel(status) {
   return labels[status] || status;
 }
 
+
+const CRITICAL_ALERT_QUESTIONS = ["3.19", "3.20", "3.21", "6.9", "6.11", "8.8"];
+
+function normalizeAnswer(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function buildQuestionNumberMap() {
+  // Mantém o alerta correto mesmo que o ID interno dos campos seja diferente do número exibido.
+  const map = {
+    "3.19": "vistoCancelado",
+    "3.20": "vistoNegado",
+    "3.21": "pedidoImigracao",
+    "6.9": "parenteEUA",
+    "6.11": "familiaresEUA",
+    "8.8": "organizacaoBeneficente"
+  };
+  return map;
+}
+
+const QUESTION_ID_BY_NUMBER = buildQuestionNumberMap();
+
+function getCriticalAlerts(client) {
+  const answers = client?.answers || {};
+  return CRITICAL_ALERT_QUESTIONS.filter((number) => {
+    const fieldId = QUESTION_ID_BY_NUMBER[number];
+    return normalizeAnswer(answers[fieldId]) === "sim" || normalizeAnswer(answers[number]) === "sim";
+  });
+}
+
 function actionLabel(action) {
   const labels = {
     client_created: "Cliente cadastrado",
@@ -78,7 +108,7 @@ export default function AdminPage() {
           <BrandHeader compact />
           <h2 style={{ color: "var(--navy)", marginTop: 24 }}>Painel interno seguro</h2>
           <p>Digite a senha administrativa.</p>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input type="password" name="rv-admin-key" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           <br /><br />
           <button className="btn-primary" onClick={login}>Entrar</button>
         </div>
@@ -276,6 +306,11 @@ function Dashboard({ loginWithPassword }) {
                   <small>Nascimento: {formatDateBR(client.birth_date)}</small><br />
                   <small>Celular: {client.phone || "-"}</small><br />
                   <small>E-mail: {client.email || "-"}</small>
+                  {getCriticalAlerts(client).length > 0 && (
+                    <div className="admin-critical-alert">
+                      Atenção: cliente respondeu <strong>Sim</strong> na pergunta {getCriticalAlerts(client).join(", ")}
+                    </div>
+                  )}
                 </td>
 
                 <td>

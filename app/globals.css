@@ -436,11 +436,46 @@ label {
   .foto-poster { padding: 12px; border-radius: 20px; }
 }
 
-/* FIX BUTTON WRAP */
-.page-button {
+
+/* Navegação lateral do formulário: permite quebra em duas linhas sem estourar a caixa */
+.section-nav-button {
+  width: 100%;
+  margin-bottom: 10px;
+  justify-content: center !important;
+  text-align: center !important;
   white-space: normal !important;
-  word-break: break-word;
-  line-height: 1.2;
-  padding: 10px;
-  text-align: center;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-height: 1.25;
+  min-height: 56px;
+  padding: 12px 14px;
+}
+
+/* Destaque amarelo para perguntas que exigem atenção especial */
+.highlighted-question {
+  background: #fff8bf;
+  border: 1px solid #facc15;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 3px 10px rgba(250, 204, 21, .16);
+}
+
+.highlighted-question input,
+.highlighted-question select,
+.highlighted-question textarea,
+.highlighted-question .radio {
+  background: #fffef2;
+  border-color: #eab308;
+}
+
+.admin-critical-alert {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
 }
