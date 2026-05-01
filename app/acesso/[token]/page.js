@@ -5,6 +5,30 @@ import { useParams } from "next/navigation";
 import BrandHeader from "../../../components/BrandHeader";
 import { sections } from "../../../lib/formSchema";
 
+const PRE_INFO_ITEMS = [
+  "Este documento, bem como todo o seu conteúdo digital, é de propriedade intelectual da RESUMINDO VIAGENS e de seus integrantes, sendo vedado seu compartilhamento com terceiros, uma vez que seu fornecimento está condicionado ao pagamento da taxa de serviços previamente acordada entre o solicitante e o prestador.",
+  "Preencha todas as informações de forma completa e sem abreviações, especialmente nomes de pessoas, ruas e demais dados, evitando qualquer interpretação equivocada.",
+  "As perguntas estão numeradas, sendo o primeiro número a página correspondente e o segundo número a ordem sequencial da pergunta na referida página. Desta forma, caso tenha dúvidas, pode se referir especificamente ao número da pergunta, sem necessitar enviar print da tela ou transcrever a pergunta integralmente.",
+  "Fique atento aos campos do formulário destacados em amarelo. Eles estão destacados porque merecem atenção especial, seja por risco de descuido, por serem considerados irrelevantes pelo solicitante ou por serem omitidos de propósito.",
+  "Informe sempre o CEP correto. Caso não o possua, realize a consulta no site oficial dos Correios.",
+  "Para formulários referentes a membros de uma mesma família que viajarão juntos, é obrigatório o preenchimento individual de cada formulário, ainda que haja repetição de informações.",
+  "O formulário poderá ser preenchido em versão digital, por PDF editável ou formulário web, ou em versão impressa, conforme preferência do solicitante.",
+  "É imprescindível salvar o formulário após o preenchimento. Para mais de um solicitante, deverá ser utilizado um formulário distinto para cada pessoa.",
+  "Caso determinado campo não se aplique: na versão física, trace um risco diagonal no campo; na versão digital, preencha com “Não se aplica” ou “N/A”.",
+  "O solicitante declara ciência de que o serviço prestado é de assessoria, obrigação de meio, sem garantia de aprovação, que depende exclusivamente das autoridades consulares dos Estados Unidos.",
+  "O solicitante deverá arcar com a taxa consular vigente, aproximadamente USD 185, e comparecer à entrevista em um dos postos consulares: São Paulo, Rio de Janeiro, Recife, Brasília ou Porto Alegre.",
+  "Para Porto Alegre e Recife, é necessário providenciar a foto previamente, enviando versão digital e levando versão impressa na entrevista.",
+  "A escolha da cidade de entrevista é de responsabilidade do solicitante. Alterações posteriores implicarão custos adicionais.",
+  "Nos casos de renovação de visto sem entrevista, será necessário envio da foto, passaporte atual e passaporte anterior com visto.",
+  "Mesmo sem entrevista, a embaixada poderá convocar o solicitante.",
+  "O processo pode iniciar sem passaporte, mas será concluído apenas após envio do documento.",
+  "O serviço refere-se ao visto tipo B, turismo/negócios. Outros tipos devem ser contratados separadamente.",
+  "É obrigatório informar parentes de primeiro grau nos EUA.",
+  "A RESUMINDO VIAGENS não se responsabiliza por informações incorretas fornecidas pelo solicitante.",
+  "Omissões podem resultar na negativa imediata do visto.",
+  "O solicitante declara ser responsável pela veracidade das informações."
+];
+
 function cleanCPF(value) { return (value || "").replace(/\D/g, ""); }
 function formatCPF(value) {
   const digits = cleanCPF(value).slice(0, 11);
@@ -19,6 +43,8 @@ function brDateToISO(value) {
   if (digits.length !== 8) return "";
   return `${digits.slice(4,8)}-${digits.slice(2,4)}-${digits.slice(0,2)}`;
 }
+function cleanSectionTitle(title) { return title.replace(/^\d+\.\s*/, ""); }
+function numberedTitle(index, title) { return `${index + 1}. ${cleanSectionTitle(title)}`; }
 
 export default function ClientAccessPage() {
   const params = useParams();
@@ -26,7 +52,7 @@ export default function ClientAccessPage() {
   const [client, setClient] = useState(null);
   const [answers, setAnswers] = useState({});
   const [submittedAt, setSubmittedAt] = useState(null);
-  const [current, setCurrent] = useState(0);
+  const [current, setCurrent] = useState(-1);
   const [loading, setLoading] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(true);
   const [cpf, setCpf] = useState("");
@@ -35,10 +61,7 @@ export default function ClientAccessPage() {
   const [verifying, setVerifying] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
 
-  useEffect(() => {
-    if (!token) return;
-    load();
-  }, [token]);
+  useEffect(() => { if (token) load(); }, [token]);
 
   async function load() {
     setLoading(true);
@@ -115,7 +138,7 @@ export default function ClientAccessPage() {
   if (!client) return <main style={{ padding: 30 }}>Link inválido.</main>;
   if (client?.is_locked || submittedAt) return <PDFView client={client} answers={answers} />;
 
-  const section = sections[current];
+  const section = current >= 0 ? sections[current] : null;
   return (
     <main style={{ maxWidth: 1200, margin:"0 auto", padding:24 }}>
       <div className="card" style={{ padding:22, marginBottom:22 }}><BrandHeader clientName={client?.name} /></div>
@@ -124,15 +147,34 @@ export default function ClientAccessPage() {
         <div style={{ display:"flex", gap:10 }}><button className="btn-light" onClick={() => save(answers, true)}>Salvar e continuar depois</button><button className="btn-primary" onClick={submitForm}>Enviar definitivamente (encerra preenchimento)</button></div>
       </div>
       <div className="form-layout" style={{ display:"grid", gridTemplateColumns:"280px 1fr", gap:24 }}>
-        <aside className="card no-print" style={{ padding:14 }}>{sections.map((item, index) => <button key={item.title} onClick={() => setCurrent(index)} className={index === current ? "btn-primary" : "btn-light"} style={{ width:"100%", marginBottom:8, textAlign:"left" }}>{index+1}. {item.title.replace(/^\d+\. /, "")}</button>)}</aside>
+        <aside className="card no-print" style={{ padding:14 }}>
+          <button onClick={() => setCurrent(-1)} className={current === -1 ? "btn-primary" : "btn-light"} style={{ width:"100%", marginBottom:8, textAlign:"left", justifyContent:"flex-start" }}>Informações prévias</button>
+          {sections.map((item, index) => <button key={item.title} onClick={() => setCurrent(index)} className={index === current ? "btn-primary" : "btn-light"} style={{ width:"100%", marginBottom:8, textAlign:"left", justifyContent:"flex-start" }}>{numberedTitle(index, item.title)}</button>)}
+        </aside>
         <section className="card" style={{ padding:28 }}>
-          <h1 style={{ color:"var(--navy)" }}>{section.title}</h1>
-          <div className="grid">{section.fields.map((field) => <Field key={field.id} field={field} value={answers[field.id]} onChange={setValue} />)}</div>
-          <div className="no-print" style={{ display:"flex", justifyContent:"space-between", marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(Math.max(0, current - 1))}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => setCurrent(Math.min(sections.length - 1, current + 1))}>Próxima</button>}</div>
+          {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(0)} /> : <>
+            <h1 style={{ color:"var(--navy)" }}>{numberedTitle(current, section.title)}</h1>
+            <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={field} questionNumber={`${current + 1}.${fieldIndex + 1}`} value={answers[field.id]} onChange={setValue} />)}</div>
+            <div className="no-print" style={{ display:"flex", justifyContent:"space-between", marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(current - 1)}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => setCurrent(current + 1)}>Próxima</button>}</div>
+          </>}
         </section>
       </div>
     </main>
   );
+}
+
+function PreInfoPage({ client, onContinue }) {
+  return <div>
+    <h1 style={{ color:"var(--navy)", marginBottom:8 }}>Informações prévias</h1>
+    <p style={{ color:"var(--muted)", lineHeight:1.6 }}>Olá, <strong>{client?.name}</strong>. Antes de iniciar o preenchimento do formulário, leia atentamente as orientações abaixo.</p>
+    <div style={{ background:"#fff9ec", border:"1px solid #fed7aa", borderRadius:16, padding:18, margin:"18px 0", color:"#7c2d12", lineHeight:1.55 }}>
+      As perguntas estão numeradas para facilitar o atendimento. Em caso de dúvida, informe o número da pergunta, por exemplo: 2.4 ou 5.7.
+    </div>
+    <div style={{ display:"grid", gap:12 }}>
+      {PRE_INFO_ITEMS.map((item, index) => <div key={index} style={{ border:"1px solid var(--border)", borderRadius:14, padding:14, lineHeight:1.55 }}><strong style={{ color:"var(--navy)" }}>{index + 1}.</strong> {item}</div>)}
+    </div>
+    <div className="no-print" style={{ marginTop:22, display:"flex", justifyContent:"flex-end" }}><button className="btn-primary" onClick={onContinue}>Continuar para 1. Início e Dados do Solicitante</button></div>
+  </div>;
 }
 
 function HelpIcon({ text }) {
@@ -140,13 +182,14 @@ function HelpIcon({ text }) {
   return <span className="help" data-tip={message} title={message} tabIndex="0" aria-label={message} onClick={(event) => event.currentTarget.focus()}>?</span>;
 }
 
-function Field({ field, value, onChange }) {
+function Field({ field, questionNumber, value, onChange }) {
   const className = field.full ? "field full" : (field.wide || field.type === "textarea" || field.type === "checkbox" ? "field wide" : "field");
-  if (field.type === "select") return <div className={className}><label>{field.label}<HelpIcon text={field.help} /></label><select value={value || ""} onChange={(e) => onChange(field.id, e.target.value)}><option value="">Selecione</option>{field.options.map((o) => <option key={o}>{o}</option>)}</select></div>;
-  if (field.type === "radio") return <div className={className}><label>{field.label}<HelpIcon text={field.help} /></label><div className="radio">{field.options.map((o) => <label key={o}><input type="radio" checked={value === o} onChange={() => onChange(field.id, o)} /> {o}</label>)}</div></div>;
-  if (field.type === "textarea") return <div className={className}><label>{field.label}<HelpIcon text={field.help} /></label><textarea value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} /></div>;
-  if (field.type === "checkbox") return <div className={className}><label><input style={{ width:"auto" }} type="checkbox" checked={!!value} onChange={(e) => onChange(field.id, e.target.checked)} />{field.label}<HelpIcon text={field.help} /></label></div>;
-  return <div className={className}><label>{field.label}<HelpIcon text={field.help} /></label><input type={field.type} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} /></div>;
+  const label = <><span style={{ color:"var(--orange)", fontWeight:900 }}>{questionNumber}</span> {field.label}<HelpIcon text={field.help} /></>;
+  if (field.type === "select") return <div className={className}><label>{label}</label><select value={value || ""} onChange={(e) => onChange(field.id, e.target.value)}><option value="">Selecione</option>{field.options.map((o) => <option key={o}>{o}</option>)}</select></div>;
+  if (field.type === "radio") return <div className={className}><label>{label}</label><div className="radio">{field.options.map((o) => <label key={o}><input type="radio" checked={value === o} onChange={() => onChange(field.id, o)} /> {o}</label>)}</div></div>;
+  if (field.type === "textarea") return <div className={className}><label>{label}</label><textarea value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} /></div>;
+  if (field.type === "checkbox") return <div className={className}><label><input style={{ width:"auto" }} type="checkbox" checked={!!value} onChange={(e) => onChange(field.id, e.target.checked)} /><span style={{ color:"var(--orange)", fontWeight:900 }}>{questionNumber}</span> {field.label}<HelpIcon text={field.help} /></label></div>;
+  return <div className={className}><label>{label}</label><input type={field.type} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} /></div>;
 }
 
 function PDFView({ client, answers }) {
@@ -156,7 +199,7 @@ function PDFView({ client, answers }) {
       <div className="card" style={{ padding:34 }}>
         <BrandHeader clientName={client?.name} />
         <h2 style={{ color:"var(--navy)", marginTop:28 }}>Respostas do formulário</h2>
-        {sections.map((section) => <section key={section.title} style={{ breakInside:"avoid", marginTop:28 }}><h3 style={{ background:"var(--navy)", color:"#fff", padding:12, borderRadius:10 }}>{section.title}</h3><div className="grid">{section.fields.filter((field) => answers[field.id]).map((field) => <div key={field.id} className={field.wide || field.full ? "wide" : ""} style={{ border:"1px solid #E4E8F0", borderRadius:12, padding:12 }}><b style={{ color:"var(--navy)" }}>{field.label}</b><br/><span>{String(answers[field.id])}</span></div>)}</div></section>)}
+        {sections.map((section, sectionIndex) => <section key={section.title} style={{ breakInside:"avoid", marginTop:28 }}><h3 style={{ background:"var(--navy)", color:"#fff", padding:12, borderRadius:10 }}>{numberedTitle(sectionIndex, section.title)}</h3><div className="grid">{section.fields.filter((field) => answers[field.id]).map((field, fieldIndex) => <div key={field.id} className={field.wide || field.full ? "wide" : ""} style={{ border:"1px solid #E4E8F0", borderRadius:12, padding:12 }}><b style={{ color:"var(--navy)" }}><span style={{ color:"var(--orange)" }}>{sectionIndex + 1}.{fieldIndex + 1}</span> {field.label}</b><br/><span>{String(answers[field.id])}</span></div>)}</div></section>)}
         <div className="print-footer">Resumindo Viagens • contato@resumindoviagens.com.br • Instagram: @resumindoviagens</div>
       </div>
     </main>

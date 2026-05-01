@@ -296,6 +296,7 @@ function Dashboard({ loginWithPassword }) {
                     <a className="btn-light" href={`/acesso/${client.access_token}`} target="_blank">Abrir</a>
                     <a className="btn-light" href={`/email/${client.access_token}`} target="_blank">Criar email</a>
                     <a className="btn-light" href={`/admin/pdf/${client.access_token}`} target="_blank">Gerar PDF</a>
+                    <a className="btn-light" href={`/foto-instrucoes/${client.access_token}`} target="_blank">Instruções Foto</a>
                     <button className="btn-light" onClick={() => copyText(whatsappMessage(client), "Mensagem de WhatsApp copiada.")}>Copiar WhatsApp</button>
                     <button className="btn-light" onClick={() => loadLogs(client)}>Ver log</button>
                     <button className="btn-light" onClick={() => actionClient(client.id, "unlock")}>Desbloquear</button>

@@ -3,6 +3,9 @@ import { isAdminAuthenticated } from "../../../../lib/auth";
 import BrandHeader from "../../../../components/BrandHeader";
 import { sections } from "../../../../lib/formSchema";
 
+function cleanSectionTitle(title) { return title.replace(/^\d+\.\s*/, ""); }
+function numberedTitle(index, title) { return `${index + 1}. ${cleanSectionTitle(title)}`; }
+
 export default async function AdminPdfPage({ params }) {
   const authenticated = await isAdminAuthenticated();
 
@@ -23,9 +26,7 @@ export default async function AdminPdfPage({ params }) {
     .eq("access_token", token)
     .maybeSingle();
 
-  if (!client) {
-    return <main style={{ padding: 30 }}>Cliente não encontrado.</main>;
-  }
+  if (!client) return <main style={{ padding: 30 }}>Cliente não encontrado.</main>;
 
   const { data: response } = await supabaseAdmin
     .from("form_responses")
@@ -38,24 +39,22 @@ export default async function AdminPdfPage({ params }) {
   return (
     <main style={{ maxWidth: 980, margin: "30px auto", padding: 24 }}>
       <div className="no-print" style={{ marginBottom: 18 }}>
-        <button className="btn-primary" id="printButton">
-          Gerar PDF / imprimir
-        </button>
+        <button className="btn-primary" id="printButton">Gerar PDF / imprimir</button>
       </div>
 
       <div className="card" style={{ padding: 34 }}>
         <BrandHeader clientName={client.name} />
         <h2 style={{ color: "var(--navy)", marginTop: 28 }}>Respostas do formulário</h2>
 
-        {sections.map((section) => (
+        {sections.map((section, sectionIndex) => (
           <section key={section.title} style={{ breakInside: "avoid", marginTop: 28 }}>
-            <h3 style={{ background: "var(--navy)", color: "#fff", padding: 12, borderRadius: 10 }}>{section.title}</h3>
+            <h3 style={{ background: "var(--navy)", color: "#fff", padding: 12, borderRadius: 10 }}>{numberedTitle(sectionIndex, section.title)}</h3>
             <div className="grid">
               {section.fields
                 .filter((field) => answers[field.id])
-                .map((field) => (
+                .map((field, fieldIndex) => (
                   <div key={field.id} className={field.wide || field.full ? "wide" : ""} style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}>
-                    <b style={{ color: "var(--navy)" }}>{field.label}</b><br />
+                    <b style={{ color: "var(--navy)" }}><span style={{ color: "var(--orange)" }}>{sectionIndex + 1}.{fieldIndex + 1}</span> {field.label}</b><br />
                     <span>{String(answers[field.id])}</span>
                   </div>
                 ))}
@@ -63,9 +62,7 @@ export default async function AdminPdfPage({ params }) {
           </section>
         ))}
 
-        <div className="print-footer">
-          Resumindo Viagens • contato@resumindoviagens.com.br • Instagram: @resumindoviagens
-        </div>
+        <div className="print-footer">Resumindo Viagens • contato@resumindoviagens.com.br • Instagram: @resumindoviagens</div>
       </div>
 
       <script dangerouslySetInnerHTML={{ __html: "document.getElementById('printButton')?.addEventListener('click', () => window.print())" }} />
