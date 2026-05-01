@@ -435,3 +435,12 @@ label {
   .foto-content, .foto-hero { padding: 24px 18px; border-radius: 20px; }
   .foto-poster { padding: 12px; border-radius: 20px; }
 }
+
+/* FIX BUTTON WRAP */
+.page-button {
+  white-space: normal !important;
+  word-break: break-word;
+  line-height: 1.2;
+  padding: 10px;
+  text-align: center;
+}
