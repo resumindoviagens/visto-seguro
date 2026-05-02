@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import BrandHeader from "../../components/BrandHeader";
+import { EMAIL_TEMPLATES } from "../../lib/emailTemplates";
 
 function cleanCPF(value) {
   return (value || "").replace(/\D/g, "");
@@ -62,7 +63,8 @@ function actionLabel(action) {
     client_submitted_form: "Enviou o formulário",
     unlock: "Formulário desbloqueado",
     new_token: "Novo link gerado",
-    client_updated: "Cliente atualizado"
+    client_updated: "Cliente atualizado",
+    email_sent: "Email enviado"
   };
   return labels[action] || action;
 }
@@ -204,6 +206,33 @@ function Dashboard({ loginWithPassword }) {
     await loadClients();
   }
 
+  async function sendEmail(client, templateId) {
+    if (!client.email) {
+      alert("Este cliente não possui e-mail cadastrado.");
+      return;
+    }
+
+    const template = EMAIL_TEMPLATES.find((item) => item.id === templateId);
+    const ok = confirm(`Enviar o email "${template?.label || templateId}" para ${client.name} (${client.email})?`);
+    if (!ok) return;
+
+    const res = await fetch("/api/admin/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: client.id, template_id: templateId })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Erro ao enviar email.");
+      return;
+    }
+
+    alert(data.message || "Email enviado com sucesso.");
+    await loadClients();
+  }
+
   async function deleteClient(id) {
     const pass = prompt("Digite a senha do sistema para excluir este cliente:");
     if (!pass) return;
@@ -329,7 +358,30 @@ function Dashboard({ loginWithPassword }) {
                 <td>
                   <div className="admin-actions">
                     <a className="btn-light" href={`/acesso/${client.access_token}`} target="_blank">Abrir</a>
-                    <a className="btn-light" href={`/email/${client.access_token}`} target="_blank">Criar email</a>
+
+                    <details className="admin-email-menu">
+                      <summary className="btn-light">Gerar modelos de email (copiar)</summary>
+                      <div className="admin-email-options">
+                        <a className="btn-light" href={`/email/${client.access_token}`} target="_blank">Modelo principal: link do formulário</a>
+                        {EMAIL_TEMPLATES.map((template) => (
+                          <a key={template.id} className="btn-light" href={`/email/${client.access_token}?template=${template.id}`} target="_blank">
+                            {template.label}
+                          </a>
+                        ))}
+                      </div>
+                    </details>
+
+                    <button className="btn-primary" onClick={() => sendEmail(client, "formulario")}>Enviar link por email (SMTP)</button>
+                    <details className="admin-email-menu">
+                      <summary className="btn-primary">Enviar outros emails (SMTP)</summary>
+                      <div className="admin-email-options">
+                        {EMAIL_TEMPLATES.map((template) => (
+                          <button key={template.id} className="btn-light" onClick={() => sendEmail(client, template.id)}>
+                            Enviar: {template.label}
+                          </button>
+                        ))}
+                      </div>
+                    </details>
                     <a className="btn-light" href={`/admin/pdf/${client.access_token}`} target="_blank">Gerar PDF</a>
                     <a className="btn-light" href={`/foto-instrucoes/${client.access_token}`} target="_blank">Instruções Foto</a>
                     <button className="btn-light" onClick={() => copyText(whatsappMessage(client), "Mensagem de WhatsApp copiada.")}>Copiar WhatsApp</button>

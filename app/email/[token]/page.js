@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+import { EMAIL_TEMPLATES, getEmailTemplate } from "../../../lib/emailTemplates";
 
 function escapeHtml(value) {
   return String(value || "")
@@ -9,13 +10,15 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-export default async function EmailModelPage({ params }) {
+export default async function EmailModelPage({ params, searchParams }) {
   const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
   const token = resolvedParams.token;
+  const templateId = resolvedSearchParams?.template || "formulario";
 
   const { data: client } = await supabaseAdmin
     .from("clients")
-    .select("name, access_token")
+    .select("*")
     .eq("access_token", token)
     .maybeSingle();
 
@@ -33,125 +36,72 @@ export default async function EmailModelPage({ params }) {
   const currentSiteUrl = host ? `${protocol}://${host}` : "";
   const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
   const siteUrl = envSiteUrl || currentSiteUrl;
-  const link = `${siteUrl}/acesso/${client.access_token}`;
-  const logoUrl = `${siteUrl}/logo.png`;
-  const whatsappIconUrl = `${siteUrl}/whatsapp.svg`;
-  const instagramIconUrl = `${siteUrl}/instagram.svg`;
-  const whatsappLink = "https://wa.me/5511981210932";
-  const instagramLink = "https://www.instagram.com/resumindoviagens";
-  const name = escapeHtml(client.name);
+  const formLink = `${siteUrl}/acesso/${client.access_token}`;
+
+  let selectedTemplate;
+  try {
+    selectedTemplate = getEmailTemplate(templateId, client, { formLink });
+  } catch (error) {
+    selectedTemplate = getEmailTemplate("formulario", client, { formLink });
+  }
+
+  const selectedLabel = EMAIL_TEMPLATES.find((template) => template.id === templateId)?.label || "Enviar link do formulário";
 
   return (
-    <div style={{ margin: 0, padding: 0, background: "#f6f8fb", fontFamily: "Arial, Helvetica, sans-serif", color: "#1f2937" }}>
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "24px" }}>
-        <table width="100%" cellPadding="0" cellSpacing="0" style={{ background: "#f6f8fb", padding: "20px 0" }}>
-          <tbody>
-            <tr>
-              <td align="center">
-                <table width="660" cellPadding="0" cellSpacing="0" style={{ background: "#ffffff", borderRadius: 24, overflow: "hidden", border: "1px solid #e5e7eb", boxShadow: "0 18px 40px rgba(37,42,85,.12)" }}>
-                  <tbody>
-                    <tr>
-                      <td style={{ background: "#252A55", padding: "34px 34px 30px", textAlign: "center" }}>
-                        <img src={logoUrl} alt="Resumindo Viagens" style={{ maxWidth: 255, height: "auto", marginBottom: 18, background: "#ffffff", borderRadius: 16, padding: 10 }} />
+    <main style={{ margin: 0, padding: 24, background: "#f6f8fb", fontFamily: "Arial, Helvetica, sans-serif", color: "#1f2937" }}>
+      <div style={{ maxWidth: 1040, margin: "0 auto" }}>
+        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 18, padding: 22, marginBottom: 18 }}>
+          <h1 style={{ margin: "0 0 8px", color: "#252A55" }}>Modelo de email para copiar</h1>
+          <p style={{ margin: "0 0 14px", color: "#64748b" }}>
+            Cliente: <strong>{client.name}</strong> · Modelo: <strong>{selectedLabel}</strong>
+          </p>
 
-                        <h1 style={{ margin: 0, color: "#ffffff", fontSize: 30 }}>
-                          Resumindo Viagens
-                        </h1>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
+            {EMAIL_TEMPLATES.map((template) => (
+              <a
+                key={template.id}
+                href={`/email/${client.access_token}?template=${template.id}`}
+                style={{
+                  display: "inline-block",
+                  textDecoration: "none",
+                  padding: "9px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                  background: template.id === templateId ? "#252A55" : "#f8fafc",
+                  color: template.id === templateId ? "#ffffff" : "#252A55",
+                  fontSize: 13,
+                  fontWeight: 700
+                }}
+              >
+                {template.label}
+              </a>
+            ))}
+          </div>
 
-                        <p style={{ margin: "11px 0 0", color: "#FF9F00", fontWeight: "bold", fontSize: 16 }}>
-                          Formulário para solicitação de visto
-                        </p>
-                      </td>
-                    </tr>
+          <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 14, padding: 14 }}>
+            <p style={{ margin: "0 0 8px", color: "#9a3412", fontWeight: 700 }}>Assunto:</p>
+            <p style={{ margin: 0, color: "#252A55", fontSize: 18 }}>{escapeHtml(selectedTemplate.subject)}</p>
+          </div>
+        </div>
 
-                    <tr>
-                      <td style={{ padding: "38px 42px" }}>
-                        <p style={{ fontSize: 18, lineHeight: 1.6, margin: "0 0 10px" }}>Olá,</p>
+        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 18, padding: 22, marginBottom: 18 }}>
+          <h2 style={{ marginTop: 0, color: "#252A55" }}>Pré-visualização do corpo do email</h2>
+          <p style={{ color: "#64748b" }}>
+            Use esta tela para manter o método antigo de gerar/copiar modelos. Os botões SMTP do admin enviam emails reais em separado.
+          </p>
+          <div dangerouslySetInnerHTML={{ __html: selectedTemplate.html }} />
+        </div>
 
-                        <p style={{ fontSize: 26, lineHeight: 1.25, margin: "0 0 24px", color: "#252A55", fontWeight: "bold" }}>
-                          {name}
-                        </p>
-
-                        <p style={{ fontSize: 16, lineHeight: 1.7 }}>
-                          Seu formulário da <strong>Resumindo Viagens</strong> já está pronto para preenchimento.
-                        </p>
-
-                        <p style={{ fontSize: 16, lineHeight: 1.7 }}>
-                          Este não é o formulário do consulado, suas informações serão analisadas, traduzidas para inglês e inseridas no formulário oficial do consulado.
-                        </p>
-
-                        <p style={{ fontSize: 16, lineHeight: 1.7 }}>
-                          Este é um <strong>link único e exclusivo</strong>. Para sua segurança, o acesso será validado com <strong>CPF e data de nascimento</strong>.
-                        </p>
-
-                        <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 16, padding: 20, margin: "24px 0" }}>
-                          <p style={{ margin: "0 0 12px", fontSize: 15, lineHeight: 1.65 }}>
-                            Você pode interromper o preenchimento a qualquer momento, clicar em <strong>Salvar e continuar depois</strong> e retornar posteriormente pelo mesmo link.
-                          </p>
-
-                          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.65 }}>
-                            Ao finalizar, clique em <strong>Enviar definitivamente</strong> quando estiver com tudo completo ou, ao menos, com todas as informações que conseguiu reunir. Após esse envio, o preenchimento ficará bloqueado, mas será possível gerar um <strong>PDF das respostas</strong>.
-                          </p>
-                        </div>
-
-                        <div style={{ textAlign: "center", margin: "32px 0" }}>
-                          <a href={link} style={{ display: "inline-block", background: "#FF9F00", color: "#ffffff", textDecoration: "none", padding: "17px 30px", borderRadius: 15, fontWeight: "bold", fontSize: 16 }}>
-                            Acessar meu formulário
-                          </a>
-                        </div>
-
-                        <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 16, padding: 18, margin: "24px 0" }}>
-                          <p style={{ margin: "0 0 9px", fontSize: 14, color: "#9a3412", fontWeight: "bold" }}>
-                            Copiar o link aqui:
-                          </p>
-
-                          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: "#252A55", wordBreak: "break-all" }}>
-                            {link}
-                          </p>
-                        </div>
-
-                        <p style={{ fontSize: 14, lineHeight: 1.65, color: "#64748b" }}>
-                          Caso outros membros da família também estejam preenchendo formulário, cada pessoa deverá acessar o próprio link individual.
-                        </p>
-
-                        <p style={{ fontSize: 14, lineHeight: 1.65, color: "#64748b" }}>
-                          Se tiver qualquer dificuldade durante o preenchimento, entre em contato com a Resumindo Viagens.
-                        </p>
-
-                        <hr style={{ border: "none", borderTop: "1px solid #e5e7eb", margin: "32px 0" }} />
-
-                        <div style={{ textAlign: "center", fontSize: 14, color: "#64748b", lineHeight: 1.7 }}>
-                          <p style={{ margin: "0 0 12px" }}>
-                            Em caso de qualquer dúvida, fale com a Resumindo Viagens:
-                          </p>
-
-                          <p style={{ margin: "0 0 14px", color: "#252A55", fontWeight: "bold" }}>
-                            WhatsApp: (11) 98121-0932
-                          </p>
-
-                          <a href={whatsappLink} style={{ display: "inline-block", margin: "0 8px 10px", textDecoration: "none", color: "#252A55", fontWeight: "bold" }}>
-                            <img src={whatsappIconUrl} alt="WhatsApp" width="26" height="26" style={{ verticalAlign: "middle", marginRight: 6 }} />
-                            Falar pelo WhatsApp
-                          </a>
-
-                          <a href={instagramLink} style={{ display: "inline-block", margin: "0 8px 10px", textDecoration: "none", color: "#252A55", fontWeight: "bold" }}>
-                            <img src={instagramIconUrl} alt="Instagram" width="26" height="26" style={{ verticalAlign: "middle", marginRight: 6 }} />
-                            Seguir @resumindoviagens
-                          </a>
-
-                          <p style={{ margin: "8px 0 0" }}>
-                            contato@resumindoviagens.com.br
-                          </p>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 18, padding: 22 }}>
+          <h2 style={{ marginTop: 0, color: "#252A55" }}>HTML do email</h2>
+          <p style={{ color: "#64748b" }}>Copie o HTML abaixo se quiser colar manualmente em outra ferramenta.</p>
+          <textarea
+            readOnly
+            value={selectedTemplate.html}
+            style={{ width: "100%", minHeight: 260, border: "1px solid #cbd5e1", borderRadius: 12, padding: 14, fontFamily: "Consolas, monospace", fontSize: 13 }}
+          />
+        </div>
       </div>
-    </div>
+    </main>
   );
 }
