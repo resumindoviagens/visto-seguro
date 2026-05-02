@@ -32,9 +32,13 @@ export default async function EmailModelPage({ params }) {
   const protocol = headerStore.get("x-forwarded-proto") || "https";
   const currentSiteUrl = host ? `${protocol}://${host}` : "";
   const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-  const siteUrl = currentSiteUrl || envSiteUrl;
+  const siteUrl = envSiteUrl || currentSiteUrl;
   const link = `${siteUrl}/acesso/${client.access_token}`;
   const logoUrl = `${siteUrl}/logo.png`;
+  const whatsappIconUrl = `${siteUrl}/whatsapp.svg`;
+  const instagramIconUrl = `${siteUrl}/instagram.svg`;
+  const whatsappLink = "https://wa.me/5511981210932";
+  const instagramLink = "https://www.instagram.com/resumindoviagens";
   const name = escapeHtml(client.name);
 
   return (
@@ -116,10 +120,29 @@ export default async function EmailModelPage({ params }) {
 
                         <hr style={{ border: "none", borderTop: "1px solid #e5e7eb", margin: "32px 0" }} />
 
-                        <p style={{ fontSize: 13, color: "#64748b", textAlign: "center", lineHeight: 1.7, margin: 0 }}>
-                          contato@resumindoviagens.com.br<br />
-                          Instagram: @resumindoviagens
-                        </p>
+                        <div style={{ textAlign: "center", fontSize: 14, color: "#64748b", lineHeight: 1.7 }}>
+                          <p style={{ margin: "0 0 12px" }}>
+                            Em caso de qualquer dúvida, fale com a Resumindo Viagens:
+                          </p>
+
+                          <p style={{ margin: "0 0 14px", color: "#252A55", fontWeight: "bold" }}>
+                            WhatsApp: (11) 98121-0932
+                          </p>
+
+                          <a href={whatsappLink} style={{ display: "inline-block", margin: "0 8px 10px", textDecoration: "none", color: "#252A55", fontWeight: "bold" }}>
+                            <img src={whatsappIconUrl} alt="WhatsApp" width="26" height="26" style={{ verticalAlign: "middle", marginRight: 6 }} />
+                            Falar pelo WhatsApp
+                          </a>
+
+                          <a href={instagramLink} style={{ display: "inline-block", margin: "0 8px 10px", textDecoration: "none", color: "#252A55", fontWeight: "bold" }}>
+                            <img src={instagramIconUrl} alt="Instagram" width="26" height="26" style={{ verticalAlign: "middle", marginRight: 6 }} />
+                            Seguir @resumindoviagens
+                          </a>
+
+                          <p style={{ margin: "8px 0 0" }}>
+                            contato@resumindoviagens.com.br
+                          </p>
+                        </div>
                       </td>
                     </tr>
                   </tbody>

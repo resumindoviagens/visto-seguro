@@ -54,6 +54,22 @@ function brDateToISO(value) {
 function cleanSectionTitle(title) { return title.replace(/^\d+\.\s*/, ""); }
 function numberedTitle(index, title) { return `${index + 1}. ${cleanSectionTitle(title)}`; }
 
+function isAnswerFilled(value) {
+  if (value === true) return true;
+  if (Array.isArray(value)) return value.length > 0;
+  if (value === null || value === undefined) return false;
+  return String(value).trim() !== "";
+}
+
+function calculateProgress(answers) {
+  const total = sections.reduce((sum, section) => sum + section.fields.length, 0);
+  const filled = sections.reduce((sum, section) => {
+    return sum + section.fields.filter((field) => isAnswerFilled(answers[field.id])).length;
+  }, 0);
+  const percent = total > 0 ? Math.round((filled / total) * 100) : 0;
+  return { total, filled, percent };
+}
+
 export default function ClientAccessPage() {
   const params = useParams();
   const token = params?.token;
@@ -147,6 +163,7 @@ export default function ClientAccessPage() {
   if (client?.is_locked || submittedAt) return <PDFView client={client} answers={answers} />;
 
   const section = current >= 0 ? sections[current] : null;
+  const progress = calculateProgress(answers);
   return (
     <main style={{ maxWidth: 1200, margin:"0 auto", padding:24 }}>
       <div className="card" style={{ padding:22, marginBottom:22 }}><BrandHeader clientName={client?.name} /></div>
@@ -154,6 +171,20 @@ export default function ClientAccessPage() {
         <div><small>{saveStatus}</small></div>
         <div style={{ display:"flex", gap:10 }}><button className="btn-light" onClick={() => save(answers, true)}>Salvar e continuar depois</button><button className="btn-primary" onClick={submitForm}>Enviar definitivamente (encerra preenchimento)</button></div>
       </div>
+
+      <div className="progress-card no-print" aria-label={`Progresso do preenchimento: ${progress.percent}%`}>
+        <div className="progress-info">
+          <div>
+            <strong>Progresso do formulário</strong>
+            <span>{progress.filled} de {progress.total} perguntas preenchidas</span>
+          </div>
+          <div className="progress-percent">{progress.percent}%</div>
+        </div>
+        <div className="progress-track">
+          <div className="progress-fill" style={{ width: `${progress.percent}%` }} />
+        </div>
+      </div>
+
       <div className="form-layout" style={{ display:"grid", gridTemplateColumns:"280px 1fr", gap:24 }}>
         <aside className="card no-print" style={{ padding:14 }}>
           <button onClick={() => setCurrent(-1)} className={(current === -1 ? "btn-primary" : "btn-light") + " section-nav-button"}>Informações prévias</button>
@@ -179,17 +210,13 @@ function PreInfoPage({ client, onContinue }) {
       As perguntas estão numeradas para facilitar o atendimento. Em caso de dúvida, informe o número da pergunta, por exemplo: 2.4 ou 5.7.
     </div>
 
-    <div className="intro-video-box">
-      <video
-        className="intro-video"
-        controls
-        playsInline
-        preload="metadata"
-      >
+    <div className="intro-video-box no-print">
+      <video className="intro-video" controls playsInline preload="metadata">
         <source src="https://i.imgur.com/wCw6196.mp4" type="video/mp4" />
         Seu navegador não suporta a reprodução deste vídeo.
       </video>
     </div>
+
     <div style={{ display:"grid", gap:12 }}>
       {PRE_INFO_ITEMS.map((item, index) => <div key={index} style={{ border:"1px solid var(--border)", borderRadius:14, padding:14, lineHeight:1.55 }}><strong style={{ color:"var(--navy)" }}>{index + 1}.</strong> {item}</div>)}
     </div>
