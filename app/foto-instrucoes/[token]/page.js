@@ -19,17 +19,6 @@ export default async function FotoInstrucoesPage({ params }) {
         <span className="foto-tag">Foto 5x5 para Visto Americano</span>
         <h1>Instruções para envio da foto</h1>
         <p className="foto-lead">Olá, <strong>{clientName}</strong>. Abaixo seguem as instruções das fotos para o visto americano. Confira atentamente os exemplos visuais e as orientações antes de enviar ou imprimir sua foto.</p>
-        <div className="foto-contact-card">
-          <a className="foto-contact-link" href="https://wa.me/5511981210932" target="_blank" rel="noopener noreferrer">
-            <img src="/whatsapp.svg" alt="WhatsApp" />
-            <span>Dúvidas pelo WhatsApp: (11) 98121-0932</span>
-          </a>
-
-          <a className="foto-contact-link" href="https://www.instagram.com/resumindoviagens" target="_blank" rel="noopener noreferrer">
-            <img src="/instagram.svg" alt="Instagram" />
-            <span>Seguir @resumindoviagens</span>
-          </a>
-        </div>
       </header>
 
       <section className="foto-poster" aria-label="Exemplos visuais de fotos corretas e incorretas">

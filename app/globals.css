@@ -481,12 +481,20 @@ label {
 }
 
 
-/* Contatos oficiais no cabeçalho */
-.brand-contact-social { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
-.brand-social-link { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); background: #ffffff; border-radius: 999px; padding: 7px 10px; color: var(--navy) !important; font-weight: 800; text-decoration: none !important; line-height: 1.2; }
-.brand-social-link img { width: 22px !important; height: 22px !important; object-fit: contain; flex: 0 0 auto; }
-.brand-social-link.whatsapp { border-color: #bbf7d0; background: #f0fdf4; }
-.brand-social-link.instagram { border-color: #fbcfe8; background: #fff7fb; }
-.foto-contact-card { margin: 18px auto 0; max-width: 760px; border: 1px solid #e1e4ec; background: #fbfcff; border-radius: 18px; padding: 16px; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
-.foto-contact-link { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 9px 12px; background: #fff; border: 1px solid #e1e4ec; font-weight: 800; color: #363958; text-decoration: none; }
-.foto-contact-link img { width: 24px; height: 24px; }
+/* Vídeo centralizado na página de informações iniciais */
+.intro-video-box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 22px auto 24px;
+  width: 100%;
+}
+
+.intro-video {
+  width: min(100%, 760px);
+  max-height: 430px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: #000;
+  box-shadow: 0 14px 35px rgba(37,42,85,.16);
+}
