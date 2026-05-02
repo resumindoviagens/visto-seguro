@@ -104,6 +104,7 @@ export async function POST(request) {
     const formLink = `${origin}/acesso/${client.access_token}`;
     const template = getEmailTemplate(template_id, client, {
       formLink,
+      siteUrl: origin,
       rastreio: body.rastreio || ""
     });
 
