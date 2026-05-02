@@ -1,4 +1,3 @@
-import nodemailer from "nodemailer";
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../lib/auth";
 import { getEmailTemplate } from "../../../../lib/emailTemplates";
@@ -7,20 +6,72 @@ function siteOrigin(request) {
   return process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
 }
 
-function createTransporter() {
-  const user = process.env.GMAIL_SMTP_USER;
-  const pass = process.env.GMAIL_SMTP_APP_PASSWORD;
+function brevoConfig() {
+  const apiKey = process.env.BREVO_API_KEY;
+  const fromEmail = process.env.EMAIL_FROM;
+  const fromName = process.env.EMAIL_FROM_NAME || "Resumindo Viagens";
+  const replyToEmail = process.env.EMAIL_REPLY_TO || fromEmail;
 
-  if (!user || !pass) {
-    throw new Error("SMTP Gmail não configurado. Configure GMAIL_SMTP_USER e GMAIL_SMTP_APP_PASSWORD nas variáveis de ambiente.");
+  if (!apiKey) {
+    throw new Error("Brevo não configurado. Configure BREVO_API_KEY nas variáveis de ambiente da Vercel.");
   }
 
-  return nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: { user, pass }
+  if (!fromEmail) {
+    throw new Error("Remetente não configurado. Configure EMAIL_FROM, por exemplo: contato@resumindoviagens.com.br.");
+  }
+
+  return { apiKey, fromEmail, fromName, replyToEmail };
+}
+
+async function sendWithBrevo({ toEmail, toName, subject, html, text }) {
+  const { apiKey, fromEmail, fromName, replyToEmail } = brevoConfig();
+
+  const payload = {
+    sender: {
+      name: fromName,
+      email: fromEmail
+    },
+    to: [
+      {
+        email: toEmail,
+        name: toName || toEmail
+      }
+    ],
+    replyTo: {
+      email: replyToEmail,
+      name: fromName
+    },
+    subject,
+    htmlContent: html,
+    textContent: text || subject,
+    tags: ["resumindo-viagens", "visto-americano"]
+  };
+
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "api-key": apiKey
+    },
+    body: JSON.stringify(payload)
   });
+
+  const resultText = await response.text();
+  let result = {};
+
+  try {
+    result = resultText ? JSON.parse(resultText) : {};
+  } catch {
+    result = { raw: resultText };
+  }
+
+  if (!response.ok) {
+    const message = result?.message || result?.error || "Erro ao enviar email pela Brevo.";
+    throw new Error(`Brevo: ${message}`);
+  }
+
+  return result;
 }
 
 export async function POST(request) {
@@ -56,30 +107,27 @@ export async function POST(request) {
       rastreio: body.rastreio || ""
     });
 
-    const fromEmail = process.env.EMAIL_FROM || process.env.GMAIL_SMTP_USER;
-    const fromName = process.env.EMAIL_FROM_NAME || "Resumindo Viagens";
-
-    const transporter = createTransporter();
-    const info = await transporter.sendMail({
-      from: `"${fromName}" <${fromEmail}>`,
-      to: client.email,
+    const result = await sendWithBrevo({
+      toEmail: client.email,
+      toName: client.name,
       subject: template.subject,
-      text: template.text,
-      html: template.html
+      html: template.html,
+      text: template.text
     });
 
     await supabaseAdmin.from("audit_logs").insert({
       client_id,
       action: "email_sent",
       details: {
+        provider: "brevo",
         template_id,
         subject: template.subject,
         to: client.email,
-        message_id: info.messageId || null
+        message_id: result?.messageId || null
       }
     });
 
-    return Response.json({ ok: true, message: "Email enviado com sucesso." });
+    return Response.json({ ok: true, message: "Email enviado com sucesso pela Brevo." });
   } catch (error) {
     return Response.json({ error: error.message || "Erro ao enviar email." }, { status: 500 });
   }

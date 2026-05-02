@@ -371,9 +371,9 @@ function Dashboard({ loginWithPassword }) {
                       </div>
                     </details>
 
-                    <button className="btn-primary" onClick={() => sendEmail(client, "formulario")}>Enviar link por email (SMTP)</button>
+                    <button className="btn-primary" onClick={() => sendEmail(client, "formulario")}>Enviar link por email (Brevo)</button>
                     <details className="admin-email-menu">
-                      <summary className="btn-primary">Enviar outros emails (SMTP)</summary>
+                      <summary className="btn-primary">Enviar outros emails (Brevo)</summary>
                       <div className="admin-email-options">
                         {EMAIL_TEMPLATES.map((template) => (
                           <button key={template.id} className="btn-light" onClick={() => sendEmail(client, template.id)}>
