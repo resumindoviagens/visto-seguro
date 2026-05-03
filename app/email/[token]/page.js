@@ -15,11 +15,7 @@ export default async function EmailModelPage({ params, searchParams }) {
     .maybeSingle();
 
   if (!client) {
-    return (
-      <main style={{ fontFamily: "Arial, Helvetica, sans-serif", padding: 30 }}>
-        Link inválido.
-      </main>
-    );
+    return <main style={{ fontFamily: "Arial, Helvetica, sans-serif", padding: 30 }}>Link inválido.</main>;
   }
 
   const headerStore = await headers();
@@ -32,15 +28,14 @@ export default async function EmailModelPage({ params, searchParams }) {
 
   let selectedTemplate;
   try {
-    selectedTemplate = getEmailTemplate(templateId, client, { formLink, siteUrl });
+    selectedTemplate = getEmailTemplate(templateId, client, { formLink });
   } catch (error) {
-    selectedTemplate = getEmailTemplate("formulario", client, { formLink, siteUrl });
+    selectedTemplate = getEmailTemplate("formulario", client, { formLink });
   }
 
   return (
-    <main
-      style={{ margin: 0, padding: 0, background: "#ffffff" }}
-      dangerouslySetInnerHTML={{ __html: selectedTemplate.html }}
-    />
+    <main style={{ margin: 0, padding: 24, background: "#ffffff", fontFamily: "Arial, Helvetica, sans-serif" }}>
+      <div dangerouslySetInnerHTML={{ __html: selectedTemplate.html }} />
+    </main>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import BrandHeader from "../../components/BrandHeader";
-import { EMAIL_TEMPLATES } from "../../lib/emailTemplateList";
+import { EMAIL_TEMPLATES } from "../../lib/emailTemplates";
 
 function cleanCPF(value) {
   return (value || "").replace(/\D/g, "");
@@ -63,7 +63,8 @@ function actionLabel(action) {
     client_submitted_form: "Enviou o formulário",
     unlock: "Formulário desbloqueado",
     new_token: "Novo link gerado",
-    client_updated: "Cliente atualizado"
+    client_updated: "Cliente atualizado",
+    email_sent: "Email enviado"
   };
   return labels[action] || action;
 }
@@ -330,6 +331,7 @@ function Dashboard({ loginWithPassword }) {
                 <td>
                   <div className="admin-actions">
                     <a className="btn-light" href={`/acesso/${client.access_token}`} target="_blank">Abrir</a>
+
                     <details className="admin-email-menu">
                       <summary className="btn-light">Gerar modelos de email (copiar)</summary>
                       <div className="admin-email-options">
@@ -340,6 +342,7 @@ function Dashboard({ loginWithPassword }) {
                         ))}
                       </div>
                     </details>
+
                     <a className="btn-light" href={`/admin/pdf/${client.access_token}`} target="_blank">Gerar PDF</a>
                     <a className="btn-light" href={`/foto-instrucoes/${client.access_token}`} target="_blank">Instruções Foto</a>
                     <button className="btn-light" onClick={() => copyText(whatsappMessage(client), "Mensagem de WhatsApp copiada.")}>Copiar WhatsApp</button>
