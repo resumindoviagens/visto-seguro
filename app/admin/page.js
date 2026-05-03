@@ -69,6 +69,210 @@ function actionLabel(action) {
   return labels[action] || action;
 }
 
+const WHATSAPP_TEMPLATES = [
+  {
+    id: "triagem",
+    label: "01 - Triagem inicial",
+    text: `Olá! Tudo bem? 😊
+
+Para te orientar da melhor forma sobre o visto americano, preciso entender rapidamente o seu caso.
+
+Pode me informar, por favor:
+
+1️⃣ O visto é para você ou mais pessoas da família?
+2️⃣ Todos já possuem passaporte válido?
+3️⃣ Já teve visto americano antes? Se sim, quando venceu?
+4️⃣ Já teve algum visto negado?
+5️⃣ Em qual cidade pretende fazer o processo?
+
+Com essas informações consigo te orientar corretamente e te passar os valores 👍
+
+Fico no aguardo!`
+  },
+  {
+    id: "proposta",
+    label: "02 - Proposta / valores",
+    text: `Perfeito, entendi seu caso 👍
+
+Eu realizo toda a assessoria do visto americano, cuidando do preenchimento completo do formulário, organização das informações, orientações e agendamento, instruções para documentação e entrevista e uma videochamada para tratarmos de eventuais dúvidas.
+
+Todo o processo é feito diretamente por mim, com total cuidado e sigilo das suas informações.
+
+💰 Valores por pessoa:
+• Assessoria: R$ 400,00
+• Taxa consular: USD 185
+• Entrega do passaporte em casa (opcional): R$ 66,00
+
+🔹 Serviços adicionais (se necessário):
+• Renovação sem entrevista (por família): R$ 300,00, além do valor da assessoria.
+• Alteração de cidade após formulário: R$ 150,00
+• Tentativa de antecipação de agendamento: R$ 300,00
+
+Caso ainda não possua passaporte válido, também posso te orientar ou cuidar dessa etapa para você, facilitando todo o processo.
+
+Após o pagamento da taxa consular, realizo o agendamento conforme disponibilidade, e te acompanho até o final do processo.
+
+Se quiser, posso dar andamento no seu caso 😊`
+  },
+  {
+    id: "fechamento",
+    label: "03 - Fechamento / confirmação",
+    text: `Perfeito 😊
+
+Posso dar andamento no seu processo sim.
+
+O próximo passo é iniciarmos oficialmente a assessoria, para que eu possa cuidar de todo o seu processo com segurança e organização.
+
+Assim que confirmarmos, eu te envio o acesso ao formulário completo, onde você poderá preencher com calma todas as informações necessárias.
+
+A partir daí, sigo com o preenchimento, revisão e agendamento para você.
+
+Me confirma se podemos prosseguir?`
+  },
+  {
+    id: "pagamento_assessoria",
+    label: "04 - Pagamento da assessoria",
+    text: `Perfeito 😊
+
+Para iniciarmos oficialmente a assessoria, o próximo passo é o pagamento do valor do serviço.
+
+💰 Valor da assessoria: R$ 400,00 por pessoa.
+
+Após a confirmação do pagamento, eu envio o link exclusivo do formulário para preenchimento, onde você poderá informar os dados necessários com calma e segurança.
+
+Essas informações serão analisadas, organizadas e inseridas por mim no formulário oficial do consulado.
+
+Depois que o formulário estiver completo e revisado, eu gero a taxa consular, que atualmente é de USD 185 por pessoa, paga diretamente por boleto ou QR Code.
+
+Assim que realizar o pagamento da assessoria, pode me enviar o comprovante por aqui para que eu libere o próximo passo.`
+  },
+  {
+    id: "coleta_dados",
+    label: "05 - Comprovante recebido / coleta de dados",
+    text: `Perfeito, recebi o comprovante 😊
+
+Já vou dar andamento no seu processo.
+
+Em breve vou te enviar o acesso ao formulário completo para preenchimento.
+
+Para adiantar essa etapa, me envie por favor:
+
+📄 Foto do passaporte válido (página de identificação)
+📄 Foto do RG ou CNH
+
+E também preciso dos seguintes dados de cada solicitante maior de idade:
+
+• Nome completo
+• CPF
+• Data de nascimento
+• Email
+• Telefone
+
+Essas informações são necessárias para gerar o acesso individual de cada solicitante ao formulário.
+
+Caso uma única pessoa vá preencher para todos, não tem problema — eu envio os links separados para cada integrante da família, identificando corretamente cada um.
+
+Assim que me enviar tudo, já deixo preparado para te encaminhar os acessos 👍`
+  },
+  {
+    id: "taxa_consular",
+    label: "06 - Taxa consular / forma de pagamento",
+    text: `Perfeito 😊
+
+Seu formulário já foi finalizado e podemos seguir para a próxima etapa.
+
+Agora é necessário realizar o pagamento da taxa consular para que eu consiga acessar as datas disponíveis e realizar o agendamento.
+
+Como você prefere fazer esse pagamento:
+
+• Boleto bancário
+ou
+• Pix (QR Code)?
+
+Me informa a opção que você prefere que eu já te envio na sequência 👍`
+  },
+  {
+    id: "taxa_boleto",
+    label: "06A - Resposta: boleto",
+    text: `Perfeito, já vou gerar o boleto e te envio na sequência.
+
+Assim que realizar o pagamento, me envie o comprovante por aqui para que eu acompanhe a liberação e já possamos seguir com o agendamento.`
+  },
+  {
+    id: "taxa_pix",
+    label: "06B - Resposta: Pix / QR Code",
+    text: `Perfeito, vou gerar o QR Code e te envio agora.
+
+⚠️ Lembrando que ele tem validade curta, então o ideal é realizar o pagamento logo após o envio.
+
+Assim que realizar o pagamento, me envie o comprovante por aqui para que eu acompanhe a liberação e já possamos seguir com o agendamento.`
+  },
+  {
+    id: "entrega_passaporte",
+    label: "07 - Oferta entrega do passaporte",
+    text: `Perfeito, já vou realizar o agendamento 👍
+
+Antes de concluir, você deseja que o passaporte seja entregue na sua residência após a aprovação?
+
+Essa opção costuma ser mais prática, evitando deslocamento posterior.
+
+Se quiser, já posso incluir essa modalidade para você.`
+  },
+  {
+    id: "entrega_sim",
+    label: "07A - Cliente aceitou entrega",
+    text: `Perfeito 😊
+
+Vou incluir essa opção no seu processo.
+
+Assim que finalizar o agendamento, te passo as orientações para pagamento dessa taxa junto com os demais documentos.`
+  },
+  {
+    id: "agendar_videochamada",
+    label: "08 - Agendar videochamada",
+    text: `Perfeito 😊
+
+Como sua entrevista está se aproximando, vamos fazer uma videochamada rápida para alinharmos os pontos finais e tirar eventuais dúvidas.
+
+Qual desses horários funciona melhor para você?
+
+[INSERIR 2 OU 3 OPÇÕES DE HORÁRIO]
+
+Se nenhum desses horários for bom, pode me sugerir outro 👍`
+  },
+  {
+    id: "confirmar_videochamada",
+    label: "08A - Confirmar videochamada",
+    text: `Perfeito, então fechamos para [DIA] às [HORÁRIO] 👍
+
+Se possível, entre já com o vídeo assistido e com os documentos separados para aproveitarmos melhor o tempo da chamada.`
+  },
+  {
+    id: "pos_videochamada",
+    label: "09 - Pós-videochamada",
+    text: `Perfeito 😊
+
+Foi um prazer falar com você.
+
+Fica tranquilo(a), seu caso está bem alinhado e você está preparado(a) para a entrevista.
+
+Agora é seguir o combinado e manter a calma no dia.
+
+Qualquer dúvida até lá, me chama por aqui 👍
+
+Estarei torcendo por você!`
+  },
+  {
+    id: "boa_sorte",
+    label: "10 - Boa sorte amanhã",
+    text: `Boa sorte amanhã 😊
+
+Vai com calma, responda com objetividade e siga exatamente o que alinhamos.
+
+Depois me conta como foi 👍`
+  }
+];
+
 export default function AdminPage() {
   const [authorized, setAuthorized] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -259,6 +463,23 @@ function Dashboard({ loginWithPassword }) {
     <main style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
+      </div>
+
+      <div className="card" style={{ padding: 22, marginBottom: 22 }}>
+        <h2>Mensagens WhatsApp (copiar)</h2>
+        <p style={{ color: "var(--muted)", marginTop: 0 }}>
+          Mensagens gerais, não personalizadas por cliente. Clique para copiar e colar no WhatsApp.
+        </p>
+        <details className="admin-email-menu">
+          <summary className="btn-primary">Abrir mensagens WhatsApp</summary>
+          <div className="admin-email-options">
+            {WHATSAPP_TEMPLATES.map((item) => (
+              <button key={item.id} className="btn-light" onClick={() => copyText(item.text, `${item.label} copiada.`)}>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </details>
       </div>
 
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
