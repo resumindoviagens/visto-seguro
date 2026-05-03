@@ -566,29 +566,33 @@ label {
   .progress-percent { font-size: 20px; }
 }
 
+/* Menu de modelos de email para copiar — v8 */
 .admin-email-menu {
   display: inline-block;
+  position: relative;
 }
-
-.admin-email-menu summary {
-  list-style: none;
+.admin-email-menu > summary {
   cursor: pointer;
+  list-style: none;
 }
-
-.admin-email-menu summary::-webkit-details-marker {
+.admin-email-menu > summary::-webkit-details-marker {
   display: none;
 }
-
 .admin-email-options {
-  display: grid;
-  gap: 6px;
-  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 260px;
+  max-width: 360px;
   padding: 10px;
+  margin-top: 8px;
   background: #ffffff;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  box-shadow: 0 10px 24px rgba(15, 42, 68, 0.12);
-  min-width: 240px;
-  position: absolute;
-  z-index: 10;
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  z-index: 20;
+}
+.admin-email-options .btn-light {
+  text-align: left;
+  white-space: normal;
 }
