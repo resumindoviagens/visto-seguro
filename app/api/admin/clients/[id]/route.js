@@ -17,6 +17,14 @@ export async function PATCH(request, context) {
   }
 
   if (body.action === "new_token") updates.access_token = createAccessToken();
+
+  if (body.action === "update_schedule") {
+    updates.interview_date = body.interview_date || null;
+    updates.casv_date = body.casv_date || null;
+    updates.video_call_date = body.video_call_date || null;
+    updates.consulate_city = body.consulate_city || "";
+  }
+
   updates.updated_at = new Date().toISOString();
 
   const { data, error } = await supabaseAdmin

@@ -80,3 +80,22 @@ Emails:
 - O menu de WhatsApp é global e fica fora da individualidade dos clientes.
 - Os modelos de email permanecem por cliente, pois usam nome e link individual.
 - Todos os emails devem manter logomarca, botão/links clicáveis e trio de contato.
+
+## V11 — novas funções no admin
+
+### Emails automáticos
+- O botão **Enviar emails automáticos (Brevo)** voltou ao admin.
+- Cada email enviado fica marcado com ✅ no próprio menu do cliente.
+- Emails 05 e 06 aparecem como **(não disponível)** para envio automático, pois dependem de anexos/rotina manual.
+
+### Alertas de datas
+Campos por cliente:
+- Data CASV
+- Data da entrevista
+- Data da videochamada
+- Cidade do consulado
+
+Alertas visuais:
+- Vermelho: entrevista muito próxima
+- Amarelo: entrevista próxima
+- Azul: CASV/videochamada próximos

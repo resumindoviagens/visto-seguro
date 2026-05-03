@@ -16,11 +16,32 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  const clientIds = (data || []).map((client) => client.id);
+  let emailLogsByClient = {};
+
+  if (clientIds.length > 0) {
+    const { data: emailLogs } = await supabaseAdmin
+      .from("audit_logs")
+      .select("client_id, action, details, created_at")
+      .in("client_id", clientIds)
+      .eq("action", "email_sent");
+
+    emailLogsByClient = (emailLogs || []).reduce((acc, log) => {
+      const templateId = log?.details?.template_id;
+      if (!templateId) return acc;
+      if (!acc[log.client_id]) acc[log.client_id] = {};
+      acc[log.client_id][templateId] = log.created_at;
+      return acc;
+    }, {});
+  }
+
   const clients = (data || []).map((client) => ({
     ...client,
     answers: Array.isArray(client.form_responses)
       ? (client.form_responses[0]?.answers || {})
-      : (client.form_responses?.answers || {})
+      : (client.form_responses?.answers || {}),
+    email_sent_templates: emailLogsByClient[client.id] || {}
   }));
 
   return Response.json({ clients });
@@ -38,19 +59,28 @@ export async function POST(request) {
 
   const accessToken = createAccessToken();
 
+  const insertData = {
+    name: body.name,
+    cpf: cleanCPF(body.cpf),
+    birth_date: body.birth_date,
+    phone: body.phone || "",
+    email: body.email || "",
+    notes: body.notes || "",
+    access_token: accessToken,
+    status: "not_started",
+    is_locked: false
+  };
+
+  // Estes campos dependem das colunas opcionais da V11. Se você ainda não executou o SQL,
+  // deixe-os vazios no cadastro inicial e preencha depois de criar as colunas no Supabase.
+  if (body.interview_date) insertData.interview_date = body.interview_date;
+  if (body.casv_date) insertData.casv_date = body.casv_date;
+  if (body.video_call_date) insertData.video_call_date = body.video_call_date;
+  if (body.consulate_city) insertData.consulate_city = body.consulate_city;
+
   const { data, error } = await supabaseAdmin
     .from("clients")
-    .insert({
-      name: body.name,
-      cpf: cleanCPF(body.cpf),
-      birth_date: body.birth_date,
-      phone: body.phone || "",
-      email: body.email || "",
-      notes: body.notes || "",
-      access_token: accessToken,
-      status: "not_started",
-      is_locked: false
-    })
+    .insert(insertData)
     .select("*")
     .single();
 

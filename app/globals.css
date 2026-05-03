@@ -592,3 +592,48 @@ label {
   position: absolute;
   z-index: 10;
 }
+
+.admin-date-alert {
+  margin-top: 7px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-date-alert.danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.admin-date-alert.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.admin-date-alert.info {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+
+.btn-success {
+  border: 1px solid #86efac;
+  background: #dcfce7;
+  color: #166534;
+  border-radius: 999px;
+  padding: 9px 13px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.admin-email-options label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}

@@ -45,6 +45,7 @@ function buildQuestionNumberMap() {
 }
 
 const QUESTION_ID_BY_NUMBER = buildQuestionNumberMap();
+const DISABLED_AUTO_EMAILS = new Set(["instrucoes", "pre_entrevista"]);
 
 function getCriticalAlerts(client) {
   const answers = client?.answers || {};
@@ -338,7 +339,11 @@ function Dashboard({ loginWithPassword }) {
     birth_date: "",
     phone: "",
     email: "",
-    notes: ""
+    notes: "",
+    interview_date: "",
+    casv_date: "",
+    video_call_date: "",
+    consulate_city: ""
   });
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://visto-seguro.vercel.app";
@@ -389,7 +394,7 @@ function Dashboard({ loginWithPassword }) {
       return;
     }
 
-    setForm({ name: "", cpf: "", birth_date: "", phone: "", email: "", notes: "" });
+    setForm({ name: "", cpf: "", birth_date: "", phone: "", email: "", notes: "", interview_date: "", casv_date: "", video_call_date: "", consulate_city: "" });
     await loadClients();
   }
 
@@ -408,6 +413,81 @@ function Dashboard({ loginWithPassword }) {
     }
 
     await loadClients();
+  }
+
+  async function sendEmail(client, templateId) {
+    if (DISABLED_AUTO_EMAILS.has(templateId)) {
+      alert("Este modelo está marcado como não disponível para envio automático. Use o Gmail manualmente com os anexos necessários.");
+      return;
+    }
+
+    if (!client.email) {
+      alert("Este cliente não possui e-mail cadastrado.");
+      return;
+    }
+
+    const template = EMAIL_TEMPLATES.find((item) => item.id === templateId);
+    const ok = confirm(`Enviar o email "${template?.label || templateId}" para ${client.name} (${client.email})?`);
+    if (!ok) return;
+
+    const res = await fetch("/api/admin/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: client.id, template_id: templateId })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao enviar email.");
+      return;
+    }
+
+    alert(data.message || "Email enviado com sucesso.");
+    await loadClients();
+  }
+
+  async function updateClientSchedule(client, fields) {
+    const res = await fetch(`/api/admin/clients/${client.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "update_schedule",
+        interview_date: fields.interview_date ?? client.interview_date ?? "",
+        casv_date: fields.casv_date ?? client.casv_date ?? "",
+        video_call_date: fields.video_call_date ?? client.video_call_date ?? "",
+        consulate_city: fields.consulate_city ?? client.consulate_city ?? ""
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao salvar datas. Confira se as colunas novas foram criadas no Supabase.");
+      return;
+    }
+    await loadClients();
+  }
+
+  function daysUntil(dateValue) {
+    if (!dateValue) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(`${dateValue}T00:00:00`);
+    return Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+  }
+
+  function scheduleAlerts(client) {
+    const alerts = [];
+    const interviewDays = daysUntil(client.interview_date);
+    const videoDays = daysUntil(client.video_call_date);
+    const casvDays = daysUntil(client.casv_date);
+
+    if (interviewDays !== null && interviewDays >= 0 && interviewDays <= 2) alerts.push({ level: "danger", text: `Entrevista em ${interviewDays === 0 ? "hoje" : `${interviewDays} dia(s)`}${client.consulate_city ? ` — ${client.consulate_city}` : ""}` });
+    else if (interviewDays !== null && interviewDays > 2 && interviewDays <= 7) alerts.push({ level: "warning", text: `Entrevista em ${interviewDays} dias${client.consulate_city ? ` — ${client.consulate_city}` : ""}` });
+
+    if (casvDays !== null && casvDays >= 0 && casvDays <= 3) alerts.push({ level: "info", text: `CASV em ${casvDays === 0 ? "hoje" : `${casvDays} dia(s)`}` });
+    if (videoDays !== null && videoDays >= 0 && videoDays <= 2) alerts.push({ level: "info", text: `Videochamada em ${videoDays === 0 ? "hoje" : `${videoDays} dia(s)`}` });
+
+    return alerts;
   }
 
   async function deleteClient(id) {
@@ -492,6 +572,10 @@ function Dashboard({ loginWithPassword }) {
           <input placeholder="Celular" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input placeholder="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <textarea className="wide" placeholder="Observações internas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <input type="date" title="Data da entrevista" value={form.interview_date} onChange={(e) => setForm({ ...form, interview_date: e.target.value })} />
+          <input type="date" title="Data CASV" value={form.casv_date} onChange={(e) => setForm({ ...form, casv_date: e.target.value })} />
+          <input type="date" title="Data da videochamada" value={form.video_call_date} onChange={(e) => setForm({ ...form, video_call_date: e.target.value })} />
+          <input placeholder="Cidade do consulado" value={form.consulate_city} onChange={(e) => setForm({ ...form, consulate_city: e.target.value })} />
         </div>
 
         <button className="btn-primary" onClick={createClient}>
@@ -528,7 +612,14 @@ function Dashboard({ loginWithPassword }) {
                   <small>CPF: {client.cpf}</small><br />
                   <small>Nascimento: {formatDateBR(client.birth_date)}</small><br />
                   <small>Celular: {client.phone || "-"}</small><br />
-                  <small>E-mail: {client.email || "-"}</small>
+                  <small>E-mail: {client.email || "-"}</small><br />
+                  <small>Consulado: {client.consulate_city || "-"}</small><br />
+                  <small>CASV: {formatDateBR(client.casv_date) || "-"}</small><br />
+                  <small>Entrevista: {formatDateBR(client.interview_date) || "-"}</small><br />
+                  <small>Videochamada: {formatDateBR(client.video_call_date) || "-"}</small>
+                  {scheduleAlerts(client).map((alert, index) => (
+                    <div key={index} className={`admin-date-alert ${alert.level}`}>{alert.text}</div>
+                  ))}
                   {getCriticalAlerts(client).length > 0 && (
                     <div className="admin-critical-alert">
                       Atenção: cliente respondeu <strong>Sim</strong> na pergunta {getCriticalAlerts(client).join(", ")}
@@ -554,6 +645,16 @@ function Dashboard({ loginWithPassword }) {
                     <a className="btn-light" href={`/acesso/${client.access_token}`} target="_blank">Abrir</a>
 
                     <details className="admin-email-menu">
+                      <summary className="btn-light">Datas e alertas</summary>
+                      <div className="admin-email-options" style={{ minWidth: 280 }}>
+                        <label><small>Data CASV</small><input type="date" defaultValue={client.casv_date || ""} onBlur={(e) => updateClientSchedule(client, { casv_date: e.target.value })} /></label>
+                        <label><small>Data entrevista</small><input type="date" defaultValue={client.interview_date || ""} onBlur={(e) => updateClientSchedule(client, { interview_date: e.target.value })} /></label>
+                        <label><small>Data videochamada</small><input type="date" defaultValue={client.video_call_date || ""} onBlur={(e) => updateClientSchedule(client, { video_call_date: e.target.value })} /></label>
+                        <label><small>Cidade consulado</small><input defaultValue={client.consulate_city || ""} placeholder="Ex.: São Paulo" onBlur={(e) => updateClientSchedule(client, { consulate_city: e.target.value })} /></label>
+                      </div>
+                    </details>
+
+                    <details className="admin-email-menu">
                       <summary className="btn-light">Gerar modelos de email (copiar)</summary>
                       <div className="admin-email-options">
                         {EMAIL_TEMPLATES.map((template) => (
@@ -561,6 +662,21 @@ function Dashboard({ loginWithPassword }) {
                             {template.label}
                           </a>
                         ))}
+                      </div>
+                    </details>
+
+                    <details className="admin-email-menu">
+                      <summary className="btn-primary">Enviar emails automáticos (Brevo)</summary>
+                      <div className="admin-email-options">
+                        {EMAIL_TEMPLATES.map((template) => {
+                          const disabled = DISABLED_AUTO_EMAILS.has(template.id);
+                          const sentAt = client.email_sent_templates?.[template.id];
+                          return (
+                            <button key={template.id} className={sentAt ? "btn-success" : "btn-light"} disabled={disabled} onClick={() => sendEmail(client, template.id)} title={sentAt ? `Enviado em ${new Date(sentAt).toLocaleString("pt-BR")}` : ""}>
+                              {sentAt ? "✅ " : "☐ "}{template.label}{disabled ? " (não disponível)" : ""}
+                            </button>
+                          );
+                        })}
                       </div>
                     </details>
 
