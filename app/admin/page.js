@@ -331,6 +331,8 @@ function Dashboard({ loginWithPassword }) {
   const [logs, setLogs] = useState([]);
   const [logClient, setLogClient] = useState(null);
   const [logLoading, setLogLoading] = useState(false);
+  const [editingClient, setEditingClient] = useState(null);
+  const [editForm, setEditForm] = useState({});
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState({
@@ -339,11 +341,7 @@ function Dashboard({ loginWithPassword }) {
     birth_date: "",
     phone: "",
     email: "",
-    notes: "",
-    interview_date: "",
-    casv_date: "",
-    video_call_date: "",
-    consulate_city: ""
+    notes: ""
   });
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://visto-seguro.vercel.app";
@@ -394,7 +392,7 @@ function Dashboard({ loginWithPassword }) {
       return;
     }
 
-    setForm({ name: "", cpf: "", birth_date: "", phone: "", email: "", notes: "", interview_date: "", casv_date: "", video_call_date: "", consulate_city: "" });
+    setForm({ name: "", cpf: "", birth_date: "", phone: "", email: "", notes: "" });
     await loadClients();
   }
 
@@ -412,6 +410,39 @@ function Dashboard({ loginWithPassword }) {
       return;
     }
 
+    await loadClients();
+  }
+
+  function openEditClient(client) {
+    setEditingClient(client);
+    setEditForm({
+      name: client.name || "",
+      cpf: client.cpf || "",
+      birth_date: client.birth_date || "",
+      phone: client.phone || "",
+      email: client.email || "",
+      notes: client.notes || ""
+    });
+  }
+
+  async function saveClientDetails() {
+    if (!editingClient) return;
+
+    const res = await fetch(`/api/admin/clients/${editingClient.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update_details", ...editForm })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Erro ao editar cliente.");
+      return;
+    }
+
+    setEditingClient(null);
+    setEditForm({});
     await loadClients();
   }
 
@@ -442,7 +473,7 @@ function Dashboard({ loginWithPassword }) {
       return;
     }
 
-    alert(data.message || "Email enviado com sucesso.");
+    alert(data.message || "Email aceito pela Brevo. Confira a entrega nos logs da Brevo, se necessário.");
     await loadClients();
   }
 
@@ -572,10 +603,6 @@ function Dashboard({ loginWithPassword }) {
           <input placeholder="Celular" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input placeholder="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <textarea className="wide" placeholder="Observações internas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-          <input type="date" title="Data da entrevista" value={form.interview_date} onChange={(e) => setForm({ ...form, interview_date: e.target.value })} />
-          <input type="date" title="Data CASV" value={form.casv_date} onChange={(e) => setForm({ ...form, casv_date: e.target.value })} />
-          <input type="date" title="Data da videochamada" value={form.video_call_date} onChange={(e) => setForm({ ...form, video_call_date: e.target.value })} />
-          <input placeholder="Cidade do consulado" value={form.consulate_city} onChange={(e) => setForm({ ...form, consulate_city: e.target.value })} />
         </div>
 
         <button className="btn-primary" onClick={createClient}>
@@ -643,6 +670,7 @@ function Dashboard({ loginWithPassword }) {
                 <td>
                   <div className="admin-actions">
                     <a className="btn-light" href={`/acesso/${client.access_token}`} target="_blank">Abrir</a>
+                    <button className="btn-light" onClick={() => openEditClient(client)}>Editar dados</button>
 
                     <details className="admin-email-menu">
                       <summary className="btn-light">Datas e alertas</summary>
@@ -694,6 +722,28 @@ function Dashboard({ loginWithPassword }) {
           </tbody>
         </table>
       </div>
+
+
+      {editingClient && (
+        <div className="modal-backdrop" onClick={() => setEditingClient(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <h2 style={{ margin: 0 }}>Editar dados do cliente</h2>
+              <button className="btn-light" onClick={() => setEditingClient(null)}>Fechar</button>
+            </div>
+            <p style={{ color: "var(--muted)" }}>Corrija dados básicos, inclusive CPF, data de nascimento, e-mail e telefone.</p>
+            <div className="grid" style={{ marginTop: 16 }}>
+              <input placeholder="Nome" value={editForm.name || ""} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+              <input placeholder="CPF" value={editForm.cpf || ""} onChange={(e) => setEditForm({ ...editForm, cpf: e.target.value })} />
+              <input type="date" value={editForm.birth_date || ""} onChange={(e) => setEditForm({ ...editForm, birth_date: e.target.value })} />
+              <input placeholder="Celular" value={editForm.phone || ""} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
+              <input placeholder="E-mail" type="email" value={editForm.email || ""} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+              <textarea className="wide" placeholder="Observações internas" value={editForm.notes || ""} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
+            </div>
+            <button className="btn-primary" onClick={saveClientDetails} style={{ marginTop: 14 }}>Salvar alterações</button>
+          </div>
+        </div>
+      )}
 
       {logClient && (
         <div className="modal-backdrop" onClick={() => setLogClient(null)}>

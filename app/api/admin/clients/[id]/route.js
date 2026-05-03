@@ -2,6 +2,10 @@ import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../../lib/auth";
 import { createAccessToken } from "../../../../../lib/tokens";
 
+function cleanCPF(value) {
+  return (value || "").replace(/\D/g, "");
+}
+
 export async function PATCH(request, context) {
   const params = await context.params;
   const unauthorized = await requireAdmin();
@@ -17,6 +21,18 @@ export async function PATCH(request, context) {
   }
 
   if (body.action === "new_token") updates.access_token = createAccessToken();
+
+  if (body.action === "update_details") {
+    if (!body.name || !body.cpf || !body.birth_date) {
+      return Response.json({ error: "Nome, CPF e data de nascimento são obrigatórios." }, { status: 400 });
+    }
+    updates.name = body.name;
+    updates.cpf = cleanCPF(body.cpf);
+    updates.birth_date = body.birth_date;
+    updates.phone = body.phone || "";
+    updates.email = body.email || "";
+    updates.notes = body.notes || "";
+  }
 
   if (body.action === "update_schedule") {
     updates.interview_date = body.interview_date || null;
