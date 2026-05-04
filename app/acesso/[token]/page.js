@@ -167,13 +167,6 @@ export default function ClientAccessPage() {
   return (
     <main style={{ maxWidth: 1200, margin:"0 auto", padding:24 }}>
       <div className="card" style={{ padding:22, marginBottom:22 }}><BrandHeader clientName={client?.name} /></div>
-      {client?.is_renewal && (
-        <div className="card renewal-client-card" style={{ padding:22, marginBottom:22 }}>
-          <h2 style={{ color:"var(--navy)", marginTop:0 }}>Processo de renovação sem entrevista</h2>
-          <p>Quando enviar seus passaportes e foto para a Resumindo Viagens, informe o código de rastreio do Sedex pelo botão abaixo.</p>
-          <a className="btn-primary" href={`/renovacao/${token}`} target="_blank">Informar rastreio do Sedex</a>
-        </div>
-      )}
       <div className="no-print" style={{ display:"flex", justifyContent:"space-between", gap:16, alignItems:"center", marginBottom:20 }}>
         <div><small>{saveStatus}</small></div>
         <div style={{ display:"flex", gap:10 }}><button className="btn-light" onClick={() => save(answers, true)}>Salvar e continuar depois</button><button className="btn-primary" onClick={submitForm}>Enviar definitivamente (encerra preenchimento)</button></div>
@@ -253,7 +246,6 @@ function PDFView({ client, answers }) {
       <div className="no-print" style={{ marginBottom:18 }}><button className="btn-primary" onClick={() => window.print()}>Baixar PDF das minhas respostas</button></div>
       <div className="card" style={{ padding:34 }}>
         <BrandHeader clientName={client?.name} />
-        {client?.is_renewal && <div className="renewal-client-card" style={{ border:"1px solid #fed7aa", background:"#fff9ec", borderRadius:14, padding:14, marginTop:22 }}><b>Processo de renovação sem entrevista</b><br />Para informar o rastreio do Sedex, acesse: <a href={`/renovacao/${client.access_token}`}>informar rastreio</a></div>}
         <h2 style={{ color:"var(--navy)", marginTop:28 }}>Respostas do formulário</h2>
         {sections.map((section, sectionIndex) => <section key={section.title} style={{ breakInside:"avoid", marginTop:28 }}><h3 style={{ background:"var(--navy)", color:"#fff", padding:12, borderRadius:10 }}>{numberedTitle(sectionIndex, section.title)}</h3><div className="grid">{section.fields.filter((field) => answers[field.id]).map((field, fieldIndex) => <div key={field.id} className={field.wide || field.full ? "wide" : ""} style={{ border:"1px solid #E4E8F0", borderRadius:12, padding:12 }}><b style={{ color:"var(--navy)" }}><span style={{ color:"var(--orange)" }}>{sectionIndex + 1}.{fieldIndex + 1}</span> {field.label}</b><br/><span>{String(answers[field.id])}</span></div>)}</div></section>)}
         <div className="print-footer">Resumindo Viagens • contato@resumindoviagens.com.br • Instagram: @resumindoviagens</div>

@@ -349,13 +349,17 @@ function Dashboard({ loginWithPassword }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeMenu, setActiveMenu] = useState(null);
   const [processTab, setProcessTab] = useState("andamento");
+  const [sortBy, setSortBy] = useState("created_desc");
   const [form, setForm] = useState({
     name: "",
     cpf: "",
     birth_date: "",
     phone: "",
     email: "",
-    notes: ""
+    notes: "",
+    family_group: "",
+    no_form_required: false,
+    is_renewal: false
   });
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://visto-seguro.vercel.app";
@@ -406,7 +410,7 @@ function Dashboard({ loginWithPassword }) {
       return;
     }
 
-    setForm({ name: "", cpf: "", birth_date: "", phone: "", email: "", notes: "" });
+    setForm({ name: "", cpf: "", birth_date: "", phone: "", email: "", notes: "", family_group: "", no_form_required: false, is_renewal: false });
     await loadClients();
   }
 
@@ -438,7 +442,8 @@ function Dashboard({ loginWithPassword }) {
       notes: client.notes || "",
       family_group: client.family_group || "",
       no_form_required: !!client.no_form_required,
-      is_renewal: !!client.is_renewal
+      is_renewal: !!client.is_renewal,
+      client_sedex_tracking: client.client_sedex_tracking || ""
     });
   }
 
@@ -571,25 +576,53 @@ function Dashboard({ loginWithPassword }) {
   }
 
   const filteredClients = useMemo(() => {
+    const query = (search || "").trim().toLowerCase();
+    const queryCpf = cleanCPF(search);
+
+    function dateValue(value) {
+      if (!value) return 9999999999999;
+      const time = new Date(`${value}T00:00:00`).getTime();
+      return Number.isFinite(time) ? time : 9999999999999;
+    }
+
+    function createdValue(client) {
+      const time = new Date(client.created_at || 0).getTime();
+      return Number.isFinite(time) ? time : 0;
+    }
+
     return clients
       .filter((client) => {
-        const matchesSearch =
-          (client.name || "").toLowerCase().includes(search.toLowerCase()) ||
-          (client.cpf || "").includes(cleanCPF(search)) ||
-          (client.email || "").toLowerCase().includes(search.toLowerCase()) ||
-          (client.family_group || "").toLowerCase().includes(search.toLowerCase());
+        const haystack = [
+          client.name,
+          client.cpf,
+          client.email,
+          client.phone,
+          client.family_group,
+          client.consulate_city,
+          client.passport_tracking_code,
+          client.client_sedex_tracking
+        ].filter(Boolean).join(" ").toLowerCase();
 
+        const matchesSearch = !query || haystack.includes(query) || (!!queryCpf && (client.cpf || "").includes(queryCpf));
         const matchesStatus = statusFilter === "all" || client.status === statusFilter;
         const matchesTab = processTab === "concluidos" ? !!client.is_completed : !client.is_completed;
         return matchesSearch && matchesStatus && matchesTab;
       })
       .sort((a, b) => {
-        const groupA = (a.family_group || "zzzz").toLowerCase();
-        const groupB = (b.family_group || "zzzz").toLowerCase();
-        if (groupA !== groupB) return groupA.localeCompare(groupB, "pt-BR");
+        if (sortBy === "name") return (a.name || "").localeCompare(b.name || "", "pt-BR");
+        if (sortBy === "created_asc") return createdValue(a) - createdValue(b);
+        if (sortBy === "created_desc") return createdValue(b) - createdValue(a);
+        if (sortBy === "interview_date") return dateValue(a.interview_date) - dateValue(b.interview_date) || (a.name || "").localeCompare(b.name || "", "pt-BR");
+        if (sortBy === "casv_date") return dateValue(a.casv_date) - dateValue(b.casv_date) || (a.name || "").localeCompare(b.name || "", "pt-BR");
+        if (sortBy === "video_call_date") return dateValue(a.video_call_date) - dateValue(b.video_call_date) || (a.name || "").localeCompare(b.name || "", "pt-BR");
+        if (sortBy === "family_group") {
+          const groupA = (a.family_group || "zzzz").toLowerCase();
+          const groupB = (b.family_group || "zzzz").toLowerCase();
+          if (groupA !== groupB) return groupA.localeCompare(groupB, "pt-BR");
+        }
         return (a.name || "").localeCompare(b.name || "", "pt-BR");
       });
-  }, [clients, search, statusFilter, processTab]);
+  }, [clients, search, statusFilter, processTab, sortBy]);
 
   function clientLink(client) {
     return `${origin}/acesso/${client.access_token}`;
@@ -608,7 +641,7 @@ function Dashboard({ loginWithPassword }) {
     <main style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div className="version-badge">v17 — UI corrigida: consulado, rastreios, renovação e favicon ativos</div>
+        <div className="version-badge">v18 — ajustes finais: cadastro, rastreio, ordenação, PDF manual e favicon ativo</div>
       </div>
 
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
@@ -637,7 +670,10 @@ function Dashboard({ loginWithPassword }) {
           <label className="admin-field-label"><span>Data de nascimento</span><input type="date" value={form.birth_date} onChange={(e) => setForm({ ...form, birth_date: e.target.value })} /></label>
           <input placeholder="Celular" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input placeholder="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input placeholder="Grupo familiar / processo" value={form.family_group} onChange={(e) => setForm({ ...form, family_group: e.target.value })} />
           <textarea className="wide" placeholder="Observações internas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          <label className="admin-checkbox"><input type="checkbox" checked={!!form.no_form_required} onChange={(e) => setForm({ ...form, no_form_required: e.target.checked })} /> Cadastro de controle — não enviar formulário</label>
+          <label className="admin-checkbox"><input type="checkbox" checked={!!form.is_renewal} onChange={(e) => setForm({ ...form, is_renewal: e.target.checked })} /> Processo de renovação sem entrevista</label>
         </div>
 
         <button className="btn-primary" onClick={createClient}>
@@ -658,6 +694,15 @@ function Dashboard({ loginWithPassword }) {
             <option value="not_started">Não iniciado</option>
             <option value="in_progress">Em preenchimento</option>
             <option value="submitted">Enviado</option>
+          </select>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+            <option value="created_desc">Ordenar: cadastro mais recente</option>
+            <option value="created_asc">Ordenar: cadastro mais antigo</option>
+            <option value="name">Ordenar: ordem alfabética</option>
+            <option value="family_group">Ordenar: grupo familiar</option>
+            <option value="interview_date">Ordenar: data entrevista</option>
+            <option value="casv_date">Ordenar: data CASV</option>
+            <option value="video_call_date">Ordenar: data videochamada</option>
           </select>
         </div>
 
@@ -732,10 +777,7 @@ function Dashboard({ loginWithPassword }) {
                         <label><small>Rastreio do passaporte enviado ao cliente</small><input defaultValue={client.passport_tracking_code || ""} placeholder="Ex.: AA123456789BR" onBlur={(e) => updateClientSchedule(client, { passport_tracking_code: e.target.value })} /></label>
                         {client.passport_tracking_code && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><a className="btn-light" href={correiosUrl(client.passport_tracking_code)} target="_blank">Abrir rastreio nos Correios</a><button className="btn-light" onClick={() => copyText(client.passport_tracking_code, "Código de rastreio copiado.")}>Copiar código</button></div>}
 
-                        <hr style={{ width: "100%", border: 0, borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
-                        <label className="admin-checkbox"><input type="checkbox" defaultChecked={!!client.is_renewal} onChange={(e) => updateClientSchedule(client, { is_renewal: e.target.checked })} /> Processo de renovação sem entrevista</label>
-                        {client.is_renewal && <label><small>Rastreio Sedex enviado pelo cliente para a Resumindo</small><input defaultValue={client.client_sedex_tracking || ""} placeholder="Código informado pelo cliente" onBlur={(e) => updateClientSchedule(client, { client_sedex_tracking: e.target.value })} /></label>}
-                        {client.is_renewal && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><a className="btn-light" href={`/renovacao/${client.access_token}`} target="_blank">Abrir página do cliente para informar Sedex</a><button className="btn-light" onClick={() => copyText(`${origin}/renovacao/${client.access_token}`, "Link de renovação copiado.")}>Copiar link de renovação</button></div>}
+                        <p style={{ margin: "8px 0 0", color: "var(--muted)", fontSize: 12 }}>Renovação sem entrevista e rastreio Sedex enviado pelo cliente ficam em <strong>Editar dados</strong>.</p>
                       </div>
                     )}
 
@@ -766,6 +808,7 @@ function Dashboard({ loginWithPassword }) {
                     )}
 
                     <a className="btn-light" href={`/admin/pdf/${client.access_token}`} target="_blank">Gerar PDF</a>
+                    <a className="btn-light" href={`/admin/pdf-manual/${client.access_token}`} target="_blank">PDF para preencher à mão</a>
                     <a className="btn-light" href={`/foto-instrucoes/${client.access_token}`} target="_blank">Instruções Foto</a>
                     <button className="btn-light" onClick={() => copyText(whatsappMessage(client), "Mensagem de WhatsApp copiada.")}>Copiar WhatsApp</button>
                     <button className="btn-light" onClick={() => loadLogs(client)}>Ver log</button>
@@ -799,6 +842,7 @@ function Dashboard({ loginWithPassword }) {
               <input placeholder="Grupo familiar / processo" value={editForm.family_group || ""} onChange={(e) => setEditForm({ ...editForm, family_group: e.target.value })} />
               <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.no_form_required} onChange={(e) => setEditForm({ ...editForm, no_form_required: e.target.checked })} /> Cadastro de controle — não enviar formulário</label>
               <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.is_renewal} onChange={(e) => setEditForm({ ...editForm, is_renewal: e.target.checked })} /> Processo de renovação sem entrevista</label>
+              {editForm.is_renewal && <input className="wide" placeholder="Rastreio Sedex enviado pelo cliente para a Resumindo" value={editForm.client_sedex_tracking || ""} onChange={(e) => setEditForm({ ...editForm, client_sedex_tracking: e.target.value })} />}
               <textarea className="wide" placeholder="Observações internas" value={editForm.notes || ""} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
             </div>
             <button className="btn-primary" onClick={saveClientDetails} style={{ marginTop: 14 }}>Salvar alterações</button>

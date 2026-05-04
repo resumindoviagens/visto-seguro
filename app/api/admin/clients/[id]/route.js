@@ -37,6 +37,7 @@ export async function PATCH(request, context) {
     updates.family_group = body.family_group || "";
     updates.no_form_required = !!body.no_form_required;
     updates.is_renewal = !!body.is_renewal;
+    updates.client_sedex_tracking = body.client_sedex_tracking || "";
   }
 
   if (body.action === "update_schedule") {
@@ -45,7 +46,8 @@ export async function PATCH(request, context) {
     updates.video_call_date = body.video_call_date || null;
     updates.consulate_city = body.consulate_city || "";
     updates.passport_tracking_code = body.passport_tracking_code || "";
-    updates.client_sedex_tracking = body.client_sedex_tracking || "";
+    // O rastreio Sedex do cliente e o checkbox de renovação ficam em Editar dados.
+    if (typeof body.client_sedex_tracking !== "undefined") updates.client_sedex_tracking = body.client_sedex_tracking || "";
     if (typeof body.is_renewal !== "undefined") updates.is_renewal = !!body.is_renewal;
   }
 

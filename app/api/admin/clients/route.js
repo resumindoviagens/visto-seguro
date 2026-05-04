@@ -70,9 +70,9 @@ export async function POST(request) {
     status: "not_started",
     is_locked: false,
     is_completed: false,
-    family_group: "",
-    no_form_required: false,
-    is_renewal: false
+    family_group: body.family_group || "",
+    no_form_required: !!body.no_form_required,
+    is_renewal: !!body.is_renewal
   };
 
   // Estes campos dependem das colunas opcionais da V11. Se você ainda não executou o SQL,
