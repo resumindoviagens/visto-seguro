@@ -704,3 +704,12 @@ button:disabled {
 .family-row {
   background: linear-gradient(90deg, rgba(31,42,96,.045), transparent 65%);
 }
+
+.process-panel h3 {
+  width: 100%;
+}
+
+.renewal-client-card {
+  background: #fff9ec;
+  border-color: #fed7aa !important;
+}

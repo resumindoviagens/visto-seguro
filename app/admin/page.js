@@ -510,7 +510,8 @@ function Dashboard({ loginWithPassword }) {
         video_call_date: fields.video_call_date ?? client.video_call_date ?? "",
         consulate_city: fields.consulate_city ?? client.consulate_city ?? "",
         passport_tracking_code: fields.passport_tracking_code ?? client.passport_tracking_code ?? "",
-        client_sedex_tracking: fields.client_sedex_tracking ?? client.client_sedex_tracking ?? ""
+        client_sedex_tracking: fields.client_sedex_tracking ?? client.client_sedex_tracking ?? "",
+        is_renewal: fields.is_renewal ?? client.is_renewal ?? false
       })
     });
 
@@ -607,7 +608,7 @@ function Dashboard({ loginWithPassword }) {
     <main style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div className="version-badge">v16 — gestão de processos, grupos, rastreios e alertas ativa</div>
+        <div className="version-badge">v17 — UI corrigida: consulado, rastreios, renovação e favicon ativos</div>
       </div>
 
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
@@ -679,12 +680,12 @@ function Dashboard({ loginWithPassword }) {
                   <small>Nascimento: {formatDateBR(client.birth_date)}</small><br />
                   <small>Celular: {client.phone || "-"}</small><br />
                   <small>E-mail: {client.email || "-"}</small><br />
-                  <small>Consulado: {client.consulate_city || "-"}</small><br />
+                  <small><b>Consulado:</b> {client.consulate_city || "-"}</small><br />
                   <small>CASV: {formatDateBR(client.casv_date) || "-"}</small><br />
                   <small>Entrevista: {formatDateBR(client.interview_date) || "-"}</small><br />
                   <small>Videochamada: {formatDateBR(client.video_call_date) || "-"}</small><br />
                   <small>Grupo familiar: {client.family_group || "-"}</small><br />
-                  <small>Rastreio passaporte: {client.passport_tracking_code || "-"}</small>
+                  <small><b>Rastreio passaporte:</b> {client.passport_tracking_code || "-"}</small>
                   {client.client_sedex_tracking && <><br /><small>Sedex cliente: {client.client_sedex_tracking}</small></>}
                   {client.is_renewal && <div className="admin-renewal-alert">Renovação sem entrevista</div>}
                   {client.no_form_required && <div className="admin-renewal-alert muted">Cadastro de controle — sem formulário ao cliente</div>}
@@ -716,17 +717,25 @@ function Dashboard({ loginWithPassword }) {
                     <a className="btn-light" href={`/acesso/${client.access_token}`} target="_blank">Abrir</a>
                     <button className="btn-light" onClick={() => openEditClient(client)}>Editar dados</button>
 
-                    <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `dates-${client.id}` ? null : `dates-${client.id}`)}>Datas e alertas</button>
-                    {activeMenu === `dates-${client.id}` && (
-                      <div className="admin-email-options" style={{ minWidth: 320 }}>
+                    <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `process-${client.id}` ? null : `process-${client.id}`)}>Processo, datas e rastreios</button>
+                    {activeMenu === `process-${client.id}` && (
+                      <div className="admin-email-options process-panel" style={{ minWidth: 380 }}>
+                        <h3 style={{ margin: "0 0 8px", color: "var(--navy)" }}>Processo, datas e rastreios</h3>
+                        <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13 }}>Preencha ao longo do processo. Estes dados não fazem parte do cadastro inicial.</p>
+
+                        <label><small>Cidade do consulado</small><select defaultValue={client.consulate_city || ""} onChange={(e) => updateClientSchedule(client, { consulate_city: e.target.value })}><option value="">Selecionar cidade</option>{CONSULATE_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
                         <label><small>Data CASV</small><input type="date" defaultValue={client.casv_date || ""} onBlur={(e) => updateClientSchedule(client, { casv_date: e.target.value })} /></label>
-                        <label><small>Data entrevista</small><input type="date" defaultValue={client.interview_date || ""} onBlur={(e) => updateClientSchedule(client, { interview_date: e.target.value })} /></label>
-                        <label><small>Data videochamada</small><input type="date" defaultValue={client.video_call_date || ""} onBlur={(e) => updateClientSchedule(client, { video_call_date: e.target.value })} /></label>
-                        <label><small>Cidade consulado</small><select defaultValue={client.consulate_city || ""} onChange={(e) => updateClientSchedule(client, { consulate_city: e.target.value })}><option value="">Selecionar</option>{CONSULATE_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
-                        <label><small>Rastreio do passaporte ao cliente</small><input defaultValue={client.passport_tracking_code || ""} placeholder="Código dos Correios" onBlur={(e) => updateClientSchedule(client, { passport_tracking_code: e.target.value })} /></label>
+                        <label><small>Data da entrevista no consulado</small><input type="date" defaultValue={client.interview_date || ""} onBlur={(e) => updateClientSchedule(client, { interview_date: e.target.value })} /></label>
+                        <label><small>Data da videochamada</small><input type="date" defaultValue={client.video_call_date || ""} onBlur={(e) => updateClientSchedule(client, { video_call_date: e.target.value })} /></label>
+
+                        <hr style={{ width: "100%", border: 0, borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
+                        <label><small>Rastreio do passaporte enviado ao cliente</small><input defaultValue={client.passport_tracking_code || ""} placeholder="Ex.: AA123456789BR" onBlur={(e) => updateClientSchedule(client, { passport_tracking_code: e.target.value })} /></label>
                         {client.passport_tracking_code && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><a className="btn-light" href={correiosUrl(client.passport_tracking_code)} target="_blank">Abrir rastreio nos Correios</a><button className="btn-light" onClick={() => copyText(client.passport_tracking_code, "Código de rastreio copiado.")}>Copiar código</button></div>}
-                        {client.is_renewal && <label><small>Rastreio Sedex enviado pelo cliente</small><input defaultValue={client.client_sedex_tracking || ""} placeholder="Código informado pelo cliente" onBlur={(e) => updateClientSchedule(client, { client_sedex_tracking: e.target.value })} /></label>}
-                        {client.is_renewal && <a className="btn-light" href={`/renovacao/${client.access_token}`} target="_blank">Link para cliente informar rastreio</a>}
+
+                        <hr style={{ width: "100%", border: 0, borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
+                        <label className="admin-checkbox"><input type="checkbox" defaultChecked={!!client.is_renewal} onChange={(e) => updateClientSchedule(client, { is_renewal: e.target.checked })} /> Processo de renovação sem entrevista</label>
+                        {client.is_renewal && <label><small>Rastreio Sedex enviado pelo cliente para a Resumindo</small><input defaultValue={client.client_sedex_tracking || ""} placeholder="Código informado pelo cliente" onBlur={(e) => updateClientSchedule(client, { client_sedex_tracking: e.target.value })} /></label>}
+                        {client.is_renewal && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><a className="btn-light" href={`/renovacao/${client.access_token}`} target="_blank">Abrir página do cliente para informar Sedex</a><button className="btn-light" onClick={() => copyText(`${origin}/renovacao/${client.access_token}`, "Link de renovação copiado.")}>Copiar link de renovação</button></div>}
                       </div>
                     )}
 

@@ -46,6 +46,7 @@ export async function PATCH(request, context) {
     updates.consulate_city = body.consulate_city || "";
     updates.passport_tracking_code = body.passport_tracking_code || "";
     updates.client_sedex_tracking = body.client_sedex_tracking || "";
+    if (typeof body.is_renewal !== "undefined") updates.is_renewal = !!body.is_renewal;
   }
 
   updates.updated_at = new Date().toISOString();
