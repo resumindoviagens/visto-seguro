@@ -46,6 +46,13 @@ function buildQuestionNumberMap() {
 
 const QUESTION_ID_BY_NUMBER = buildQuestionNumberMap();
 const DISABLED_AUTO_EMAILS = new Set(["instrucoes", "pre_entrevista"]);
+const CONSULATE_CITIES = ["Brasília", "São Paulo", "Rio de Janeiro", "Porto Alegre", "Recife"];
+
+function correiosUrl(code) {
+  const clean = String(code || "").trim();
+  if (!clean) return "https://rastreamento.correios.com.br/app/index.php";
+  return `https://rastreamento.correios.com.br/app/index.php?objeto=${encodeURIComponent(clean)}`;
+}
 
 function getCriticalAlerts(client) {
   const answers = client?.answers || {};
@@ -65,7 +72,12 @@ function actionLabel(action) {
     unlock: "Formulário desbloqueado",
     new_token: "Novo link gerado",
     client_updated: "Cliente atualizado",
-    email_sent: "Email enviado"
+    email_sent: "Email enviado",
+    mark_completed: "Processo concluído",
+    reopen: "Processo reaberto",
+    update_tracking: "Rastreio atualizado",
+    update_process: "Processo atualizado",
+    client_sedex_tracking_sent: "Rastreio Sedex informado pelo cliente"
   };
   return labels[action] || action;
 }
@@ -335,6 +347,8 @@ function Dashboard({ loginWithPassword }) {
   const [editForm, setEditForm] = useState({});
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [activeMenu, setActiveMenu] = useState(null);
+  const [processTab, setProcessTab] = useState("andamento");
   const [form, setForm] = useState({
     name: "",
     cpf: "",
@@ -421,7 +435,10 @@ function Dashboard({ loginWithPassword }) {
       birth_date: client.birth_date || "",
       phone: client.phone || "",
       email: client.email || "",
-      notes: client.notes || ""
+      notes: client.notes || "",
+      family_group: client.family_group || "",
+      no_form_required: !!client.no_form_required,
+      is_renewal: !!client.is_renewal
     });
   }
 
@@ -457,6 +474,11 @@ function Dashboard({ loginWithPassword }) {
       return;
     }
 
+    if (templateId === "rastreio" && !client.passport_tracking_code) {
+      alert("Informe o código de rastreio em Datas e alertas antes de enviar o Email 09.");
+      return;
+    }
+
     const template = EMAIL_TEMPLATES.find((item) => item.id === templateId);
     const ok = confirm(`Enviar o email "${template?.label || templateId}" para ${client.name} (${client.email})?`);
     if (!ok) return;
@@ -486,7 +508,9 @@ function Dashboard({ loginWithPassword }) {
         interview_date: fields.interview_date ?? client.interview_date ?? "",
         casv_date: fields.casv_date ?? client.casv_date ?? "",
         video_call_date: fields.video_call_date ?? client.video_call_date ?? "",
-        consulate_city: fields.consulate_city ?? client.consulate_city ?? ""
+        consulate_city: fields.consulate_city ?? client.consulate_city ?? "",
+        passport_tracking_code: fields.passport_tracking_code ?? client.passport_tracking_code ?? "",
+        client_sedex_tracking: fields.client_sedex_tracking ?? client.client_sedex_tracking ?? ""
       })
     });
 
@@ -546,16 +570,25 @@ function Dashboard({ loginWithPassword }) {
   }
 
   const filteredClients = useMemo(() => {
-    return clients.filter((client) => {
-      const matchesSearch =
-        (client.name || "").toLowerCase().includes(search.toLowerCase()) ||
-        (client.cpf || "").includes(cleanCPF(search)) ||
-        (client.email || "").toLowerCase().includes(search.toLowerCase());
+    return clients
+      .filter((client) => {
+        const matchesSearch =
+          (client.name || "").toLowerCase().includes(search.toLowerCase()) ||
+          (client.cpf || "").includes(cleanCPF(search)) ||
+          (client.email || "").toLowerCase().includes(search.toLowerCase()) ||
+          (client.family_group || "").toLowerCase().includes(search.toLowerCase());
 
-      const matchesStatus = statusFilter === "all" || client.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [clients, search, statusFilter]);
+        const matchesStatus = statusFilter === "all" || client.status === statusFilter;
+        const matchesTab = processTab === "concluidos" ? !!client.is_completed : !client.is_completed;
+        return matchesSearch && matchesStatus && matchesTab;
+      })
+      .sort((a, b) => {
+        const groupA = (a.family_group || "zzzz").toLowerCase();
+        const groupB = (b.family_group || "zzzz").toLowerCase();
+        if (groupA !== groupB) return groupA.localeCompare(groupB, "pt-BR");
+        return (a.name || "").localeCompare(b.name || "", "pt-BR");
+      });
+  }, [clients, search, statusFilter, processTab]);
 
   function clientLink(client) {
     return `${origin}/acesso/${client.access_token}`;
@@ -574,6 +607,7 @@ function Dashboard({ loginWithPassword }) {
     <main style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
+        <div className="version-badge">v16 — gestão de processos, grupos, rastreios e alertas ativa</div>
       </div>
 
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
@@ -599,7 +633,7 @@ function Dashboard({ loginWithPassword }) {
         <div className="grid">
           <input placeholder="Nome" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input placeholder="CPF" value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} />
-          <input type="date" value={form.birth_date} onChange={(e) => setForm({ ...form, birth_date: e.target.value })} />
+          <label className="admin-field-label"><span>Data de nascimento</span><input type="date" value={form.birth_date} onChange={(e) => setForm({ ...form, birth_date: e.target.value })} /></label>
           <input placeholder="Celular" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input placeholder="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <textarea className="wide" placeholder="Observações internas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
@@ -611,8 +645,13 @@ function Dashboard({ loginWithPassword }) {
       </div>
 
       <div className="card" style={{ padding: 22 }}>
+        <div className="admin-tabs" style={{ marginBottom: 16 }}>
+          <button className={processTab === "andamento" ? "btn-primary" : "btn-light"} onClick={() => setProcessTab("andamento")}>Processos em andamento</button>
+          <button className={processTab === "concluidos" ? "btn-primary" : "btn-light"} onClick={() => setProcessTab("concluidos")}>Processos concluídos</button>
+        </div>
+
         <div style={{ display: "flex", gap: 12, marginBottom: 18 }}>
-          <input placeholder="Buscar por nome, CPF ou e-mail" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input placeholder="Buscar por nome, CPF, e-mail ou grupo familiar" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="all">Todos os status</option>
             <option value="not_started">Não iniciado</option>
@@ -633,7 +672,7 @@ function Dashboard({ loginWithPassword }) {
 
           <tbody>
             {filteredClients.map((client) => (
-              <tr key={client.id} style={{ borderTop: "1px solid #e5e7eb" }}>
+              <tr key={client.id} className={client.family_group ? "family-row" : ""} style={{ borderTop: "1px solid #e5e7eb" }}>
                 <td>
                   <b>{client.name}</b><br />
                   <small>CPF: {client.cpf}</small><br />
@@ -643,7 +682,12 @@ function Dashboard({ loginWithPassword }) {
                   <small>Consulado: {client.consulate_city || "-"}</small><br />
                   <small>CASV: {formatDateBR(client.casv_date) || "-"}</small><br />
                   <small>Entrevista: {formatDateBR(client.interview_date) || "-"}</small><br />
-                  <small>Videochamada: {formatDateBR(client.video_call_date) || "-"}</small>
+                  <small>Videochamada: {formatDateBR(client.video_call_date) || "-"}</small><br />
+                  <small>Grupo familiar: {client.family_group || "-"}</small><br />
+                  <small>Rastreio passaporte: {client.passport_tracking_code || "-"}</small>
+                  {client.client_sedex_tracking && <><br /><small>Sedex cliente: {client.client_sedex_tracking}</small></>}
+                  {client.is_renewal && <div className="admin-renewal-alert">Renovação sem entrevista</div>}
+                  {client.no_form_required && <div className="admin-renewal-alert muted">Cadastro de controle — sem formulário ao cliente</div>}
                   {scheduleAlerts(client).map((alert, index) => (
                     <div key={index} className={`admin-date-alert ${alert.level}`}>{alert.text}</div>
                   ))}
@@ -672,18 +716,22 @@ function Dashboard({ loginWithPassword }) {
                     <a className="btn-light" href={`/acesso/${client.access_token}`} target="_blank">Abrir</a>
                     <button className="btn-light" onClick={() => openEditClient(client)}>Editar dados</button>
 
-                    <details className="admin-email-menu">
-                      <summary className="btn-light">Datas e alertas</summary>
-                      <div className="admin-email-options" style={{ minWidth: 280 }}>
+                    <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `dates-${client.id}` ? null : `dates-${client.id}`)}>Datas e alertas</button>
+                    {activeMenu === `dates-${client.id}` && (
+                      <div className="admin-email-options" style={{ minWidth: 320 }}>
                         <label><small>Data CASV</small><input type="date" defaultValue={client.casv_date || ""} onBlur={(e) => updateClientSchedule(client, { casv_date: e.target.value })} /></label>
                         <label><small>Data entrevista</small><input type="date" defaultValue={client.interview_date || ""} onBlur={(e) => updateClientSchedule(client, { interview_date: e.target.value })} /></label>
                         <label><small>Data videochamada</small><input type="date" defaultValue={client.video_call_date || ""} onBlur={(e) => updateClientSchedule(client, { video_call_date: e.target.value })} /></label>
-                        <label><small>Cidade consulado</small><input defaultValue={client.consulate_city || ""} placeholder="Ex.: São Paulo" onBlur={(e) => updateClientSchedule(client, { consulate_city: e.target.value })} /></label>
+                        <label><small>Cidade consulado</small><select defaultValue={client.consulate_city || ""} onChange={(e) => updateClientSchedule(client, { consulate_city: e.target.value })}><option value="">Selecionar</option>{CONSULATE_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
+                        <label><small>Rastreio do passaporte ao cliente</small><input defaultValue={client.passport_tracking_code || ""} placeholder="Código dos Correios" onBlur={(e) => updateClientSchedule(client, { passport_tracking_code: e.target.value })} /></label>
+                        {client.passport_tracking_code && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><a className="btn-light" href={correiosUrl(client.passport_tracking_code)} target="_blank">Abrir rastreio nos Correios</a><button className="btn-light" onClick={() => copyText(client.passport_tracking_code, "Código de rastreio copiado.")}>Copiar código</button></div>}
+                        {client.is_renewal && <label><small>Rastreio Sedex enviado pelo cliente</small><input defaultValue={client.client_sedex_tracking || ""} placeholder="Código informado pelo cliente" onBlur={(e) => updateClientSchedule(client, { client_sedex_tracking: e.target.value })} /></label>}
+                        {client.is_renewal && <a className="btn-light" href={`/renovacao/${client.access_token}`} target="_blank">Link para cliente informar rastreio</a>}
                       </div>
-                    </details>
+                    )}
 
-                    <details className="admin-email-menu">
-                      <summary className="btn-light">Gerar modelos de email (copiar)</summary>
+                    <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `copy-${client.id}` ? null : `copy-${client.id}`)}>Gerar modelos de email (copiar)</button>
+                    {activeMenu === `copy-${client.id}` && (
                       <div className="admin-email-options">
                         {EMAIL_TEMPLATES.map((template) => (
                           <a key={template.id} className="btn-light" href={`/email/${client.access_token}?template=${template.id}`} target="_blank">
@@ -691,10 +739,10 @@ function Dashboard({ loginWithPassword }) {
                           </a>
                         ))}
                       </div>
-                    </details>
+                    )}
 
-                    <details className="admin-email-menu">
-                      <summary className="btn-primary">Enviar emails automáticos (Brevo)</summary>
+                    <button className="btn-primary" onClick={() => setActiveMenu(activeMenu === `send-${client.id}` ? null : `send-${client.id}`)}>Enviar emails automáticos (Brevo)</button>
+                    {activeMenu === `send-${client.id}` && (
                       <div className="admin-email-options">
                         {EMAIL_TEMPLATES.map((template) => {
                           const disabled = DISABLED_AUTO_EMAILS.has(template.id);
@@ -706,7 +754,7 @@ function Dashboard({ loginWithPassword }) {
                           );
                         })}
                       </div>
-                    </details>
+                    )}
 
                     <a className="btn-light" href={`/admin/pdf/${client.access_token}`} target="_blank">Gerar PDF</a>
                     <a className="btn-light" href={`/foto-instrucoes/${client.access_token}`} target="_blank">Instruções Foto</a>
@@ -714,6 +762,7 @@ function Dashboard({ loginWithPassword }) {
                     <button className="btn-light" onClick={() => loadLogs(client)}>Ver log</button>
                     <button className="btn-light" onClick={() => actionClient(client.id, "unlock")}>Desbloquear</button>
                     <button className="btn-light" onClick={() => actionClient(client.id, "new_token")}>Novo link</button>
+                    <button className="btn-light" onClick={() => actionClient(client.id, client.is_completed ? "reopen" : "mark_completed")}>{client.is_completed ? "Reabrir processo" : "Marcar concluído"}</button>
                     <button className="btn-light" onClick={() => deleteClient(client.id)}>Excluir</button>
                   </div>
                 </td>
@@ -735,9 +784,12 @@ function Dashboard({ loginWithPassword }) {
             <div className="grid" style={{ marginTop: 16 }}>
               <input placeholder="Nome" value={editForm.name || ""} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
               <input placeholder="CPF" value={editForm.cpf || ""} onChange={(e) => setEditForm({ ...editForm, cpf: e.target.value })} />
-              <input type="date" value={editForm.birth_date || ""} onChange={(e) => setEditForm({ ...editForm, birth_date: e.target.value })} />
+              <label className="admin-field-label"><span>Data de nascimento</span><input type="date" value={editForm.birth_date || ""} onChange={(e) => setEditForm({ ...editForm, birth_date: e.target.value })} /></label>
               <input placeholder="Celular" value={editForm.phone || ""} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
               <input placeholder="E-mail" type="email" value={editForm.email || ""} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+              <input placeholder="Grupo familiar / processo" value={editForm.family_group || ""} onChange={(e) => setEditForm({ ...editForm, family_group: e.target.value })} />
+              <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.no_form_required} onChange={(e) => setEditForm({ ...editForm, no_form_required: e.target.checked })} /> Cadastro de controle — não enviar formulário</label>
+              <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.is_renewal} onChange={(e) => setEditForm({ ...editForm, is_renewal: e.target.checked })} /> Processo de renovação sem entrevista</label>
               <textarea className="wide" placeholder="Observações internas" value={editForm.notes || ""} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
             </div>
             <button className="btn-primary" onClick={saveClientDetails} style={{ marginTop: 14 }}>Salvar alterações</button>

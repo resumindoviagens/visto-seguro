@@ -69,7 +69,7 @@ export async function POST(request) {
 
     const origin = siteOrigin(request);
     const formLink = `${origin}/acesso/${client.access_token}`;
-    const template = getEmailTemplate(template_id, client, { formLink, rastreio: body.rastreio || "" });
+    const template = getEmailTemplate(template_id, client, { formLink, rastreio: body.rastreio || client.passport_tracking_code || "" });
 
     const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, subject: template.subject, html: template.html, text: template.text });
 

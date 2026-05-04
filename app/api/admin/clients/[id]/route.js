@@ -21,6 +21,8 @@ export async function PATCH(request, context) {
   }
 
   if (body.action === "new_token") updates.access_token = createAccessToken();
+  if (body.action === "mark_completed") updates.is_completed = true;
+  if (body.action === "reopen") updates.is_completed = false;
 
   if (body.action === "update_details") {
     if (!body.name || !body.cpf || !body.birth_date) {
@@ -32,6 +34,9 @@ export async function PATCH(request, context) {
     updates.phone = body.phone || "";
     updates.email = body.email || "";
     updates.notes = body.notes || "";
+    updates.family_group = body.family_group || "";
+    updates.no_form_required = !!body.no_form_required;
+    updates.is_renewal = !!body.is_renewal;
   }
 
   if (body.action === "update_schedule") {
@@ -39,6 +44,8 @@ export async function PATCH(request, context) {
     updates.casv_date = body.casv_date || null;
     updates.video_call_date = body.video_call_date || null;
     updates.consulate_city = body.consulate_city || "";
+    updates.passport_tracking_code = body.passport_tracking_code || "";
+    updates.client_sedex_tracking = body.client_sedex_tracking || "";
   }
 
   updates.updated_at = new Date().toISOString();

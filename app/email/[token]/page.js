@@ -28,9 +28,9 @@ export default async function EmailModelPage({ params, searchParams }) {
 
   let selectedTemplate;
   try {
-    selectedTemplate = getEmailTemplate(templateId, client, { formLink });
+    selectedTemplate = getEmailTemplate(templateId, client, { formLink, rastreio: client.passport_tracking_code || "" });
   } catch (error) {
-    selectedTemplate = getEmailTemplate("formulario", client, { formLink });
+    selectedTemplate = getEmailTemplate("formulario", client, { formLink, rastreio: client.passport_tracking_code || "" });
   }
 
   return (

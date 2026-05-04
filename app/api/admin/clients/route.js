@@ -68,7 +68,11 @@ export async function POST(request) {
     notes: body.notes || "",
     access_token: accessToken,
     status: "not_started",
-    is_locked: false
+    is_locked: false,
+    is_completed: false,
+    family_group: "",
+    no_form_required: false,
+    is_renewal: false
   };
 
   // Estes campos dependem das colunas opcionais da V11. Se você ainda não executou o SQL,
