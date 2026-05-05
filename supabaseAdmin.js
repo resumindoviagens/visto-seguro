@@ -10,12 +10,11 @@ function siteOrigin(request) {
 
 function brevoConfig() {
   const apiKey = process.env.BREVO_API_KEY;
-  const fromEmail = process.env.EMAIL_FROM;
-  const fromName = process.env.EMAIL_FROM_NAME || "Resumindo Viagens";
-  const replyToEmail = process.env.EMAIL_REPLY_TO || fromEmail;
+  const fromEmail = process.env.SYSTEM_EMAIL_FROM || "alertas@resumindoviagens.com.br";
+  const fromName = process.env.SYSTEM_EMAIL_FROM_NAME || process.env.EMAIL_FROM_NAME || "Resumindo Viagens";
+  const replyToEmail = process.env.SYSTEM_EMAIL_REPLY_TO || process.env.EMAIL_REPLY_TO || "contato@resumindoviagens.com.br";
 
   if (!apiKey) throw new Error("Brevo não configurado. Configure BREVO_API_KEY nas variáveis de ambiente da Vercel.");
-  if (!fromEmail) throw new Error("Remetente não configurado. Configure EMAIL_FROM, por exemplo: contato@resumindoviagens.com.br.");
 
   return { apiKey, fromEmail, fromName, replyToEmail };
 }

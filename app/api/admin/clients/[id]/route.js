@@ -46,6 +46,10 @@ export async function PATCH(request, context) {
     updates.no_form_required = !!body.no_form_required;
     updates.is_renewal = !!body.is_renewal;
     updates.client_sedex_tracking = body.client_sedex_tracking || "";
+    updates.tipo_processo = body.tipo_processo || (body.is_renewal ? "Renovação" : (body.tipo_processo || ""));
+    updates.data_inicio_processo = body.data_inicio_processo || null;
+    updates.data_final_processo = body.data_final_processo || null;
+    updates.observacoes_gerais = body.observacoes_gerais || "";
   }
 
   if (body.action === "update_schedule") {
@@ -67,6 +71,9 @@ export async function PATCH(request, context) {
     updates.stage_interview_done = !!body.stage_interview_done;
     updates.visa_result = body.visa_result || null;
     updates.stage_passport_returned = !!body.stage_passport_returned;
+    if (updates.stage_passport_returned && !oldClient?.data_final_processo) {
+      updates.data_final_processo = new Date().toISOString().slice(0, 10);
+    }
   }
 
   updates.updated_at = new Date().toISOString();

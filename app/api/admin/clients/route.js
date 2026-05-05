@@ -84,7 +84,10 @@ export async function POST(request) {
     family_group: body.family_group || "",
     group_process_id: body.group_process_id || null,
     no_form_required: !!body.no_form_required,
-    is_renewal: !!body.is_renewal
+    is_renewal: !!body.is_renewal,
+    tipo_processo: body.tipo_processo || (body.is_renewal ? "Renovação" : "Primeiro visto"),
+    data_inicio_processo: body.data_inicio_processo || new Date().toISOString().slice(0, 10),
+    observacoes_gerais: body.observacoes_gerais || body.notes || ""
   };
 
   // Estes campos dependem das colunas opcionais da V11. Se você ainda não executou o SQL,

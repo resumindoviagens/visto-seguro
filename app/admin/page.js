@@ -353,6 +353,7 @@ function Dashboard({ loginWithPassword }) {
   const [activeMenu, setActiveMenu] = useState(null);
   const [groups, setGroups] = useState([]);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [processTab, setProcessTab] = useState("andamento");
   const [sortBy, setSortBy] = useState("created_desc");
   const [form, setForm] = useState({
@@ -364,7 +365,10 @@ function Dashboard({ loginWithPassword }) {
     notes: "",
     group_process_id: "",
     no_form_required: false,
-    is_renewal: false
+    is_renewal: false,
+    tipo_processo: "Primeiro visto",
+    data_inicio_processo: "",
+    observacoes_gerais: ""
   });
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://visto-seguro.vercel.app";
@@ -511,7 +515,7 @@ function Dashboard({ loginWithPassword }) {
       return;
     }
 
-    setForm({ name: "", cpf: "", birth_date: "", phone: "", email: "", notes: "", group_process_id: "", no_form_required: false, is_renewal: false });
+    setForm({ name: "", cpf: "", birth_date: "", phone: "", email: "", notes: "", group_process_id: "", no_form_required: false, is_renewal: false, tipo_processo: "Primeiro visto", data_inicio_processo: "", observacoes_gerais: "" });
     await loadClients();
   }
 
@@ -544,7 +548,11 @@ function Dashboard({ loginWithPassword }) {
       group_process_id: client.group_process_id || "",
       no_form_required: !!client.no_form_required,
       is_renewal: !!client.is_renewal,
-      client_sedex_tracking: client.client_sedex_tracking || ""
+      client_sedex_tracking: client.client_sedex_tracking || "",
+      tipo_processo: client.tipo_processo || (client.is_renewal ? "Renovação" : "Primeiro visto"),
+      data_inicio_processo: client.data_inicio_processo || "",
+      data_final_processo: client.data_final_processo || "",
+      observacoes_gerais: client.observacoes_gerais || ""
     });
   }
 
@@ -768,9 +776,9 @@ function Dashboard({ loginWithPassword }) {
         if (sortBy === "name") return (a.name || "").localeCompare(b.name || "", "pt-BR");
         if (sortBy === "created_asc") return createdValue(a) - createdValue(b);
         if (sortBy === "created_desc") return createdValue(b) - createdValue(a);
-        if (sortBy === "interview_date") return dateValue(a.interview_date) - dateValue(b.interview_date) || (a.name || "").localeCompare(b.name || "", "pt-BR");
-        if (sortBy === "casv_date") return dateValue(a.casv_date) - dateValue(b.casv_date) || (a.name || "").localeCompare(b.name || "", "pt-BR");
-        if (sortBy === "video_call_date") return dateValue(a.video_call_date) - dateValue(b.video_call_date) || (a.name || "").localeCompare(b.name || "", "pt-BR");
+        if (sortBy === "interview_date") return dateValue(processInfo(a).interview_date) - dateValue(processInfo(b).interview_date) || (a.name || "").localeCompare(b.name || "", "pt-BR");
+        if (sortBy === "casv_date") return dateValue(processInfo(a).casv_date) - dateValue(processInfo(b).casv_date) || (a.name || "").localeCompare(b.name || "", "pt-BR");
+        if (sortBy === "video_call_date") return dateValue(processInfo(a).video_call_date) - dateValue(processInfo(b).video_call_date) || (a.name || "").localeCompare(b.name || "", "pt-BR");
         if (sortBy === "family_group") {
           const groupA = (processInfo(a).groupName || "zzzz").toLowerCase();
           const groupB = (processInfo(b).groupName || "zzzz").toLowerCase();
@@ -793,11 +801,112 @@ function Dashboard({ loginWithPassword }) {
     return `Olá, ${client.name}! Seu formulário da Resumindo Viagens já está pronto para preenchimento.\n\nAcesse seu link único e exclusivo:\n${clientLink(client)}\n\nPor segurança, o acesso será validado com CPF e data de nascimento.\n\nSe outros membros da família também estiverem preenchendo formulário, cada pessoa deverá acessar o próprio link individual.`;
   }
 
+
+  function automaticProcessStatus(client) {
+    if (client.stage_passport_returned) return "Concluído";
+    if (client.visa_result === "approved") return "Visto aprovado";
+    if (client.visa_result === "denied") return "Visto negado";
+    if (client.stage_interview_done) return "Aguardando resultado";
+    if (client.stage_dates_scheduled) return "Agendado";
+    if (client.stage_fee_paid) return "Aguardando agendamento";
+    if (client.stage_fee_generated) return "Taxa gerada";
+    if (client.stage_ds160_completed || client.status === "submitted") return "DS-160 concluído";
+    if (client.status === "in_progress") return "Formulário em preenchimento";
+    return "Iniciado";
+  }
+
+  function currentStepLabel(client) {
+    if (client.stage_passport_returned) return "Visto/passaporte devolvido";
+    if (client.visa_result) return client.visa_result === "approved" ? "Visto aprovado" : "Visto negado";
+    if (client.stage_interview_done) return "Entrevista realizada";
+    if (client.stage_dates_scheduled) return "Datas agendadas";
+    if (client.stage_fee_paid) return "Taxa paga";
+    if (client.stage_fee_generated) return "Taxa gerada";
+    if (client.stage_ds160_completed || client.status === "submitted") return "DS-160 concluído";
+    if (client.status === "in_progress") return "Formulário iniciado";
+    return "Cadastro iniciado";
+  }
+
+  function processDurationDays(client) {
+    const start = client.data_inicio_processo || client.created_at?.slice(0, 10);
+    if (!start) return "";
+    const end = client.data_final_processo || new Date().toISOString().slice(0, 10);
+    const startTime = new Date(`${start}T00:00:00`).getTime();
+    const endTime = new Date(`${end}T00:00:00`).getTime();
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) return "";
+    return Math.max(0, Math.ceil((endTime - startTime) / (1000 * 60 * 60 * 24)));
+  }
+
+  function reportRows() {
+    return filteredClients.map((client) => {
+      const info = processInfo(client);
+      return {
+        nome: client.name || "",
+        cpf: client.cpf || "",
+        grupo: info.groupName || "",
+        tipo: client.tipo_processo || (client.is_renewal ? "Renovação" : "Primeiro visto"),
+        status: automaticProcessStatus(client),
+        etapa: currentStepLabel(client),
+        inicio: formatDateBR(client.data_inicio_processo || client.created_at?.slice(0, 10)) || "",
+        casv: formatDateBR(info.casv_date) || "",
+        entrevista: formatDateBR(info.interview_date) || "",
+        video: formatDateBR(info.video_call_date) || "",
+        consulado: info.consulate_city || "",
+        rastreio: info.passport_tracking_code || "",
+        dias: processDurationDays(client),
+        progresso: `${processStepCount(client)}/7`,
+        resultado: client.visa_result === "approved" ? "Aprovado" : client.visa_result === "denied" ? "Negado" : "",
+        observacoes: client.observacoes_gerais || client.notes || ""
+      };
+    });
+  }
+
+  function reportKpis() {
+    const rows = reportRows();
+    return {
+      total: rows.length,
+      andamento: rows.filter((row) => !["Concluído", "Visto aprovado", "Visto negado"].includes(row.status)).length,
+      concluidos: rows.filter((row) => row.status === "Concluído" || row.status === "Visto aprovado" || row.status === "Visto negado").length,
+      aprovados: rows.filter((row) => row.resultado === "Aprovado").length,
+      negados: rows.filter((row) => row.resultado === "Negado").length
+    };
+  }
+
+  function csvEscape(value) {
+    const text = String(value ?? "");
+    return `"${text.replaceAll('"', '""')}"`;
+  }
+
+  function exportReportCsv() {
+    const headers = [
+      "NOME", "CPF", "GRUPO DE PROCESSO", "TIPO", "STATUS ATUAL", "ETAPA ATUAL", "DATA INÍCIO", "DATA CASV", "DATA ENTREVISTA", "DATA VIDEOCHAMADA", "CIDADE CONSULADO", "RASTREIO PASSAPORTE", "DIAS DE PROCESSO", "PROGRESSO", "RESULTADO", "OBSERVAÇÕES",
+      "COM ENTREVISTA?", "PGTO SERVIÇO", "ENVIO DE DOCS", "PASSAPORTE VÁLIDO EMITIDO", "DATA VALIDADE PASSAPORTE", "DS160 PREENCHIDO", "TAXA PAGA", "ENTREVISTA / ENTREGA PASSAPORTES AGENDADA", "ENTREGA / VISITA CASV AGENDADO", "CHAMADA DE VÍDEO", "ENTREVISTA REALIZADA", "APROVADO", "MODO RETIRADA OU CORREIOS", "SERVIÇO RETIRADA PAGO?", "ENVIO / RETIRADA PASSAPORTES", "ENTREGA DEFINITIVA", "VALIDADE VISTO", "VISTO CANADENSE OFERECIDO", "VISTO CANADENSE CONTRATADO E PAGO", "VISTO CANADENSE EMITIDO", "VALIDADE VISTO CANADENSE"
+    ];
+    const rows = filteredClients.map((client) => {
+      const info = processInfo(client);
+      const base = reportRows().find((row) => row.cpf === (client.cpf || "") && row.nome === (client.name || "")) || {};
+      return [
+        base.nome, base.cpf, base.grupo, base.tipo, base.status, base.etapa, base.inicio, base.casv, base.entrevista, base.video, base.consulado, base.rastreio, base.dias, base.progresso, base.resultado, base.observacoes,
+        client.is_renewal ? "NÃO" : "SIM", "", "", "", "", (client.stage_ds160_completed || client.status === "submitted") ? "X" : "", client.stage_fee_paid ? "X" : "", info.interview_date ? "X" : "", info.casv_date ? "X" : "", info.video_call_date ? "X" : "", client.stage_interview_done ? "X" : "", client.visa_result === "approved" ? "X" : client.visa_result === "denied" ? "NEGADO" : "", "", "", info.passport_tracking_code ? "X" : "", client.stage_passport_returned ? "X" : "", "", "", "", "", ""
+      ];
+    });
+    const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(";")).join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `relatorio-resumindo-viagens-${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <main style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div className="version-badge">v21 — alertas por email, termômetro e remetente alertas@ ativos</div>
+        <div className="version-badge">v22 — relatórios, exportação e alertas por email ativos</div>
       </div>
 
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
@@ -809,6 +918,8 @@ function Dashboard({ loginWithPassword }) {
           <label className="admin-field-label"><span>Data de nascimento</span><input type="date" value={form.birth_date} onChange={(e) => setForm({ ...form, birth_date: e.target.value })} /></label>
           <input placeholder="Celular" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input placeholder="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <label className="admin-field-label"><span>Tipo de processo</span><select value={form.tipo_processo} onChange={(e) => setForm({ ...form, tipo_processo: e.target.value })}><option value="Primeiro visto">Primeiro visto</option><option value="Renovação">Renovação</option><option value="Passaporte">Passaporte</option><option value="Canadá">Canadá</option><option value="Outro">Outro</option></select></label>
+          <label className="admin-field-label"><span>Data de início do processo</span><input type="date" value={form.data_inicio_processo} onChange={(e) => setForm({ ...form, data_inicio_processo: e.target.value })} /></label>
           <label className="admin-field-label"><span>Grupo de processo</span><select value={form.group_process_id} onChange={(e) => setForm({ ...form, group_process_id: e.target.value })}><option value="">Sem grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.nome}</option>)}</select></label>
           <button type="button" className="btn-light" onClick={createProcessGroup}>+ Criar grupo de processo</button>
           <textarea className="wide" placeholder="Observações internas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
@@ -829,6 +940,7 @@ function Dashboard({ loginWithPassword }) {
 
         <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
           <button className="btn-primary" onClick={() => setAlertsOpen(true)}>Ver alertas</button>
+          <button className="btn-light" onClick={() => setReportOpen(true)}>Relatórios</button>
           <input placeholder="Buscar por nome, CPF, e-mail ou grupo de processo" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="all">Todos os status</option>
@@ -999,11 +1111,15 @@ function Dashboard({ loginWithPassword }) {
               <label className="admin-field-label"><span>Data de nascimento</span><input type="date" value={editForm.birth_date || ""} onChange={(e) => setEditForm({ ...editForm, birth_date: e.target.value })} /></label>
               <input placeholder="Celular" value={editForm.phone || ""} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
               <input placeholder="E-mail" type="email" value={editForm.email || ""} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+              <label className="admin-field-label"><span>Tipo de processo</span><select value={editForm.tipo_processo || "Primeiro visto"} onChange={(e) => setEditForm({ ...editForm, tipo_processo: e.target.value })}><option value="Primeiro visto">Primeiro visto</option><option value="Renovação">Renovação</option><option value="Passaporte">Passaporte</option><option value="Canadá">Canadá</option><option value="Outro">Outro</option></select></label>
+              <label className="admin-field-label"><span>Data de início do processo</span><input type="date" value={editForm.data_inicio_processo || ""} onChange={(e) => setEditForm({ ...editForm, data_inicio_processo: e.target.value })} /></label>
+              <label className="admin-field-label"><span>Data final do processo</span><input type="date" value={editForm.data_final_processo || ""} onChange={(e) => setEditForm({ ...editForm, data_final_processo: e.target.value })} /></label>
               <label className="admin-field-label"><span>Grupo de processo</span><select value={editForm.group_process_id || ""} onChange={(e) => setEditForm({ ...editForm, group_process_id: e.target.value })}><option value="">Sem grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.nome}</option>)}</select></label>
               <button type="button" className="btn-light" onClick={createProcessGroup}>+ Criar grupo de processo</button>
               <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.no_form_required} onChange={(e) => setEditForm({ ...editForm, no_form_required: e.target.checked })} /> Cadastro de controle — não enviar formulário</label>
               <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.is_renewal} onChange={(e) => setEditForm({ ...editForm, is_renewal: e.target.checked })} /> Processo de renovação sem entrevista</label>
               {editForm.is_renewal && <input className="wide" placeholder="Rastreio Sedex enviado pelo cliente para a Resumindo" value={editForm.client_sedex_tracking || ""} onChange={(e) => setEditForm({ ...editForm, client_sedex_tracking: e.target.value })} />}
+              <textarea className="wide" placeholder="Observações gerais para relatórios" value={editForm.observacoes_gerais || ""} onChange={(e) => setEditForm({ ...editForm, observacoes_gerais: e.target.value })} />
               <textarea className="wide" placeholder="Observações internas" value={editForm.notes || ""} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} />
             </div>
             <button className="btn-primary" onClick={saveClientDetails} style={{ marginTop: 14 }}>Salvar alterações</button>
@@ -1012,6 +1128,38 @@ function Dashboard({ loginWithPassword }) {
       )}
 
 
+
+
+
+      {reportOpen && (
+        <div className="modal-backdrop" onClick={() => setReportOpen(false)}>
+          <div className="modal-card report-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 1180 }}>
+            <button className="popup-close" onClick={() => setReportOpen(false)}>×</button>
+            <h2 style={{ marginTop: 0 }}>Relatório geral</h2>
+            <p style={{ color: "var(--muted)" }}>Relatório operacional baseado nos clientes atualmente exibidos pelos filtros e pela aba selecionada.</p>
+            <div className="report-kpis">
+              <div><strong>{reportKpis().total}</strong><span>Total</span></div>
+              <div><strong>{reportKpis().andamento}</strong><span>Em andamento</span></div>
+              <div><strong>{reportKpis().concluidos}</strong><span>Concluídos</span></div>
+              <div><strong>{reportKpis().aprovados}</strong><span>Aprovados</span></div>
+              <div><strong>{reportKpis().negados}</strong><span>Negados</span></div>
+            </div>
+            <button className="btn-primary" onClick={exportReportCsv} style={{ margin: "12px 0" }}>Exportar relatório CSV/Excel</button>
+            <div style={{ overflowX: "auto", maxHeight: "65vh" }}>
+              <table width="100%" cellPadding="8" style={{ borderCollapse: "collapse", fontSize: 13 }}>
+                <thead><tr style={{ background: "#f1f5f9" }}><th align="left">Nome</th><th align="left">Grupo</th><th align="left">Tipo</th><th align="left">Status</th><th align="left">Etapa</th><th align="left">Início</th><th align="left">CASV</th><th align="left">Entrevista</th><th align="left">Progresso</th><th align="left">Dias</th></tr></thead>
+                <tbody>
+                  {reportRows().map((row, index) => (
+                    <tr key={`${row.cpf}-${index}`} style={{ borderTop: "1px solid #e5e7eb" }}>
+                      <td>{row.nome}</td><td>{row.grupo || "-"}</td><td>{row.tipo}</td><td>{row.status}</td><td>{row.etapa}</td><td>{row.inicio || "-"}</td><td>{row.casv || "-"}</td><td>{row.entrevista || "-"}</td><td>{row.progresso}</td><td>{row.dias}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {alertsOpen && (
         <div className="modal-backdrop" onClick={() => setAlertsOpen(false)}>

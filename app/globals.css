@@ -771,3 +771,30 @@ button:disabled {
   background: #ff9900;
   border-color: #ff9900;
 }
+
+/* v22 - relatórios */
+.report-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+.report-kpis div {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px;
+  background: #f8fafc;
+}
+.report-kpis strong {
+  display: block;
+  font-size: 28px;
+  color: #1f2a60;
+}
+.report-kpis span {
+  color: #64748b;
+  font-weight: 700;
+  font-size: 13px;
+}
+.report-modal table th {
+  color: #1f2a60;
+}
