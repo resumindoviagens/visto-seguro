@@ -77,7 +77,10 @@ function actionLabel(action) {
     reopen: "Processo reaberto",
     update_tracking: "Rastreio atualizado",
     update_process: "Processo atualizado",
-    client_sedex_tracking_sent: "Rastreio Sedex informado pelo cliente"
+    client_sedex_tracking_sent: "Rastreio Sedex informado pelo cliente",
+    internal_email_sent: "Alerta interno enviado",
+    internal_email_failed: "Falha no alerta interno",
+    update_process_steps: "Etapas do processo atualizadas"
   };
   return labels[action] || action;
 }
@@ -650,6 +653,60 @@ function Dashboard({ loginWithPassword }) {
     return alerts;
   }
 
+  const PROCESS_STEPS = [
+    ["stage_ds160_completed", "DS-160 preenchido e concluído"],
+    ["stage_fee_generated", "Taxa gerada"],
+    ["stage_fee_paid", "Taxa paga"],
+    ["stage_dates_scheduled", "Datas agendadas"],
+    ["stage_interview_done", "Entrevista realizada"],
+    ["visa_result", "Visto aprovado ou negado"],
+    ["stage_passport_returned", "Visto/passaporte devolvido"]
+  ];
+
+  function processStepCount(client) {
+    return PROCESS_STEPS.reduce((total, [key]) => {
+      if (key === "visa_result") return total + (client.visa_result ? 1 : 0);
+      return total + (client[key] ? 1 : 0);
+    }, 0);
+  }
+
+  function Thermometer({ client }) {
+    const count = processStepCount(client);
+    return (
+      <div className="process-thermometer" title={`${count}/7 etapas concluídas`}>
+        <div className="thermo-label">Processo: {count}/7</div>
+        <div className="thermo-bars">
+          {PROCESS_STEPS.map(([key], index) => (
+            <span key={key} className={index < count ? "filled" : ""}></span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  async function updateProcessSteps(client, fields) {
+    const res = await fetch(`/api/admin/clients/${client.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "update_process_steps",
+        stage_ds160_completed: fields.stage_ds160_completed ?? !!client.stage_ds160_completed,
+        stage_fee_generated: fields.stage_fee_generated ?? !!client.stage_fee_generated,
+        stage_fee_paid: fields.stage_fee_paid ?? !!client.stage_fee_paid,
+        stage_dates_scheduled: fields.stage_dates_scheduled ?? !!client.stage_dates_scheduled,
+        stage_interview_done: fields.stage_interview_done ?? !!client.stage_interview_done,
+        visa_result: fields.visa_result ?? client.visa_result ?? "",
+        stage_passport_returned: fields.stage_passport_returned ?? !!client.stage_passport_returned
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao atualizar etapas do processo. Confira se o SQL da v21 foi executado.");
+      return;
+    }
+    await loadClients();
+  }
+
   async function deleteClient(id) {
     const pass = prompt("Digite a senha do sistema para excluir este cliente:");
     if (!pass) return;
@@ -740,7 +797,7 @@ function Dashboard({ loginWithPassword }) {
     <main style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div className="version-badge">v20 — grupos de processo, alertas individuais e email interno ativo</div>
+        <div className="version-badge">v21 — alertas por email, termômetro e remetente alertas@ ativos</div>
       </div>
 
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
@@ -815,6 +872,7 @@ function Dashboard({ loginWithPassword }) {
                   <small>Videochamada: {formatDateBR(processInfo(client).video_call_date) || "-"}</small><br />
                   <small>Grupo de processo: {processInfo(client).groupName || "-"}</small><br />
                   <small><b>Rastreio passaporte:</b> {processInfo(client).passport_tracking_code || "-"}</small>
+                  <Thermometer client={client} />
                   {client.client_sedex_tracking && <><br /><small>Sedex cliente: {client.client_sedex_tracking}</small></>}
                   {client.is_renewal && <div className="admin-renewal-alert">Renovação sem entrevista</div>}
                   {client.no_form_required && <div className="admin-renewal-alert muted">Cadastro de controle — sem formulário ao cliente</div>}
@@ -863,6 +921,22 @@ function Dashboard({ loginWithPassword }) {
                         {processInfo(client).passport_tracking_code && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><a className="btn-light" href={correiosUrl(processInfo(client).passport_tracking_code)} target="_blank">Abrir rastreio nos Correios</a><button className="btn-light" onClick={() => copyText(processInfo(client).passport_tracking_code, "Código de rastreio copiado.")}>Copiar código</button></div>}
 
                         <p style={{ margin: "8px 0 0", color: "var(--muted)", fontSize: 12 }}>Renovação sem entrevista e rastreio Sedex enviado pelo cliente ficam em <strong>Editar dados</strong>.</p>
+                      </div>
+                    )}
+
+                    <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `steps-${client.id}` ? null : `steps-${client.id}`)}>Etapas do processo</button>
+                    {activeMenu === `steps-${client.id}` && (
+                      <div className="admin-email-options process-panel" style={{ minWidth: 420 }}>
+                        <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
+                        <h3 style={{ margin: "0 0 8px", color: "var(--navy)" }}>Etapas do processo</h3>
+                        <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13 }}>Marque cada etapa concluída para acompanhar o andamento.</p>
+                        <label className="admin-checkbox"><input type="checkbox" checked={!!client.stage_ds160_completed} onChange={(e) => updateProcessSteps(client, { stage_ds160_completed: e.target.checked })} /> DS-160 preenchido e concluído</label>
+                        <label className="admin-checkbox"><input type="checkbox" checked={!!client.stage_fee_generated} onChange={(e) => updateProcessSteps(client, { stage_fee_generated: e.target.checked })} /> Taxa gerada</label>
+                        <label className="admin-checkbox"><input type="checkbox" checked={!!client.stage_fee_paid} onChange={(e) => updateProcessSteps(client, { stage_fee_paid: e.target.checked })} /> Taxa paga</label>
+                        <label className="admin-checkbox"><input type="checkbox" checked={!!client.stage_dates_scheduled} onChange={(e) => updateProcessSteps(client, { stage_dates_scheduled: e.target.checked })} /> Datas agendadas</label>
+                        <label className="admin-checkbox"><input type="checkbox" checked={!!client.stage_interview_done} onChange={(e) => updateProcessSteps(client, { stage_interview_done: e.target.checked })} /> Entrevista realizada</label>
+                        <label><small>Resultado do visto</small><select value={client.visa_result || ""} onChange={(e) => updateProcessSteps(client, { visa_result: e.target.value })}><option value="">Ainda sem resultado</option><option value="approved">Visto aprovado</option><option value="denied">Visto negado</option></select></label>
+                        <label className="admin-checkbox"><input type="checkbox" checked={!!client.stage_passport_returned} onChange={(e) => updateProcessSteps(client, { stage_passport_returned: e.target.checked })} /> Visto/passaporte devolvido</label>
                       </div>
                     )}
 

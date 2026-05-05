@@ -743,3 +743,31 @@ button:disabled {
   font-weight: 800;
   font-size: 13px;
 }
+
+/* v21 - termômetro de etapas */
+.process-thermometer {
+  margin: 10px 0 6px;
+  max-width: 240px;
+}
+.thermo-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f2a60;
+  margin-bottom: 4px;
+}
+.thermo-bars {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.thermo-bars span {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  border: 1px solid #d1d5db;
+}
+.thermo-bars span.filled {
+  background: #ff9900;
+  border-color: #ff9900;
+}

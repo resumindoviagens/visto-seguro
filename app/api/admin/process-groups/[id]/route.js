@@ -1,11 +1,18 @@
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../../lib/auth";
+import { sendInternalAlert, simpleHtml } from "../../../../../lib/brevoEmail";
 
 export async function PATCH(request, context) {
   const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
   const params = await context.params;
   const body = await request.json();
+
+  const { data: oldGroup } = await supabaseAdmin
+    .from("grupos_processo")
+    .select("*")
+    .eq("id", params.id)
+    .maybeSingle();
 
   const updates = {
     nome: body.nome,
@@ -26,6 +33,24 @@ export async function PATCH(request, context) {
     .single();
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
+
+  if (updates.video_call_date && updates.video_call_date !== oldGroup?.video_call_date) {
+    try {
+      await sendInternalAlert({
+        subject: `Videochamada agendada — ${data.nome}`,
+        html: simpleHtml(`Videochamada agendada — ${data.nome}`, [
+          `Foi informada/alterada a data de videochamada do grupo de processo <strong>${data.nome}</strong>.`,
+          `<strong>Data da videochamada:</strong> ${updates.video_call_date}`,
+          data.consulate_city ? `<strong>Consulado:</strong> ${data.consulate_city}` : ""
+        ].filter(Boolean)),
+        text: `Videochamada agendada para ${data.nome}: ${updates.video_call_date}`,
+        tags: ["resumindo-viagens", "alerta-videochamada"]
+      });
+    } catch (emailError) {
+      // Não bloqueia o salvamento da data se o email falhar.
+    }
+  }
+
   return Response.json({ group: data });
 }
 

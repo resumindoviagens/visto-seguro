@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
-import { sendWithBrevo, simpleHtml } from "../../../../lib/brevoEmail";
+import { sendInternalAlert, simpleHtml } from "../../../../lib/brevoEmail";
 
 function daysUntil(dateValue) {
   if (!dateValue) return null;
@@ -61,11 +61,8 @@ export async function GET(request) {
     if (client.is_renewal && !client.client_sedex_tracking) alerts.push(`Cliente: ${client.name} — renovação sem rastreio Sedex informado`);
   }
 
-  const toEmail = process.env.ALERT_EMAIL_TO || process.env.EMAIL_FROM || "contato@resumindoviagens.com.br";
   if (alerts.length > 0) {
-    await sendWithBrevo({
-      toEmail,
-      toName: "Resumindo Viagens",
+    await sendInternalAlert({
       subject: "Alertas do dia — Resumindo Viagens",
       html: simpleHtml("Alertas do dia — Resumindo Viagens", alerts.map((item) => `• ${item}`)),
       text: alerts.join("\n"),

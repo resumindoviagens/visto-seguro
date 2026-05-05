@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { hasClientAccess } from "../../../../lib/clientAuth";
+import { sendInternalAlert, simpleHtml } from "../../../../lib/brevoEmail";
 
 async function getClientByToken(token) {
   const { data: client, error } = await supabaseAdmin
@@ -38,8 +39,24 @@ export async function GET(request, context) {
     response = inserted.data;
   }
 
-  if (client.status === "not_started") {
+  const startedNow = client.status === "not_started";
+  if (startedNow) {
     await supabaseAdmin.from("clients").update({ status: "in_progress", updated_at: new Date().toISOString() }).eq("id", client.id);
+    try {
+      await sendInternalAlert({
+        subject: `Formulário iniciado — ${client.name}`,
+        html: simpleHtml(`Formulário iniciado — ${client.name}`, [
+          `O cliente <strong>${client.name}</strong> iniciou o preenchimento do formulário.`,
+          `<strong>CPF:</strong> ${client.cpf || "-"}<br /><strong>Data de nascimento:</strong> ${client.birth_date || "-"}<br /><strong>E-mail:</strong> ${client.email || "-"}<br /><strong>Telefone:</strong> ${client.phone || "-"}`,
+          `Acompanhe pelo admin quando necessário.`
+        ]),
+        text: `O cliente ${client.name} iniciou o preenchimento do formulário.`,
+        tags: ["resumindo-viagens", "alerta-formulario-iniciado"]
+      });
+      await supabaseAdmin.from("audit_logs").insert({ client_id: client.id, action: "internal_email_sent", details: { tipo: "formulario_iniciado" } });
+    } catch (emailError) {
+      await supabaseAdmin.from("audit_logs").insert({ client_id: client.id, action: "internal_email_failed", details: { tipo: "formulario_iniciado", error: emailError.message } });
+    }
   }
 
   await supabaseAdmin.from("audit_logs").insert({

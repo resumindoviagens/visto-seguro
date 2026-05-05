@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../../lib/auth";
 import { createAccessToken } from "../../../../../lib/tokens";
+import { sendInternalAlert, simpleHtml } from "../../../../../lib/brevoEmail";
 
 function cleanCPF(value) {
   return (value || "").replace(/\D/g, "");
@@ -13,6 +14,12 @@ export async function PATCH(request, context) {
 
   const body = await request.json();
   const updates = {};
+
+  const { data: oldClient } = await supabaseAdmin
+    .from("clients")
+    .select("*")
+    .eq("id", params.id)
+    .maybeSingle();
 
   if (body.action === "unlock") {
     updates.is_locked = false;
@@ -52,6 +59,16 @@ export async function PATCH(request, context) {
     if (typeof body.is_renewal !== "undefined") updates.is_renewal = !!body.is_renewal;
   }
 
+  if (body.action === "update_process_steps") {
+    updates.stage_ds160_completed = !!body.stage_ds160_completed;
+    updates.stage_fee_generated = !!body.stage_fee_generated;
+    updates.stage_fee_paid = !!body.stage_fee_paid;
+    updates.stage_dates_scheduled = !!body.stage_dates_scheduled;
+    updates.stage_interview_done = !!body.stage_interview_done;
+    updates.visa_result = body.visa_result || null;
+    updates.stage_passport_returned = !!body.stage_passport_returned;
+  }
+
   updates.updated_at = new Date().toISOString();
 
   const { data, error } = await supabaseAdmin
@@ -68,6 +85,24 @@ export async function PATCH(request, context) {
     action: body.action || "client_updated",
     details: updates
   });
+
+  if (body.action === "update_schedule" && updates.video_call_date && updates.video_call_date !== oldClient?.video_call_date) {
+    try {
+      await sendInternalAlert({
+        subject: `Videochamada agendada — ${data.name}`,
+        html: simpleHtml(`Videochamada agendada — ${data.name}`, [
+          `Foi informada/alterada a data de videochamada do cliente <strong>${data.name}</strong>.`,
+          `<strong>Data da videochamada:</strong> ${updates.video_call_date}`,
+          `<strong>CPF:</strong> ${data.cpf || "-"}<br /><strong>E-mail:</strong> ${data.email || "-"}<br /><strong>Telefone:</strong> ${data.phone || "-"}`
+        ]),
+        text: `Videochamada agendada para ${data.name}: ${updates.video_call_date}`,
+        tags: ["resumindo-viagens", "alerta-videochamada"]
+      });
+      await supabaseAdmin.from("audit_logs").insert({ client_id: params.id, action: "internal_email_sent", details: { tipo: "videochamada", video_call_date: updates.video_call_date } });
+    } catch (emailError) {
+      await supabaseAdmin.from("audit_logs").insert({ client_id: params.id, action: "internal_email_failed", details: { tipo: "videochamada", error: emailError.message } });
+    }
+  }
 
   return Response.json({ client: data });
 }
