@@ -348,6 +348,8 @@ function Dashboard({ loginWithPassword }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeMenu, setActiveMenu] = useState(null);
+  const [groups, setGroups] = useState([]);
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const [processTab, setProcessTab] = useState("andamento");
   const [sortBy, setSortBy] = useState("created_desc");
   const [form, setForm] = useState({
@@ -357,7 +359,7 @@ function Dashboard({ loginWithPassword }) {
     phone: "",
     email: "",
     notes: "",
-    family_group: "",
+    group_process_id: "",
     no_form_required: false,
     is_renewal: false
   });
@@ -372,6 +374,101 @@ function Dashboard({ loginWithPassword }) {
       return;
     }
     setClients(data.clients || []);
+  }
+
+
+  async function loadGroups() {
+    const res = await fetch("/api/admin/process-groups");
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao carregar grupos de processo.");
+      return;
+    }
+    setGroups(data.groups || []);
+  }
+
+  async function createProcessGroup() {
+    const nome = prompt("Nome do grupo de processo (ex.: Família Silva — entrevista filhos):");
+    if (!nome) return;
+    const res = await fetch("/api/admin/process-groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nome })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao criar grupo de processo.");
+      return;
+    }
+    await loadGroups();
+    setForm((current) => ({ ...current, group_process_id: data.group?.id || "" }));
+  }
+
+  function groupById(id) {
+    return groups.find((group) => group.id === id) || null;
+  }
+
+  function processInfo(client) {
+    const group = client.process_group || groupById(client.group_process_id);
+    return {
+      group,
+      groupName: group?.nome || client.family_group || "",
+      consulate_city: group?.consulate_city || client.consulate_city || "",
+      casv_date: group?.casv_date || client.casv_date || "",
+      interview_date: group?.interview_date || client.interview_date || "",
+      video_call_date: group?.video_call_date || client.video_call_date || "",
+      passport_tracking_code: group?.passport_tracking_code || client.passport_tracking_code || ""
+    };
+  }
+
+  async function updateProcessSchedule(client, fields) {
+    const info = processInfo(client);
+    if (client.group_process_id) {
+      const res = await fetch(`/api/admin/process-groups/${client.group_process_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          consulate_city: fields.consulate_city ?? info.consulate_city ?? "",
+          casv_date: fields.casv_date ?? info.casv_date ?? "",
+          interview_date: fields.interview_date ?? info.interview_date ?? "",
+          video_call_date: fields.video_call_date ?? info.video_call_date ?? "",
+          passport_tracking_code: fields.passport_tracking_code ?? info.passport_tracking_code ?? ""
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Erro ao salvar grupo de processo."); return; }
+      await loadGroups();
+      await loadClients();
+      return;
+    }
+    await updateClientSchedule(client, fields);
+  }
+
+  function buildGlobalAlerts() {
+    const alerts = [];
+    const addedGroups = new Set();
+    clients.forEach((client) => {
+      const info = processInfo(client);
+      const label = info.group ? info.groupName : client.name;
+      const target = info.group ? `Grupo: ${label}` : `Cliente: ${label}`;
+      if (info.group && addedGroups.has(info.group.id)) return;
+      if (info.group) addedGroups.add(info.group.id);
+      const base = { label: target, clientName: client.name, groupName: info.groupName };
+      const interviewDays = daysUntil(info.interview_date);
+      const videoDays = daysUntil(info.video_call_date);
+      const casvDays = daysUntil(info.casv_date);
+      if (interviewDays !== null && interviewDays >= 0 && interviewDays <= 7) alerts.push({ ...base, text: `Entrevista em ${interviewDays === 0 ? "hoje" : `${interviewDays} dia(s)`}${info.consulate_city ? ` — ${info.consulate_city}` : ""}` });
+      if (casvDays !== null && casvDays >= 0 && casvDays <= 3) alerts.push({ ...base, text: `CASV em ${casvDays === 0 ? "hoje" : `${casvDays} dia(s)`}` });
+      if (videoDays !== null && videoDays >= 0 && videoDays <= 2) alerts.push({ ...base, text: `Videochamada em ${videoDays === 0 ? "hoje" : `${videoDays} dia(s)`}` });
+    });
+    clients.forEach((client) => {
+      const formStarted = client.status === "in_progress";
+      const formSubmitted = client.status === "submitted";
+      if (formStarted) alerts.push({ label: `Cliente: ${client.name}`, text: "Formulário iniciado" });
+      if (formSubmitted) alerts.push({ label: `Cliente: ${client.name}`, text: "Formulário concluído" });
+      if (client.is_renewal && !client.client_sedex_tracking) alerts.push({ label: `Cliente: ${client.name}`, text: "Renovação sem rastreio Sedex informado" });
+    });
+    return alerts;
   }
 
   async function loadLogs(client) {
@@ -394,6 +491,7 @@ function Dashboard({ loginWithPassword }) {
 
   useEffect(() => {
     loadClients();
+    loadGroups();
   }, []);
 
   async function createClient() {
@@ -410,7 +508,7 @@ function Dashboard({ loginWithPassword }) {
       return;
     }
 
-    setForm({ name: "", cpf: "", birth_date: "", phone: "", email: "", notes: "", family_group: "", no_form_required: false, is_renewal: false });
+    setForm({ name: "", cpf: "", birth_date: "", phone: "", email: "", notes: "", group_process_id: "", no_form_required: false, is_renewal: false });
     await loadClients();
   }
 
@@ -440,7 +538,7 @@ function Dashboard({ loginWithPassword }) {
       phone: client.phone || "",
       email: client.email || "",
       notes: client.notes || "",
-      family_group: client.family_group || "",
+      group_process_id: client.group_process_id || "",
       no_form_required: !!client.no_form_required,
       is_renewal: !!client.is_renewal,
       client_sedex_tracking: client.client_sedex_tracking || ""
@@ -479,8 +577,8 @@ function Dashboard({ loginWithPassword }) {
       return;
     }
 
-    if (templateId === "rastreio" && !client.passport_tracking_code) {
-      alert("Informe o código de rastreio em Datas e alertas antes de enviar o Email 09.");
+    if (templateId === "rastreio" && !processInfo(client).passport_tracking_code) {
+      alert("Informe o código de rastreio em Processo, datas e rastreios antes de enviar o Email 09.");
       return;
     }
 
@@ -538,12 +636,13 @@ function Dashboard({ loginWithPassword }) {
 
   function scheduleAlerts(client) {
     const alerts = [];
-    const interviewDays = daysUntil(client.interview_date);
-    const videoDays = daysUntil(client.video_call_date);
-    const casvDays = daysUntil(client.casv_date);
+    const info = processInfo(client);
+    const interviewDays = daysUntil(info.interview_date);
+    const videoDays = daysUntil(info.video_call_date);
+    const casvDays = daysUntil(info.casv_date);
 
-    if (interviewDays !== null && interviewDays >= 0 && interviewDays <= 2) alerts.push({ level: "danger", text: `Entrevista em ${interviewDays === 0 ? "hoje" : `${interviewDays} dia(s)`}${client.consulate_city ? ` — ${client.consulate_city}` : ""}` });
-    else if (interviewDays !== null && interviewDays > 2 && interviewDays <= 7) alerts.push({ level: "warning", text: `Entrevista em ${interviewDays} dias${client.consulate_city ? ` — ${client.consulate_city}` : ""}` });
+    if (interviewDays !== null && interviewDays >= 0 && interviewDays <= 2) alerts.push({ level: "danger", text: `Entrevista em ${interviewDays === 0 ? "hoje" : `${interviewDays} dia(s)`}${info.consulate_city ? ` — ${info.consulate_city}` : ""}` });
+    else if (interviewDays !== null && interviewDays > 2 && interviewDays <= 7) alerts.push({ level: "warning", text: `Entrevista em ${interviewDays} dias${info.consulate_city ? ` — ${info.consulate_city}` : ""}` });
 
     if (casvDays !== null && casvDays >= 0 && casvDays <= 3) alerts.push({ level: "info", text: `CASV em ${casvDays === 0 ? "hoje" : `${casvDays} dia(s)`}` });
     if (videoDays !== null && videoDays >= 0 && videoDays <= 2) alerts.push({ level: "info", text: `Videochamada em ${videoDays === 0 ? "hoje" : `${videoDays} dia(s)`}` });
@@ -597,9 +696,9 @@ function Dashboard({ loginWithPassword }) {
           client.cpf,
           client.email,
           client.phone,
-          client.family_group,
-          client.consulate_city,
-          client.passport_tracking_code,
+          processInfo(client).groupName,
+          processInfo(client).consulate_city,
+          processInfo(client).passport_tracking_code,
           client.client_sedex_tracking
         ].filter(Boolean).join(" ").toLowerCase();
 
@@ -616,13 +715,13 @@ function Dashboard({ loginWithPassword }) {
         if (sortBy === "casv_date") return dateValue(a.casv_date) - dateValue(b.casv_date) || (a.name || "").localeCompare(b.name || "", "pt-BR");
         if (sortBy === "video_call_date") return dateValue(a.video_call_date) - dateValue(b.video_call_date) || (a.name || "").localeCompare(b.name || "", "pt-BR");
         if (sortBy === "family_group") {
-          const groupA = (a.family_group || "zzzz").toLowerCase();
-          const groupB = (b.family_group || "zzzz").toLowerCase();
+          const groupA = (processInfo(a).groupName || "zzzz").toLowerCase();
+          const groupB = (processInfo(b).groupName || "zzzz").toLowerCase();
           if (groupA !== groupB) return groupA.localeCompare(groupB, "pt-BR");
         }
         return (a.name || "").localeCompare(b.name || "", "pt-BR");
       });
-  }, [clients, search, statusFilter, processTab, sortBy]);
+  }, [clients, groups, search, statusFilter, processTab, sortBy]);
 
   function clientLink(client) {
     return `${origin}/acesso/${client.access_token}`;
@@ -641,24 +740,7 @@ function Dashboard({ loginWithPassword }) {
     <main style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div className="version-badge">v18 — ajustes finais: cadastro, rastreio, ordenação, PDF manual e favicon ativo</div>
-      </div>
-
-      <div className="card" style={{ padding: 22, marginBottom: 22 }}>
-        <h2>Mensagens WhatsApp (copiar)</h2>
-        <p style={{ color: "var(--muted)", marginTop: 0 }}>
-          Mensagens gerais, não personalizadas por cliente. Clique para copiar e colar no WhatsApp.
-        </p>
-        <details className="admin-email-menu">
-          <summary className="btn-primary">Abrir mensagens WhatsApp</summary>
-          <div className="admin-email-options">
-            {WHATSAPP_TEMPLATES.map((item) => (
-              <button key={item.id} className="btn-light" onClick={() => copyText(item.text, `${item.label} copiada.`)}>
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </details>
+        <div className="version-badge">v20 — grupos de processo, alertas individuais e email interno ativo</div>
       </div>
 
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
@@ -670,7 +752,8 @@ function Dashboard({ loginWithPassword }) {
           <label className="admin-field-label"><span>Data de nascimento</span><input type="date" value={form.birth_date} onChange={(e) => setForm({ ...form, birth_date: e.target.value })} /></label>
           <input placeholder="Celular" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input placeholder="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <input placeholder="Grupo familiar / processo" value={form.family_group} onChange={(e) => setForm({ ...form, family_group: e.target.value })} />
+          <label className="admin-field-label"><span>Grupo de processo</span><select value={form.group_process_id} onChange={(e) => setForm({ ...form, group_process_id: e.target.value })}><option value="">Sem grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.nome}</option>)}</select></label>
+          <button type="button" className="btn-light" onClick={createProcessGroup}>+ Criar grupo de processo</button>
           <textarea className="wide" placeholder="Observações internas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <label className="admin-checkbox"><input type="checkbox" checked={!!form.no_form_required} onChange={(e) => setForm({ ...form, no_form_required: e.target.checked })} /> Cadastro de controle — não enviar formulário</label>
           <label className="admin-checkbox"><input type="checkbox" checked={!!form.is_renewal} onChange={(e) => setForm({ ...form, is_renewal: e.target.checked })} /> Processo de renovação sem entrevista</label>
@@ -687,8 +770,9 @@ function Dashboard({ loginWithPassword }) {
           <button className={processTab === "concluidos" ? "btn-primary" : "btn-light"} onClick={() => setProcessTab("concluidos")}>Processos concluídos</button>
         </div>
 
-        <div style={{ display: "flex", gap: 12, marginBottom: 18 }}>
-          <input placeholder="Buscar por nome, CPF, e-mail ou grupo familiar" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
+          <button className="btn-primary" onClick={() => setAlertsOpen(true)}>Ver alertas</button>
+          <input placeholder="Buscar por nome, CPF, e-mail ou grupo de processo" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="all">Todos os status</option>
             <option value="not_started">Não iniciado</option>
@@ -699,7 +783,7 @@ function Dashboard({ loginWithPassword }) {
             <option value="created_desc">Ordenar: cadastro mais recente</option>
             <option value="created_asc">Ordenar: cadastro mais antigo</option>
             <option value="name">Ordenar: ordem alfabética</option>
-            <option value="family_group">Ordenar: grupo familiar</option>
+            <option value="family_group">Ordenar: grupo de processo</option>
             <option value="interview_date">Ordenar: data entrevista</option>
             <option value="casv_date">Ordenar: data CASV</option>
             <option value="video_call_date">Ordenar: data videochamada</option>
@@ -718,19 +802,19 @@ function Dashboard({ loginWithPassword }) {
 
           <tbody>
             {filteredClients.map((client) => (
-              <tr key={client.id} className={client.family_group ? "family-row" : ""} style={{ borderTop: "1px solid #e5e7eb" }}>
+              <tr key={client.id} className={processInfo(client).groupName ? "family-row" : ""} style={{ borderTop: "1px solid #e5e7eb" }}>
                 <td>
                   <b>{client.name}</b><br />
                   <small>CPF: {client.cpf}</small><br />
                   <small>Nascimento: {formatDateBR(client.birth_date)}</small><br />
                   <small>Celular: {client.phone || "-"}</small><br />
                   <small>E-mail: {client.email || "-"}</small><br />
-                  <small><b>Consulado:</b> {client.consulate_city || "-"}</small><br />
-                  <small>CASV: {formatDateBR(client.casv_date) || "-"}</small><br />
-                  <small>Entrevista: {formatDateBR(client.interview_date) || "-"}</small><br />
-                  <small>Videochamada: {formatDateBR(client.video_call_date) || "-"}</small><br />
-                  <small>Grupo familiar: {client.family_group || "-"}</small><br />
-                  <small><b>Rastreio passaporte:</b> {client.passport_tracking_code || "-"}</small>
+                  <small><b>Consulado:</b> {processInfo(client).consulate_city || "-"}</small><br />
+                  <small>CASV: {formatDateBR(processInfo(client).casv_date) || "-"}</small><br />
+                  <small>Entrevista: {formatDateBR(processInfo(client).interview_date) || "-"}</small><br />
+                  <small>Videochamada: {formatDateBR(processInfo(client).video_call_date) || "-"}</small><br />
+                  <small>Grupo de processo: {processInfo(client).groupName || "-"}</small><br />
+                  <small><b>Rastreio passaporte:</b> {processInfo(client).passport_tracking_code || "-"}</small>
                   {client.client_sedex_tracking && <><br /><small>Sedex cliente: {client.client_sedex_tracking}</small></>}
                   {client.is_renewal && <div className="admin-renewal-alert">Renovação sem entrevista</div>}
                   {client.no_form_required && <div className="admin-renewal-alert muted">Cadastro de controle — sem formulário ao cliente</div>}
@@ -765,17 +849,18 @@ function Dashboard({ loginWithPassword }) {
                     <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `process-${client.id}` ? null : `process-${client.id}`)}>Processo, datas e rastreios</button>
                     {activeMenu === `process-${client.id}` && (
                       <div className="admin-email-options process-panel" style={{ minWidth: 380 }}>
+                        <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
                         <h3 style={{ margin: "0 0 8px", color: "var(--navy)" }}>Processo, datas e rastreios</h3>
                         <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13 }}>Preencha ao longo do processo. Estes dados não fazem parte do cadastro inicial.</p>
 
-                        <label><small>Cidade do consulado</small><select defaultValue={client.consulate_city || ""} onChange={(e) => updateClientSchedule(client, { consulate_city: e.target.value })}><option value="">Selecionar cidade</option>{CONSULATE_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
-                        <label><small>Data CASV</small><input type="date" defaultValue={client.casv_date || ""} onBlur={(e) => updateClientSchedule(client, { casv_date: e.target.value })} /></label>
-                        <label><small>Data da entrevista no consulado</small><input type="date" defaultValue={client.interview_date || ""} onBlur={(e) => updateClientSchedule(client, { interview_date: e.target.value })} /></label>
-                        <label><small>Data da videochamada</small><input type="date" defaultValue={client.video_call_date || ""} onBlur={(e) => updateClientSchedule(client, { video_call_date: e.target.value })} /></label>
+                        <label><small>Cidade do consulado</small><select defaultValue={processInfo(client).consulate_city || ""} onChange={(e) => updateProcessSchedule(client, { consulate_city: e.target.value })}><option value="">Selecionar cidade</option>{CONSULATE_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
+                        <label><small>Data CASV</small><input type="date" defaultValue={processInfo(client).casv_date || ""} onBlur={(e) => updateProcessSchedule(client, { casv_date: e.target.value })} /></label>
+                        <label><small>Data da entrevista no consulado</small><input type="date" defaultValue={processInfo(client).interview_date || ""} onBlur={(e) => updateProcessSchedule(client, { interview_date: e.target.value })} /></label>
+                        <label><small>Data da videochamada</small><input type="date" defaultValue={processInfo(client).video_call_date || ""} onBlur={(e) => updateProcessSchedule(client, { video_call_date: e.target.value })} /></label>
 
                         <hr style={{ width: "100%", border: 0, borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
-                        <label><small>Rastreio do passaporte enviado ao cliente</small><input defaultValue={client.passport_tracking_code || ""} placeholder="Ex.: AA123456789BR" onBlur={(e) => updateClientSchedule(client, { passport_tracking_code: e.target.value })} /></label>
-                        {client.passport_tracking_code && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><a className="btn-light" href={correiosUrl(client.passport_tracking_code)} target="_blank">Abrir rastreio nos Correios</a><button className="btn-light" onClick={() => copyText(client.passport_tracking_code, "Código de rastreio copiado.")}>Copiar código</button></div>}
+                        <label><small>Rastreio do passaporte enviado ao cliente</small><input defaultValue={processInfo(client).passport_tracking_code || ""} placeholder="Ex.: AA123456789BR" onBlur={(e) => updateProcessSchedule(client, { passport_tracking_code: e.target.value })} /></label>
+                        {processInfo(client).passport_tracking_code && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><a className="btn-light" href={correiosUrl(processInfo(client).passport_tracking_code)} target="_blank">Abrir rastreio nos Correios</a><button className="btn-light" onClick={() => copyText(processInfo(client).passport_tracking_code, "Código de rastreio copiado.")}>Copiar código</button></div>}
 
                         <p style={{ margin: "8px 0 0", color: "var(--muted)", fontSize: 12 }}>Renovação sem entrevista e rastreio Sedex enviado pelo cliente ficam em <strong>Editar dados</strong>.</p>
                       </div>
@@ -784,6 +869,7 @@ function Dashboard({ loginWithPassword }) {
                     <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `copy-${client.id}` ? null : `copy-${client.id}`)}>Gerar modelos de email (copiar)</button>
                     {activeMenu === `copy-${client.id}` && (
                       <div className="admin-email-options">
+                        <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
                         {EMAIL_TEMPLATES.map((template) => (
                           <a key={template.id} className="btn-light" href={`/email/${client.access_token}?template=${template.id}`} target="_blank">
                             {template.label}
@@ -795,6 +881,7 @@ function Dashboard({ loginWithPassword }) {
                     <button className="btn-primary" onClick={() => setActiveMenu(activeMenu === `send-${client.id}` ? null : `send-${client.id}`)}>Enviar emails automáticos (Brevo)</button>
                     {activeMenu === `send-${client.id}` && (
                       <div className="admin-email-options">
+                        <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
                         {EMAIL_TEMPLATES.map((template) => {
                           const disabled = DISABLED_AUTO_EMAILS.has(template.id);
                           const sentAt = client.email_sent_templates?.[template.id];
@@ -810,7 +897,6 @@ function Dashboard({ loginWithPassword }) {
                     <a className="btn-light" href={`/admin/pdf/${client.access_token}`} target="_blank">Gerar PDF</a>
                     <a className="btn-light" href={`/admin/pdf-manual/${client.access_token}`} target="_blank">PDF para preencher à mão</a>
                     <a className="btn-light" href={`/foto-instrucoes/${client.access_token}`} target="_blank">Instruções Foto</a>
-                    <button className="btn-light" onClick={() => copyText(whatsappMessage(client), "Mensagem de WhatsApp copiada.")}>Copiar WhatsApp</button>
                     <button className="btn-light" onClick={() => loadLogs(client)}>Ver log</button>
                     <button className="btn-light" onClick={() => actionClient(client.id, "unlock")}>Desbloquear</button>
                     <button className="btn-light" onClick={() => actionClient(client.id, "new_token")}>Novo link</button>
@@ -839,7 +925,8 @@ function Dashboard({ loginWithPassword }) {
               <label className="admin-field-label"><span>Data de nascimento</span><input type="date" value={editForm.birth_date || ""} onChange={(e) => setEditForm({ ...editForm, birth_date: e.target.value })} /></label>
               <input placeholder="Celular" value={editForm.phone || ""} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
               <input placeholder="E-mail" type="email" value={editForm.email || ""} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
-              <input placeholder="Grupo familiar / processo" value={editForm.family_group || ""} onChange={(e) => setEditForm({ ...editForm, family_group: e.target.value })} />
+              <label className="admin-field-label"><span>Grupo de processo</span><select value={editForm.group_process_id || ""} onChange={(e) => setEditForm({ ...editForm, group_process_id: e.target.value })}><option value="">Sem grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.nome}</option>)}</select></label>
+              <button type="button" className="btn-light" onClick={createProcessGroup}>+ Criar grupo de processo</button>
               <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.no_form_required} onChange={(e) => setEditForm({ ...editForm, no_form_required: e.target.checked })} /> Cadastro de controle — não enviar formulário</label>
               <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.is_renewal} onChange={(e) => setEditForm({ ...editForm, is_renewal: e.target.checked })} /> Processo de renovação sem entrevista</label>
               {editForm.is_renewal && <input className="wide" placeholder="Rastreio Sedex enviado pelo cliente para a Resumindo" value={editForm.client_sedex_tracking || ""} onChange={(e) => setEditForm({ ...editForm, client_sedex_tracking: e.target.value })} />}
@@ -850,6 +937,23 @@ function Dashboard({ loginWithPassword }) {
         </div>
       )}
 
+
+
+      {alertsOpen && (
+        <div className="modal-backdrop" onClick={() => setAlertsOpen(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <button className="popup-close" onClick={() => setAlertsOpen(false)}>×</button>
+            <h2 style={{ marginTop: 0 }}>Alertas do dia</h2>
+            {buildGlobalAlerts().length === 0 && <p style={{ color: "var(--muted)" }}>Nenhum alerta no momento.</p>}
+            {buildGlobalAlerts().map((alert, index) => (
+              <div key={index} style={{ borderTop: "1px solid #e5e7eb", padding: "12px 0" }}>
+                <b style={{ color: "var(--navy)" }}>{alert.label}</b><br />
+                <span>{alert.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {logClient && (
         <div className="modal-backdrop" onClick={() => setLogClient(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>

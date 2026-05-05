@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { hasClientAccess } from "../../../../../lib/clientAuth";
+import { sendWithBrevo, simpleHtml } from "../../../../../lib/brevoEmail";
 
 export async function POST(request, context) {
   const params = await context.params;
@@ -40,6 +41,25 @@ export async function POST(request, context) {
   if (updateError) return Response.json({ error: updateError.message }, { status: 500 });
 
   await supabaseAdmin.from("audit_logs").insert({ client_id: client.id, action: "client_submitted_form", details: {} });
+
+  // Email interno imediato: avisa a Resumindo Viagens quando o cliente conclui o formulário.
+  try {
+    const adminEmail = process.env.ALERT_EMAIL_TO || process.env.EMAIL_FROM || "contato@resumindoviagens.com.br";
+    await sendWithBrevo({
+      toEmail: adminEmail,
+      toName: "Resumindo Viagens",
+      subject: `Formulário concluído — ${client.name}`,
+      html: simpleHtml(`Formulário concluído — ${client.name}`, [
+        `O formulário de <strong>${client.name}</strong> foi enviado como concluído.`,
+        `<strong>CPF:</strong> ${client.cpf || "-"}<br /><strong>Data de nascimento:</strong> ${client.birth_date || "-"}<br /><strong>E-mail:</strong> ${client.email || "-"}<br /><strong>Telefone:</strong> ${client.phone || "-"}`,
+        `Acesse o admin para revisar as informações e dar sequência ao processo.`
+      ]),
+      text: `O formulário de ${client.name} foi enviado como concluído.`,
+      tags: ["resumindo-viagens", "alerta-formulario-concluido"]
+    });
+  } catch (emailError) {
+    await supabaseAdmin.from("audit_logs").insert({ client_id: client.id, action: "internal_email_failed", details: { error: emailError.message } });
+  }
 
   return Response.json({ ok: true });
 }

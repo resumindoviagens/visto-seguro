@@ -1,53 +1,12 @@
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../lib/auth";
 import { getEmailTemplate } from "../../../../lib/emailTemplates";
+import { sendWithBrevo } from "../../../../lib/brevoEmail";
 
 const DISABLED_TEMPLATES = new Set(["instrucoes", "pre_entrevista"]);
 
 function siteOrigin(request) {
   return process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
-}
-
-function brevoConfig() {
-  const apiKey = process.env.BREVO_API_KEY;
-  const fromEmail = process.env.EMAIL_FROM;
-  const fromName = process.env.EMAIL_FROM_NAME || "Resumindo Viagens";
-  const replyToEmail = process.env.EMAIL_REPLY_TO || fromEmail;
-
-  if (!apiKey) throw new Error("Brevo não configurado. Configure BREVO_API_KEY nas variáveis de ambiente da Vercel.");
-  if (!fromEmail) throw new Error("Remetente não configurado. Configure EMAIL_FROM, por exemplo: contato@resumindoviagens.com.br.");
-
-  return { apiKey, fromEmail, fromName, replyToEmail };
-}
-
-async function sendWithBrevo({ toEmail, toName, subject, html, text }) {
-  const { apiKey, fromEmail, fromName, replyToEmail } = brevoConfig();
-
-  const payload = {
-    sender: { name: fromName, email: fromEmail },
-    to: [{ email: toEmail, name: toName || toEmail }],
-    replyTo: { email: replyToEmail, name: fromName },
-    subject,
-    htmlContent: html,
-    textContent: text || subject,
-    tags: ["resumindo-viagens", "visto-americano"]
-  };
-
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Accept": "application/json", "api-key": apiKey },
-    body: JSON.stringify(payload)
-  });
-
-  const resultText = await response.text();
-  let result = {};
-  try { result = resultText ? JSON.parse(resultText) : {}; } catch { result = { raw: resultText }; }
-
-  if (!response.ok) {
-    const message = result?.message || result?.error || "Erro ao enviar email pela Brevo.";
-    throw new Error(`Brevo: ${message}`);
-  }
-  return result;
 }
 
 export async function POST(request) {

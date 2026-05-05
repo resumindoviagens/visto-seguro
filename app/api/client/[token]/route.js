@@ -38,6 +38,10 @@ export async function GET(request, context) {
     response = inserted.data;
   }
 
+  if (client.status === "not_started") {
+    await supabaseAdmin.from("clients").update({ status: "in_progress", updated_at: new Date().toISOString() }).eq("id", client.id);
+  }
+
   await supabaseAdmin.from("audit_logs").insert({
     client_id: client.id,
     action: "client_opened_form",

@@ -36,12 +36,23 @@ export async function GET() {
     }, {});
   }
 
+  const groupIds = [...new Set((data || []).map((client) => client.group_process_id).filter(Boolean))];
+  let groupsById = {};
+  if (groupIds.length > 0) {
+    const { data: groups } = await supabaseAdmin
+      .from("grupos_processo")
+      .select("*")
+      .in("id", groupIds);
+    groupsById = (groups || []).reduce((acc, group) => { acc[group.id] = group; return acc; }, {});
+  }
+
   const clients = (data || []).map((client) => ({
     ...client,
     answers: Array.isArray(client.form_responses)
       ? (client.form_responses[0]?.answers || {})
       : (client.form_responses?.answers || {}),
-    email_sent_templates: emailLogsByClient[client.id] || {}
+    email_sent_templates: emailLogsByClient[client.id] || {},
+    process_group: groupsById[client.group_process_id] || null
   }));
 
   return Response.json({ clients });
@@ -71,6 +82,7 @@ export async function POST(request) {
     is_locked: false,
     is_completed: false,
     family_group: body.family_group || "",
+    group_process_id: body.group_process_id || null,
     no_form_required: !!body.no_form_required,
     is_renewal: !!body.is_renewal
   };

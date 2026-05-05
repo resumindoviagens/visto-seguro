@@ -35,6 +35,7 @@ export async function PATCH(request, context) {
     updates.email = body.email || "";
     updates.notes = body.notes || "";
     updates.family_group = body.family_group || "";
+    updates.group_process_id = body.group_process_id || null;
     updates.no_form_required = !!body.no_form_required;
     updates.is_renewal = !!body.is_renewal;
     updates.client_sedex_tracking = body.client_sedex_tracking || "";
