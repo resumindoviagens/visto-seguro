@@ -1,22 +1,20 @@
-# V8 — apenas modelos de email para copiar
+# Ajuste v5 — emails bonitos para copiar e enviar
 
-Esta versão foi feita de forma conservadora para evitar interferência no build e no envio automático.
+Esta versão corrige o problema da tela de modelos de email.
 
-## O que foi alterado
+## O que mudou
 
-- Mantido o projeto original como base.
-- Alterada apenas a área de **Gerar modelos de email (copiar)** no admin.
-- Criados 16 modelos de email em HTML visual, para abrir em nova aba, selecionar com Ctrl+A, copiar com Ctrl+C e colar no Gmail.
-- A página do modelo abre apenas o conteúdo do email, sem botões, sem instruções e sem blocos extras.
+1. A tela **Gerar modelos de email (copiar)** agora abre somente o corpo do email, sem cabeçalho explicativo, sem lista de botões e sem textarea.
+2. Assim, ao abrir um modelo, você pode usar **Ctrl+A** e depois **Ctrl+C** para copiar o email visual e colar no Gmail.
+3. O mesmo HTML visual é usado nos envios reais pela Brevo.
+4. O layout foi padronizado com visual mais profissional, assinatura e trio de ouro: WhatsApp, Instagram e Email.
+5. O logo passa a ser usado automaticamente pelo caminho `/logo.png` quando o sistema souber o domínio do site.
 
-## O que NÃO foi alterado
+## Importante
 
-- Não há integração Brevo nesta versão.
-- Não há SMTP.
-- Não há envio automático de email.
-- Não há novas rotas de API de envio.
-- Não houve alteração nas dependências do package.json.
+Os botões antigos de gerar/copiar modelo continuam existindo no admin.
+Os botões novos de envio real pela Brevo também continuam em paralelo.
 
-## Próximo passo sugerido
+## DNS/Brevo
 
-Use esta versão para revisar aparência, textos e quantidade de modelos. Depois de aprovar os modelos, eles podem ser reaplicados aos emails automáticos com menor risco.
+Este ZIP não depende de o Brevo já estar autenticado para corrigir o visual dos modelos. A autenticação do domínio continua sendo um ajuste externo de DNS.

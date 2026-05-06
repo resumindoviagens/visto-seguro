@@ -1,45 +1,85 @@
-create extension if not exists pgcrypto;
+import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { requireAdmin } from "../../../../lib/auth";
+import { getEmailTemplate } from "../../../../lib/emailTemplates";
 
-drop table if exists audit_logs;
-drop table if exists form_responses;
-drop table if exists clients;
+const DISABLED_TEMPLATES = new Set(["instrucoes", "pre_entrevista"]);
 
-create table clients (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  cpf text not null unique,
-  birth_date date not null,
-  phone text,
-  email text,
-  notes text,
-  access_token text not null unique,
-  status text not null default 'not_started',
-  is_locked boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
+function siteOrigin(request) {
+  return process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
+}
 
-create table form_responses (
-  id uuid primary key default gen_random_uuid(),
-  client_id uuid not null unique references clients(id) on delete cascade,
-  answers jsonb not null default '{}'::jsonb,
-  submitted_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
+function brevoConfig() {
+  const apiKey = process.env.BREVO_API_KEY;
+  const fromEmail = process.env.SYSTEM_EMAIL_FROM || "alertas@resumindoviagens.com.br";
+  const fromName = process.env.SYSTEM_EMAIL_FROM_NAME || process.env.EMAIL_FROM_NAME || "Resumindo Viagens";
+  const replyToEmail = process.env.SYSTEM_EMAIL_REPLY_TO || process.env.EMAIL_REPLY_TO || "contato@resumindoviagens.com.br";
 
-create table audit_logs (
-  id uuid primary key default gen_random_uuid(),
-  client_id uuid references clients(id) on delete set null,
-  action text not null,
-  details jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
-);
+  if (!apiKey) throw new Error("Brevo não configurado. Configure BREVO_API_KEY nas variáveis de ambiente da Vercel.");
 
-alter table clients enable row level security;
-alter table form_responses enable row level security;
-alter table audit_logs enable row level security;
+  return { apiKey, fromEmail, fromName, replyToEmail };
+}
 
-revoke all on table clients from anon, authenticated;
-revoke all on table form_responses from anon, authenticated;
-revoke all on table audit_logs from anon, authenticated;
+async function sendWithBrevo({ toEmail, toName, subject, html, text }) {
+  const { apiKey, fromEmail, fromName, replyToEmail } = brevoConfig();
+
+  const payload = {
+    sender: { name: fromName, email: fromEmail },
+    to: [{ email: toEmail, name: toName || toEmail }],
+    replyTo: { email: replyToEmail, name: fromName },
+    subject,
+    htmlContent: html,
+    textContent: text || subject,
+    tags: ["resumindo-viagens", "visto-americano"]
+  };
+
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json", "api-key": apiKey },
+    body: JSON.stringify(payload)
+  });
+
+  const resultText = await response.text();
+  let result = {};
+  try { result = resultText ? JSON.parse(resultText) : {}; } catch { result = { raw: resultText }; }
+
+  if (!response.ok) {
+    const message = result?.message || result?.error || "Erro ao enviar email pela Brevo.";
+    throw new Error(`Brevo: ${message}`);
+  }
+  return result;
+}
+
+export async function POST(request) {
+  const unauthorized = await requireAdmin();
+  if (unauthorized) return unauthorized;
+
+  try {
+    const body = await request.json();
+    const { client_id, template_id } = body;
+
+    if (!client_id || !template_id) return Response.json({ error: "Cliente e modelo de email são obrigatórios." }, { status: 400 });
+    if (DISABLED_TEMPLATES.has(template_id)) {
+      return Response.json({ error: "Este modelo está marcado como não disponível para envio automático. Use o Gmail manualmente com os anexos necessários." }, { status: 400 });
+    }
+
+    const { data: client, error } = await supabaseAdmin.from("clients").select("*").eq("id", client_id).single();
+    if (error || !client) return Response.json({ error: "Cliente não encontrado." }, { status: 404 });
+    if (!client.email) return Response.json({ error: "Cliente sem email cadastrado." }, { status: 400 });
+
+    const origin = siteOrigin(request);
+    const formLink = `${origin}/acesso/${client.access_token}`;
+    const template = getEmailTemplate(template_id, client, { formLink, rastreio: body.rastreio || client.passport_tracking_code || "" });
+
+    const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, subject: template.subject, html: template.html, text: template.text });
+
+    await supabaseAdmin.from("audit_logs").insert({
+      client_id,
+      action: "email_sent",
+      details: { provider: "brevo", template_id, subject: template.subject, to: client.email, message_id: result?.messageId || null }
+    });
+
+    return Response.json({ ok: true, message: "Email enviado com sucesso pela Brevo." });
+  } catch (error) {
+    return Response.json({ error: error.message || "Erro ao enviar email." }, { status: 500 });
+  }
+}

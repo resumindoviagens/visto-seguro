@@ -1,36 +1,27 @@
-# V14 — gestão de processos, família, renovação e rastreio
+# V11 — alertas, checklist de emails e envio automático
 
-Antes de usar a V14, execute este SQL no Supabase > SQL Editor > New Query > Run.
+Esta versão reativa o envio automático por Brevo, mantém os modelos de copiar e adiciona alertas de datas.
 
-Cole SOMENTE o bloco abaixo:
+## Variáveis de ambiente necessárias na Vercel
+
+- `BREVO_API_KEY`
+- `EMAIL_FROM` (ex: contato@resumindoviagens.com.br)
+- `EMAIL_FROM_NAME` (opcional: Resumindo Viagens)
+- `EMAIL_REPLY_TO` (opcional)
+
+## Campos novos no Supabase
+
+Para os alertas funcionarem, execute no SQL Editor do Supabase:
 
 ```sql
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS interview_date DATE;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS casv_date DATE;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS video_call_date DATE;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS consulate_city TEXT;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS passport_tracking_code TEXT;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_sedex_tracking TEXT;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS family_group TEXT;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS no_form_required BOOLEAN DEFAULT false;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_renewal BOOLEAN DEFAULT false;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_completed BOOLEAN DEFAULT false;
+alter table clients add column if not exists interview_date date;
+alter table clients add column if not exists casv_date date;
+alter table clients add column if not exists video_call_date date;
+alter table clients add column if not exists consulate_city text;
 ```
 
-## O que mudou
+## Observações
 
-- Data de nascimento ficou identificada no cadastro inicial.
-- Cidade do consulado agora é lista fixa: Brasília, São Paulo, Rio de Janeiro, Porto Alegre e Recife.
-- Apenas um menu/popup abre por vez no admin.
-- Rastreio do passaporte foi incluído em Datas e alertas.
-- Email 09 usa automaticamente o rastreio salvo no cliente.
-- PDF administrativo passa a mostrar rastreio, grupo familiar e dados de renovação.
-- Cliente pode ser marcado como renovação sem entrevista.
-- Clientes de renovação possuem link específico para informar rastreio do Sedex: /renovacao/[token].
-- Clientes podem ser vinculados por grupo familiar/processo.
-- Clientes podem ser marcados como concluídos e aparecem na aba Processos concluídos.
-- É possível marcar cadastro de controle sem envio de formulário, útil para crianças menores quando você mesmo preencherá o DS-160.
-
-## Observação sobre Correios
-
-O botão de rastreio tenta abrir o site dos Correios com o código no endereço. O site dos Correios pode, em alguns momentos, ignorar o código e pedir nova digitação. Por isso o código também fica visível para copiar.
+- Os emails 05 e 06 aparecem como **não disponíveis** no envio automático.
+- O checklist de emails usa o log `audit_logs` e marca automaticamente os modelos já enviados via Brevo.
+- Os modelos para copiar continuam disponíveis.

@@ -1,41 +1,42 @@
-# V25 — Segurança admin, domínio próprio e página blindada
+# INSTRUCOES_V23_REMETENTE_UNICO.md
 
-## Alterações incluídas
+## Objetivo
 
-- Botão alterado de "Enviar emails automáticos (Brevo)" para "Enviar emails automáticos".
-- Marca d'água da página blindada reforçada e mais visível.
-- Login administrativo mantido/reforçado com senha.
-- Botão "Sair" no admin.
-- Versão visível no topo do admin: v25 — login admin, domínio próprio e página blindada ativos.
-- Preparado para uso com domínio próprio sem remover o domínio vercel.app.
+A versão v23 padroniza TODOS os emails enviados pelo sistema para saírem com o remetente:
 
-## Variáveis obrigatórias na Vercel
+`alertas@resumindoviagens.com.br`
 
-Configure em Project > Settings > Environment Variables:
+Isso vale para:
 
-ADMIN_PASSWORD=sua_senha_forte
-ADMIN_SESSION_SECRET=uma_frase_longa_aleatoria
-NEXT_PUBLIC_SITE_URL=https://app.resumindoviagens.com.br
+- emails automáticos enviados aos clientes;
+- emails internos de alerta;
+- email imediato de formulário iniciado/concluído;
+- email imediato de videochamada;
+- email diário de alertas.
 
-Se ainda não tiver configurado o domínio próprio, pode manter temporariamente:
-NEXT_PUBLIC_SITE_URL=https://seu-projeto.vercel.app
+As respostas continuam direcionadas para:
 
-## Domínio próprio
+`contato@resumindoviagens.com.br`
 
-Na Vercel:
-Project > Settings > Domains > Add Domain
+## Variáveis recomendadas na Vercel
 
-Adicionar:
-app.resumindoviagens.com.br
+Adicione ou ajuste em Settings > Environment Variables:
 
-No registro.br, criar o CNAME indicado pela Vercel, geralmente:
+```env
+SYSTEM_EMAIL_FROM=alertas@resumindoviagens.com.br
+SYSTEM_EMAIL_FROM_NAME=Resumindo Viagens
+SYSTEM_EMAIL_REPLY_TO=contato@resumindoviagens.com.br
+```
 
-Tipo: CNAME
-Nome: app
-Valor: cname.vercel-dns.com
+Mantenha também:
 
-O domínio antigo da Vercel continua funcionando. Não apague o domínio vercel.app.
+```env
+BREVO_API_KEY=sua-chave-brevo
+ALERT_EMAIL_TO=contato@resumindoviagens.com.br
+```
 
-## Supabase
+## Importante
 
-Não precisa rodar SQL novo para esta versão.
+O remetente `alertas@resumindoviagens.com.br` precisa estar verificado no Brevo.
+
+Não é necessário rodar novo SQL no Supabase para esta alteração.

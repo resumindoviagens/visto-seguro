@@ -1,85 +1,78 @@
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
-import { requireAdmin } from "../../../../lib/auth";
-import { getEmailTemplate } from "../../../../lib/emailTemplates";
+import { isAdminAuthenticated } from "../../../../lib/auth";
+import BrandHeader from "../../../../components/BrandHeader";
+import { sections } from "../../../../lib/formSchema";
 
-const DISABLED_TEMPLATES = new Set(["instrucoes", "pre_entrevista"]);
+function cleanSectionTitle(title) { return title.replace(/^\d+\.\s*/, ""); }
+function numberedTitle(index, title) { return `${index + 1}. ${cleanSectionTitle(title)}`; }
 
-function siteOrigin(request) {
-  return process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
-}
+export default async function AdminPdfPage({ params }) {
+  const authenticated = await isAdminAuthenticated();
 
-function brevoConfig() {
-  const apiKey = process.env.BREVO_API_KEY;
-  const fromEmail = process.env.SYSTEM_EMAIL_FROM || "alertas@resumindoviagens.com.br";
-  const fromName = process.env.SYSTEM_EMAIL_FROM_NAME || process.env.EMAIL_FROM_NAME || "Resumindo Viagens";
-  const replyToEmail = process.env.SYSTEM_EMAIL_REPLY_TO || process.env.EMAIL_REPLY_TO || "contato@resumindoviagens.com.br";
-
-  if (!apiKey) throw new Error("Brevo não configurado. Configure BREVO_API_KEY nas variáveis de ambiente da Vercel.");
-
-  return { apiKey, fromEmail, fromName, replyToEmail };
-}
-
-async function sendWithBrevo({ toEmail, toName, subject, html, text }) {
-  const { apiKey, fromEmail, fromName, replyToEmail } = brevoConfig();
-
-  const payload = {
-    sender: { name: fromName, email: fromEmail },
-    to: [{ email: toEmail, name: toName || toEmail }],
-    replyTo: { email: replyToEmail, name: fromName },
-    subject,
-    htmlContent: html,
-    textContent: text || subject,
-    tags: ["resumindo-viagens", "visto-americano"]
-  };
-
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Accept": "application/json", "api-key": apiKey },
-    body: JSON.stringify(payload)
-  });
-
-  const resultText = await response.text();
-  let result = {};
-  try { result = resultText ? JSON.parse(resultText) : {}; } catch { result = { raw: resultText }; }
-
-  if (!response.ok) {
-    const message = result?.message || result?.error || "Erro ao enviar email pela Brevo.";
-    throw new Error(`Brevo: ${message}`);
+  if (!authenticated) {
+    return (
+      <main style={{ padding: 30, fontFamily: "Arial, Helvetica, sans-serif" }}>
+        Acesso não autorizado. Entre no painel admin antes de abrir o PDF.
+      </main>
+    );
   }
-  return result;
-}
 
-export async function POST(request) {
-  const unauthorized = await requireAdmin();
-  if (unauthorized) return unauthorized;
+  const resolvedParams = await params;
+  const token = resolvedParams.token;
 
-  try {
-    const body = await request.json();
-    const { client_id, template_id } = body;
+  const { data: client } = await supabaseAdmin
+    .from("clients")
+    .select("*")
+    .eq("access_token", token)
+    .maybeSingle();
 
-    if (!client_id || !template_id) return Response.json({ error: "Cliente e modelo de email são obrigatórios." }, { status: 400 });
-    if (DISABLED_TEMPLATES.has(template_id)) {
-      return Response.json({ error: "Este modelo está marcado como não disponível para envio automático. Use o Gmail manualmente com os anexos necessários." }, { status: 400 });
-    }
+  if (!client) return <main style={{ padding: 30 }}>Cliente não encontrado.</main>;
 
-    const { data: client, error } = await supabaseAdmin.from("clients").select("*").eq("id", client_id).single();
-    if (error || !client) return Response.json({ error: "Cliente não encontrado." }, { status: 404 });
-    if (!client.email) return Response.json({ error: "Cliente sem email cadastrado." }, { status: 400 });
+  const { data: response } = await supabaseAdmin
+    .from("form_responses")
+    .select("*")
+    .eq("client_id", client.id)
+    .maybeSingle();
 
-    const origin = siteOrigin(request);
-    const formLink = `${origin}/acesso/${client.access_token}`;
-    const template = getEmailTemplate(template_id, client, { formLink, rastreio: body.rastreio || client.passport_tracking_code || "" });
+  const answers = response?.answers || {};
 
-    const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, subject: template.subject, html: template.html, text: template.text });
+  return (
+    <main style={{ maxWidth: 980, margin: "30px auto", padding: 24 }}>
+      <div className="no-print" style={{ marginBottom: 18 }}>
+        <button className="btn-primary" id="printButton">Gerar PDF / imprimir</button>
+      </div>
 
-    await supabaseAdmin.from("audit_logs").insert({
-      client_id,
-      action: "email_sent",
-      details: { provider: "brevo", template_id, subject: template.subject, to: client.email, message_id: result?.messageId || null }
-    });
+      <div className="card" style={{ padding: 34 }}>
+        <BrandHeader clientName={client.name} />
+        <h2 style={{ color: "var(--navy)", marginTop: 28 }}>Resumo do processo</h2>
+        <div className="grid" style={{ marginBottom: 24 }}>
+          <div style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}><b>Consulado</b><br />{client.consulate_city || "-"}</div>
+          <div style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}><b>Grupo familiar</b><br />{client.family_group || "-"}</div>
+          <div style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}><b>Rastreio do passaporte</b><br />{client.passport_tracking_code || "-"}</div>
+          <div style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}><b>Rastreio Sedex do cliente</b><br />{client.client_sedex_tracking || "-"}</div>
+        </div>
+        <h2 style={{ color: "var(--navy)", marginTop: 28 }}>Respostas do formulário</h2>
 
-    return Response.json({ ok: true, message: "Email enviado com sucesso pela Brevo." });
-  } catch (error) {
-    return Response.json({ error: error.message || "Erro ao enviar email." }, { status: 500 });
-  }
+        {sections.map((section, sectionIndex) => (
+          <section key={section.title} style={{ breakInside: "avoid", marginTop: 28 }}>
+            <h3 style={{ background: "var(--navy)", color: "#fff", padding: 12, borderRadius: 10 }}>{numberedTitle(sectionIndex, section.title)}</h3>
+            <div className="grid">
+              {section.fields
+                .filter((field) => answers[field.id])
+                .map((field, fieldIndex) => (
+                  <div key={field.id} className={field.wide || field.full ? "wide" : ""} style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}>
+                    <b style={{ color: "var(--navy)" }}><span style={{ color: "var(--orange)" }}>{sectionIndex + 1}.{fieldIndex + 1}</span> {field.label}</b><br />
+                    <span>{String(answers[field.id])}</span>
+                  </div>
+                ))}
+            </div>
+          </section>
+        ))}
+
+        <div className="print-footer">Resumindo Viagens • contato@resumindoviagens.com.br • Instagram: @resumindoviagens</div>
+      </div>
+
+      <script dangerouslySetInnerHTML={{ __html: "document.getElementById('printButton')?.addEventListener('click', () => window.print())" }} />
+    </main>
+  );
 }

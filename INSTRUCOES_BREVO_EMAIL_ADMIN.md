@@ -1,48 +1,94 @@
-# Integração de emails pelo Brevo - Resumindo Viagens
+import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { hasClientAccess } from "../../../../lib/clientAuth";
 
-Esta versão substitui o SMTP Gmail pela API do Brevo.
+async function getClientByToken(token) {
+  const { data: client, error } = await supabaseAdmin
+    .from("clients")
+    .select("*")
+    .eq("access_token", token)
+    .maybeSingle();
 
-## O que foi mantido
+  if (error || !client) return { error: "Link inválido ou expirado." };
+  return { client };
+}
 
-- Os botões antigos de gerar/copiar modelos de email continuam no admin.
-- Os botões novos de envio real continuam em paralelo.
-- O fluxo dos clientes e links únicos não foi alterado.
+export async function GET(request, context) {
+  const params = await context.params;
 
-## O que mudou
+  const verified = await hasClientAccess(params.token);
+  if (!verified) {
+    return Response.json({ error: "Confirme CPF e data de nascimento para continuar.", needs_verification: true }, { status: 401 });
+  }
 
-- O sistema não usa mais Nodemailer.
-- O sistema envia emails pela API transacional do Brevo.
-- O remetente recomendado é o domínio próprio, por exemplo: contato@resumindoviagens.com.br.
+  const { client, error } = await getClientByToken(params.token);
+  if (error) return Response.json({ error }, { status: 404 });
 
-## Variáveis para configurar na Vercel
+  let { data: response } = await supabaseAdmin
+    .from("form_responses")
+    .select("*")
+    .eq("client_id", client.id)
+    .maybeSingle();
 
-Em Vercel > Project > Settings > Environment Variables, configure:
+  if (!response) {
+    const inserted = await supabaseAdmin
+      .from("form_responses")
+      .insert({ client_id: client.id, answers: {} })
+      .select("*")
+      .single();
+    response = inserted.data;
+  }
 
-BREVO_API_KEY=sua_chave_api_da_brevo
-EMAIL_FROM=contato@resumindoviagens.com.br
-EMAIL_FROM_NAME=Resumindo Viagens
-EMAIL_REPLY_TO=contato@resumindoviagens.com.br
+  await supabaseAdmin.from("audit_logs").insert({
+    client_id: client.id,
+    action: "client_opened_form",
+    details: {}
+  });
 
-Também mantenha as variáveis que já existiam no projeto, como Supabase, senha admin e URL pública.
+  return Response.json({
+    client: { id: client.id, name: client.name, status: client.status, is_locked: client.is_locked },
+    response: { answers: response?.answers || {}, submitted_at: response?.submitted_at || null }
+  });
+}
 
-## Como configurar no Brevo
+export async function PUT(request, context) {
+  const params = await context.params;
 
-1. Crie/acesse sua conta Brevo.
-2. Configure o domínio de envio da Resumindo Viagens no Brevo.
-3. Valide os registros DNS solicitados pelo Brevo no painel onde seu domínio é gerenciado.
-4. Crie ou valide o remetente contato@resumindoviagens.com.br.
-5. Vá em SMTP & API e gere uma API Key.
-6. Copie a API Key para a variável BREVO_API_KEY na Vercel.
-7. Faça novo deploy na Vercel.
-8. Teste primeiro com um cliente de teste.
+  const verified = await hasClientAccess(params.token);
+  if (!verified) {
+    return Response.json({ error: "Confirmação de identidade necessária.", needs_verification: true }, { status: 401 });
+  }
 
-## Observação importante
+  const { client, error } = await getClientByToken(params.token);
+  if (error) return Response.json({ error }, { status: 404 });
 
-Não use senha do email, senha do Gmail ou senha do domínio. O Brevo usa API Key.
+  const body = await request.json();
+  const answers = body.answers || {};
 
-## Teste recomendado
+  const existing = await supabaseAdmin
+    .from("form_responses")
+    .select("id, submitted_at")
+    .eq("client_id", client.id)
+    .maybeSingle();
 
-1. Cadastre um cliente teste com seu próprio email.
-2. Clique em "Enviar link por email (Brevo)".
-3. Verifique se o email chegou corretamente.
-4. Depois teste os demais modelos em "Enviar outros emails (Brevo)".
+  if (client.is_locked || existing.data?.submitted_at) {
+    return Response.json({ error: "Formulário já enviado e bloqueado." }, { status: 403 });
+  }
+
+  if (!existing.data) {
+    const { error: insertError } = await supabaseAdmin
+      .from("form_responses")
+      .insert({ client_id: client.id, answers });
+    if (insertError) return Response.json({ error: insertError.message }, { status: 500 });
+  } else {
+    const { error: updateError } = await supabaseAdmin
+      .from("form_responses")
+      .update({ answers, updated_at: new Date().toISOString() })
+      .eq("client_id", client.id);
+    if (updateError) return Response.json({ error: updateError.message }, { status: 500 });
+  }
+
+  await supabaseAdmin.from("clients").update({ status: "in_progress", updated_at: new Date().toISOString() }).eq("id", client.id);
+  await supabaseAdmin.from("audit_logs").insert({ client_id: client.id, action: "client_saved_form", details: {} });
+
+  return Response.json({ ok: true });
+}
