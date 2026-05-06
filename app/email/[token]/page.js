@@ -25,12 +25,13 @@ export default async function EmailModelPage({ params, searchParams }) {
   const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
   const siteUrl = envSiteUrl || currentSiteUrl;
   const formLink = `${siteUrl}/acesso/${client.access_token}`;
+  const preparationLink = `${siteUrl}/preparacao/${client.access_token}`;
 
   let selectedTemplate;
   try {
-    selectedTemplate = getEmailTemplate(templateId, client, { formLink, rastreio: client.passport_tracking_code || "" });
+    selectedTemplate = getEmailTemplate(templateId, client, { formLink, preparationLink, rastreio: client.passport_tracking_code || "" });
   } catch (error) {
-    selectedTemplate = getEmailTemplate("formulario", client, { formLink, rastreio: client.passport_tracking_code || "" });
+    selectedTemplate = getEmailTemplate("formulario", client, { formLink, preparationLink, rastreio: client.passport_tracking_code || "" });
   }
 
   return (

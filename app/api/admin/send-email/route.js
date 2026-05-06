@@ -3,7 +3,6 @@ import { requireAdmin } from "../../../../lib/auth";
 import { getEmailTemplate } from "../../../../lib/emailTemplates";
 import { sendWithBrevo } from "../../../../lib/brevoEmail";
 
-const DISABLED_TEMPLATES = new Set(["instrucoes", "pre_entrevista"]);
 
 function siteOrigin(request) {
   return process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
@@ -18,9 +17,6 @@ export async function POST(request) {
     const { client_id, template_id } = body;
 
     if (!client_id || !template_id) return Response.json({ error: "Cliente e modelo de email são obrigatórios." }, { status: 400 });
-    if (DISABLED_TEMPLATES.has(template_id)) {
-      return Response.json({ error: "Este modelo está marcado como não disponível para envio automático. Use o Gmail manualmente com os anexos necessários." }, { status: 400 });
-    }
 
     const { data: client, error } = await supabaseAdmin.from("clients").select("*").eq("id", client_id).single();
     if (error || !client) return Response.json({ error: "Cliente não encontrado." }, { status: 404 });
@@ -28,7 +24,8 @@ export async function POST(request) {
 
     const origin = siteOrigin(request);
     const formLink = `${origin}/acesso/${client.access_token}`;
-    const template = getEmailTemplate(template_id, client, { formLink, rastreio: body.rastreio || client.passport_tracking_code || "" });
+    const preparationLink = `${origin}/preparacao/${client.access_token}`;
+    const template = getEmailTemplate(template_id, client, { formLink, preparationLink, rastreio: body.rastreio || client.passport_tracking_code || "" });
 
     const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, subject: template.subject, html: template.html, text: template.text });
 

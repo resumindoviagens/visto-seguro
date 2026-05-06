@@ -45,7 +45,7 @@ function buildQuestionNumberMap() {
 }
 
 const QUESTION_ID_BY_NUMBER = buildQuestionNumberMap();
-const DISABLED_AUTO_EMAILS = new Set(["instrucoes", "pre_entrevista"]);
+const DISABLED_AUTO_EMAILS = new Set([]);
 const CONSULATE_CITIES = ["Brasília", "São Paulo", "Rio de Janeiro", "Porto Alegre", "Recife"];
 
 function correiosUrl(code) {
