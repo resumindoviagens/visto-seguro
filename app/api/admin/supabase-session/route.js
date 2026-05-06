@@ -1,5 +1,5 @@
-import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
-import { setAdminSession } from "../../../../../lib/auth";
+import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { setAdminSession } from "../../../../lib/auth";
 
 function isAllowedAdminEmail(email) {
   const allowed = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || process.env.ADMIN_EMAILS || "")
