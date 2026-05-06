@@ -321,6 +321,12 @@ export default function AdminPage() {
     }
   }
 
+  async function logout() {
+    await fetch("/api/admin/logout", { method: "POST" });
+    setAuthorized(false);
+    setPassword("");
+  }
+
   if (checking) return <main style={{ padding: 30 }}>Carregando...</main>;
 
   if (!authorized) {
@@ -338,10 +344,10 @@ export default function AdminPage() {
     );
   }
 
-  return <Dashboard loginWithPassword={loginWithPassword} />;
+  return <Dashboard loginWithPassword={loginWithPassword} logout={logout} />;
 }
 
-function Dashboard({ loginWithPassword }) {
+function Dashboard({ loginWithPassword, logout }) {
   const [clients, setClients] = useState([]);
   const [logs, setLogs] = useState([]);
   const [logClient, setLogClient] = useState(null);
@@ -906,7 +912,7 @@ function Dashboard({ loginWithPassword }) {
     <main style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div className="version-badge">v22 — relatórios, exportação e alertas por email ativos</div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v25 — login admin, domínio próprio e página blindada ativos</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1064,7 +1070,7 @@ function Dashboard({ loginWithPassword }) {
                       </div>
                     )}
 
-                    <button className="btn-primary" onClick={() => setActiveMenu(activeMenu === `send-${client.id}` ? null : `send-${client.id}`)}>Enviar emails automáticos (Brevo)</button>
+                    <button className="btn-primary" onClick={() => setActiveMenu(activeMenu === `send-${client.id}` ? null : `send-${client.id}`)}>Enviar emails automáticos</button>
                     {activeMenu === `send-${client.id}` && (
                       <div className="admin-email-options">
                         <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>

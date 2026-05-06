@@ -157,18 +157,37 @@ export default function PreparacaoPage() {
         .protected-page::before {
           content: "${watermark}";
           position: fixed;
+          inset: -20vh -20vw;
+          z-index: 0;
+          display: grid;
+          place-items: center;
+          transform: rotate(-28deg);
+          font-size: 42px;
+          line-height: 1.4;
+          font-weight: 900;
+          letter-spacing: 1px;
+          color: rgba(31, 42, 96, 0.16);
+          pointer-events: none;
+          text-align: center;
+          padding: 30px;
+          white-space: pre-wrap;
+        }
+        .protected-page::after {
+          content: "${watermark}\\A${watermark}\\A${watermark}";
+          position: fixed;
           inset: 0;
           z-index: 0;
           display: flex;
           align-items: center;
           justify-content: center;
           transform: rotate(-28deg);
-          font-size: 34px;
+          font-size: 24px;
+          line-height: 3;
           font-weight: 800;
-          color: rgba(31, 42, 96, 0.07);
+          color: rgba(31, 42, 96, 0.08);
           pointer-events: none;
           text-align: center;
-          padding: 30px;
+          white-space: pre-wrap;
         }
         .protected-page > * {
           position: relative;
