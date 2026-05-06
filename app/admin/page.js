@@ -930,7 +930,7 @@ function Dashboard({ loginWithPassword, logout }) {
     <main style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v25 — login admin, domínio próprio e página blindada ativos</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v34 consolidada</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card" style={{ padding: 22, marginBottom: 22 }}>
