@@ -309,6 +309,17 @@ export default function AdminPage() {
           return;
         }
 
+        const bridge = await fetch("/api/admin/supabase-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ access_token: session.access_token })
+        });
+
+        if (!bridge.ok) {
+          window.location.replace("/admin/login");
+          return;
+        }
+
         setAuthorized(true);
       } catch (error) {
         console.error("Falha na autenticação do admin:", error);

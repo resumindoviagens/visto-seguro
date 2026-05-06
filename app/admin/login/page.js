@@ -26,8 +26,22 @@ export default function AdminLoginPage() {
       return;
     }
 
-    // Aguarda o navegador gravar a sessão local do Supabase antes de abrir o admin.
-    await supabase.auth.getSession();
+    // Aguarda o navegador gravar a sessão local do Supabase e cria o cookie seguro usado pelas APIs administrativas.
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token || data?.session?.access_token;
+
+    const bridge = await fetch("/api/admin/supabase-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: accessToken })
+    });
+
+    if (!bridge.ok) {
+      const details = await bridge.json().catch(() => ({}));
+      setLoading(false);
+      alert(details.error || "Não foi possível validar o acesso administrativo.");
+      return;
+    }
 
     window.location.assign("/admin");
   }

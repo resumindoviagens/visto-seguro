@@ -12,7 +12,10 @@ export default function DebugAuthPage() {
       const supabase = createBrowserSupabase();
       const { data, error } = await supabase.auth.getSession();
 
+      const status = await fetch("/api/admin/status").then((r) => r.json()).catch(() => null);
+
       setInfo({
+        apiCookieAuthenticated: status?.authenticated || false,
         hasUrl: !!config.url,
         hasAnonKey: !!config.anonKey,
         userEmail: data?.session?.user?.email || null,
