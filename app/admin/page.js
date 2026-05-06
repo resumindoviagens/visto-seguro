@@ -292,80 +292,74 @@ Depois me conta como foi 👍`
 
 export default function AdminPage() {
   const [authorized, setAuthorized] = useState(false);
-  const supabase = createBrowserSupabase();
   const [checking, setChecking] = useState(true);
-  const [password, setPassword] = useState("");
+  const supabase = createBrowserSupabase();
 
-  
   useEffect(() => {
+    let active = true;
+
     async function checkAuth() {
-      const session = await ensureAdminSession();
+      try {
+        const session = await ensureAdminSession();
 
-      if (!session) {
+        if (!active) return;
+
+        if (!session) {
+          window.location.href = "/admin/login";
+          return;
+        }
+
+        setAuthorized(true);
+      } catch (error) {
+        console.error("Erro ao verificar autenticação:", error);
         window.location.href = "/admin/login";
-        return;
+      } finally {
+        if (active) setChecking(false);
       }
-
-      setAuthorized(true);
     }
 
     checkAuth();
 
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange(async () => {
-      const session = await ensureAdminSession();
-
-      if (!session) {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.user?.email) {
         window.location.href = "/admin/login";
+        return;
       }
-    });
 
-    return () => subscription.unsubscribe();
-  }, []);
+      const currentSession = await ensureAdminSession();
 
-useEffect(() => {
-    fetch("/api/admin/status")
-      .then((r) => r.json())
-      .then((data) => setAuthorized(!!data.authenticated))
-      .finally(() => setChecking(false));
-  }, []);
+      if (!currentSession) {
+        window.location.href = "/admin/login";
+        return;
+      }
 
-  async function loginWithPassword(pass) {
-    const res = await fetch("/api/admin/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: pass })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Acesso não autorizado.");
-    return true;
-  }
-
-  async function login() {
-    try {
-      await loginWithPassword(password);
       setAuthorized(true);
-    } catch (error) {
-      alert(error.message || "Erro ao entrar.");
-    }
-  }
+      setChecking(false);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   async function logout() {
     await supabase.auth.signOut();
     window.location.href = "/admin/login";
   }
 
-  if (checking) return <main style={{ padding: 30 }}>Carregando...</main>;
+  if (checking) return <main style={{ padding: 30 }}>Verificando acesso...</main>;
 
   if (!authorized) {
-    return <div style={{ padding: 40 }}>Verificando acesso...</div>;
+    return <main style={{ padding: 30 }}>Acesso não autorizado. Redirecionando...</main>;
   }
 
-  return <Dashboard loginWithPassword={loginWithPassword} logout={logout} />;
+  return <Dashboard logout={logout} />;
 }
 
-function Dashboard({ loginWithPassword, logout }) {
+function Dashboard({ logout }) {
   const [clients, setClients] = useState([]);
   const [logs, setLogs] = useState([]);
   const [logClient, setLogClient] = useState(null);

@@ -1,12 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import BrandHeader from "../components/BrandHeader";
 import { createBrowserSupabase } from "../lib/supabaseAdminAuth";
 
 export default function HomePage() {
-  const router = useRouter();
   const supabase = createBrowserSupabase();
 
   const [email, setEmail] = useState("");
@@ -29,8 +27,7 @@ export default function HomePage() {
       return;
     }
 
-    router.push("/admin");
-    router.refresh();
+    window.location.href = "/admin";
   }
 
   async function forgotPassword() {
