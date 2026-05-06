@@ -933,13 +933,13 @@ function Dashboard({ logout }) {
   }
 
   return (
-    <main style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
-      <div className="card" style={{ padding: 22, marginBottom: 22 }}>
+    <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
+      <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
         <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v34 consolidada</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
-      <div className="card" style={{ padding: 22, marginBottom: 22 }}>
+      <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <h2>Cadastrar cliente</h2>
 
         <div className="grid">

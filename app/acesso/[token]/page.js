@@ -165,8 +165,8 @@ export default function ClientAccessPage() {
   const section = current >= 0 ? sections[current] : null;
   const progress = calculateProgress(answers);
   return (
-    <main style={{ maxWidth: 1200, margin:"0 auto", padding:24 }}>
-      <div className="card" style={{ padding:22, marginBottom:22 }}><BrandHeader clientName={client?.name} /></div>
+    <main className="client-form-premium" style={{ maxWidth: 1200, margin:"0 auto", padding:24 }}>
+      <div className="card premium-header-card" style={{ padding:22, marginBottom:22 }}><BrandHeader clientName={client?.name} /></div>
       <div className="no-print" style={{ display:"flex", justifyContent:"space-between", gap:16, alignItems:"center", marginBottom:20 }}>
         <div><small>{saveStatus}</small></div>
         <div style={{ display:"flex", gap:10 }}><button className="btn-light" onClick={() => save(answers, true)}>Salvar e continuar depois</button><button className="btn-primary" onClick={submitForm}>Enviar definitivamente (encerra preenchimento)</button></div>
