@@ -1,0 +1,10 @@
+V33 PATCH — Página inicial como login administrativo
+
+Este ZIP contém apenas os arquivos alterados:
+- app/page.js
+- app/admin/login/page.js
+- public/login-visto-eua.png
+
+Faça upload desses arquivos no GitHub preservando as mesmas pastas.
+
+Não precisa rodar SQL novo.
