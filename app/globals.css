@@ -883,3 +883,80 @@ button:disabled {
     min-width: 0;
   }
 }
+
+
+/* V35 preview — formulário mais amigável no celular sem 191 cliques */
+@media (max-width: 760px) {
+  body {
+    background: #f8fafc;
+  }
+
+  .client-form-premium {
+    padding: 12px !important;
+  }
+
+  .client-form-premium .card {
+    border-radius: 20px;
+  }
+
+  .client-form-premium .premium-header-card {
+    padding: 16px !important;
+  }
+
+  .client-form-premium .form-layout {
+    display: block !important;
+  }
+
+  .client-form-premium aside.no-print {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 10px !important;
+    margin-bottom: 14px;
+    border-radius: 18px;
+  }
+
+  .client-form-premium .section-nav-button {
+    flex: 0 0 auto;
+    min-width: 150px;
+    white-space: normal;
+  }
+
+  .client-form-premium section.card {
+    padding: 18px !important;
+  }
+
+  .client-form-premium .grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px;
+  }
+
+  .client-form-premium input,
+  .client-form-premium select,
+  .client-form-premium textarea {
+    min-height: 48px;
+    font-size: 16px;
+    border-radius: 14px;
+  }
+
+  .client-form-premium label {
+    font-size: 15px;
+  }
+
+  .client-form-premium .radio {
+    gap: 10px;
+  }
+
+  .client-form-premium .no-print[style*="justify-content"] {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    background: rgba(248,250,252,.96);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid #e5e7eb;
+    padding: 12px 0 4px;
+  }
+}
