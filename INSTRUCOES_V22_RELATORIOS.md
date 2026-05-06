@@ -1,65 +1,77 @@
-# V20 — grupos de processo + alertas de formulário
+# V22 — relatórios profissionais e exportação
 
-## 1) SQL para rodar no Supabase
+## O que entrou nesta versão
 
-Abra o Supabase > SQL Editor > New Query e cole APENAS o SQL abaixo:
+- Remetente dos alertas internos passa a priorizar `alertas@resumindoviagens.com.br`.
+- Novo botão global **Relatórios** no admin.
+- Painel com indicadores: total, em andamento, concluídos, aprovados e negados.
+- Relatório geral com status automático, etapa atual, datas, grupo, consulado, progresso e tempo do processo.
+- Exportação CSV compatível com Excel, incluindo colunas semelhantes ao controle antigo.
+- Campos adicionais no cliente: tipo de processo, data de início, data final e observações gerais.
+- Ao marcar visto/passaporte devolvido, o sistema preenche data final automaticamente se ainda estiver vazia.
+
+## Variáveis recomendadas na Vercel
+
+Configure em Project Settings > Environment Variables:
+
+ALERT_EMAIL_FROM=alertas@resumindoviagens.com.br
+ALERT_EMAIL_FROM_NAME=Resumindo Viagens - Alertas
+ALERT_EMAIL_REPLY_TO=contato@resumindoviagens.com.br
+ALERT_EMAIL_TO=contato@resumindoviagens.com.br
+
+Mesmo sem configurar ALERT_EMAIL_FROM, esta versão já usa `alertas@resumindoviagens.com.br` como padrão para alertas internos.
+
+## SQL completo e seguro para Supabase
+
+Cole apenas o SQL abaixo no SQL Editor do Supabase. Não cole linhas com `#`.
 
 ```sql
 CREATE TABLE IF NOT EXISTS grupos_processo (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nome TEXT NOT NULL,
-  consulate_city TEXT DEFAULT '',
+  consulate_city TEXT,
   casv_date DATE,
   interview_date DATE,
   video_call_date DATE,
-  passport_tracking_code TEXT DEFAULT '',
+  passport_tracking_code TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS group_process_id UUID REFERENCES grupos_processo(id) ON DELETE SET NULL;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS family_group TEXT DEFAULT '';
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS group_process_id UUID;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS no_form_required BOOLEAN DEFAULT FALSE;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_renewal BOOLEAN DEFAULT FALSE;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_sedex_tracking TEXT DEFAULT '';
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS passport_tracking_code TEXT DEFAULT '';
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS consulate_city TEXT DEFAULT '';
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS passport_tracking_code TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS client_sedex_tracking TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_completed BOOLEAN DEFAULT FALSE;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS family_group TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS consulate_city TEXT;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS casv_date DATE;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS interview_date DATE;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS video_call_date DATE;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_completed BOOLEAN DEFAULT FALSE;
-ALTER TABLE clients ADD COLUMN IF NOT EXISTS completion_date DATE;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS stage_ds160_completed BOOLEAN DEFAULT FALSE;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS stage_fee_generated BOOLEAN DEFAULT FALSE;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS stage_fee_paid BOOLEAN DEFAULT FALSE;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS stage_dates_scheduled BOOLEAN DEFAULT FALSE;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS stage_interview_done BOOLEAN DEFAULT FALSE;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS visa_result TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS stage_passport_returned BOOLEAN DEFAULT FALSE;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS tipo_processo TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS data_inicio_processo DATE;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS data_final_processo DATE;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS observacoes_gerais TEXT;
 ```
 
-## 2) Variáveis de ambiente na Vercel
+## Validação depois do deploy
 
-A v20 usa o Brevo para envio automático e alertas internos.
+No topo do admin deve aparecer:
 
-Confira se já existem:
+`v22 — relatórios, exportação e alertas por email ativos`
 
-- BREVO_API_KEY
-- EMAIL_FROM=contato@resumindoviagens.com.br
-- NEXT_PUBLIC_SITE_URL=https://seu-dominio-ou-url-da-vercel
+Depois teste:
 
-Opcional, mas recomendado:
-
-- ALERT_EMAIL_TO=contato@resumindoviagens.com.br
-- CRON_SECRET=crie_uma_senha_grande_qualquer
-
-## 3) Alertas novos
-
-A v20 inclui:
-
-- alerta individual quando cliente inicia o formulário;
-- alerta individual quando cliente conclui o formulário;
-- email interno imediato para contato@resumindoviagens.com.br quando o cliente clica em Enviar definitivamente;
-- email diário de alertas via Vercel Cron.
-
-## 4) Como testar
-
-1. Suba a v20 na Vercel.
-2. Confira se o admin mostra: v20 — grupos de processo, alertas individuais e email interno ativo.
-3. Crie um grupo de processo.
-4. Vincule um cliente ao grupo.
-5. Abra o formulário de um cliente teste para ver o status ficar Em preenchimento.
-6. Envie definitivamente o formulário teste e confira o email interno.
+1. Abrir **Relatórios**.
+2. Ver os indicadores.
+3. Exportar CSV/Excel.
+4. Conferir se os dados de clientes com grupo e sem grupo aparecem.
+5. Conferir se alertas internos continuam chegando com remetente `alertas@resumindoviagens.com.br`.

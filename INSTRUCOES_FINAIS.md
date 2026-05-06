@@ -1,48 +1,50 @@
-# Integração de emails pelo Brevo - Resumindo Viagens
+# Resumindo Viagens — pacote final completo
 
-Esta versão substitui o SMTP Gmail pela API do Brevo.
+Este ZIP contém o projeto completo para subir no GitHub.
 
-## O que foi mantido
+Inclui:
+- campo E-mail no cadastro do admin;
+- e-mail salvo e exibido na lista;
+- botão Criar email abrindo modelo premium em nova aba;
+- log em pop-up por cliente;
+- botão Gerar PDF por cliente;
+- exclusão com confirmação de senha;
+- Instagram clicável;
+- explicação de que não é formulário do consulado;
+- nome do cliente em destaque;
+- link seguro com confirmação por CPF e data;
+- data digitada no formato DD/MM/AAAA;
+- salvamento automático;
+- PDF final;
+- balões explicativos.
 
-- Os botões antigos de gerar/copiar modelos de email continuam no admin.
-- Os botões novos de envio real continuam em paralelo.
-- O fluxo dos clientes e links únicos não foi alterado.
+## 1. Supabase
 
-## O que mudou
+Se ainda não rodou, execute no SQL Editor:
 
-- O sistema não usa mais Nodemailer.
-- O sistema envia emails pela API transacional do Brevo.
-- O remetente recomendado é o domínio próprio, por exemplo: contato@resumindoviagens.com.br.
+```sql
+alter table clients add column if not exists email text;
+```
 
-## Variáveis para configurar na Vercel
+Também incluí o arquivo:
+`supabase-migration-add-client-email.sql`
 
-Em Vercel > Project > Settings > Environment Variables, configure:
+## 2. Vercel
 
-BREVO_API_KEY=sua_chave_api_da_brevo
-EMAIL_FROM=contato@resumindoviagens.com.br
-EMAIL_FROM_NAME=Resumindo Viagens
-EMAIL_REPLY_TO=contato@resumindoviagens.com.br
+Confirme as variáveis:
 
-Também mantenha as variáveis que já existiam no projeto, como Supabase, senha admin e URL pública.
+SUPABASE_URL  
+SUPABASE_SERVICE_ROLE_KEY  
+ADMIN_PASSWORD  
+ADMIN_SESSION_SECRET  
+NEXT_PUBLIC_SITE_URL
 
-## Como configurar no Brevo
+Exemplo para NEXT_PUBLIC_SITE_URL:
+https://visto-seguro.vercel.app
 
-1. Crie/acesse sua conta Brevo.
-2. Configure o domínio de envio da Resumindo Viagens no Brevo.
-3. Valide os registros DNS solicitados pelo Brevo no painel onde seu domínio é gerenciado.
-4. Crie ou valide o remetente contato@resumindoviagens.com.br.
-5. Vá em SMTP & API e gere uma API Key.
-6. Copie a API Key para a variável BREVO_API_KEY na Vercel.
-7. Faça novo deploy na Vercel.
-8. Teste primeiro com um cliente de teste.
+## 3. Atualização
 
-## Observação importante
-
-Não use senha do email, senha do Gmail ou senha do domínio. O Brevo usa API Key.
-
-## Teste recomendado
-
-1. Cadastre um cliente teste com seu próprio email.
-2. Clique em "Enviar link por email (Brevo)".
-3. Verifique se o email chegou corretamente.
-4. Depois teste os demais modelos em "Enviar outros emails (Brevo)".
+1. Descompacte o ZIP.
+2. Suba todo o conteúdo no GitHub.
+3. Commit changes.
+4. Vercel > Redeploy sem cache.

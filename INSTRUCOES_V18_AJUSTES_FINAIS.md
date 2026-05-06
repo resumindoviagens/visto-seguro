@@ -1,10 +1,38 @@
-# V16 — gestão completa: SQL correto e conferência de deploy
+# V18 — ajustes finais de admin, rastreio, ordenação e PDF manual
 
-## 1. SQL correto para Supabase
+## O que mudou
 
-Cole SOMENTE o bloco abaixo no SQL Editor do Supabase.
+- Versão visível no topo do admin: **v18 — ajustes finais: cadastro, rastreio, ordenação, PDF manual e favicon ativo**.
+- Cadastro inicial agora permite marcar:
+  - **Cadastro de controle — não enviar formulário**;
+  - **Processo de renovação sem entrevista**;
+  - **Grupo familiar / processo**.
+- A marcação de renovação ficou centralizada em **Editar dados**.
+- Ao marcar renovação em **Editar dados**, aparece o campo para informar o **Rastreio Sedex enviado pelo cliente para a Resumindo**.
+- Removido o link/página para o cliente informar rastreio de Sedex; o rastreio passa a ser informado internamente no admin.
+- O painel **Processo, datas e rastreios** fica focado em:
+  - cidade do consulado;
+  - data CASV;
+  - data da entrevista;
+  - data da videochamada;
+  - rastreio do passaporte enviado ao cliente.
+- Corrigido o campo de busca para nome, CPF, e-mail, grupo familiar, cidade e rastreios.
+- Criada ordenação por:
+  - cadastro mais recente;
+  - cadastro mais antigo;
+  - ordem alfabética;
+  - grupo familiar;
+  - data da entrevista;
+  - data CASV;
+  - data da videochamada.
+- O Email 09 só pode ser enviado automaticamente quando houver rastreio do passaporte informado.
+- O PDF de respostas só mostra consulado, grupo familiar e rastreios se esses campos estiverem preenchidos.
+- Novo botão: **PDF para preencher à mão**, útil para clientes avessos à tecnologia.
+- Favicon substituído pela imagem do avião e nuvem com fundo branco.
 
-> Atenção: a tabela correta do seu projeto é `clients`, não `clientes`.
+## Supabase
+
+Esta versão não exige novas colunas além das já previstas na v16/v17. Se algum campo não salvar, rode apenas este SQL:
 
 ```sql
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS interview_date DATE;
@@ -19,29 +47,3 @@ ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_renewal BOOLEAN DEFAULT false;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS is_completed BOOLEAN DEFAULT false;
 ALTER TABLE clients ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
 ```
-
-Se aparecer que a coluna já existe, não tem problema.
-
-## 2. Como saber se a V16 entrou de verdade
-
-Depois do deploy, no topo do admin deve aparecer:
-
-**v16 — gestão de processos, grupos, rastreios e alertas ativa**
-
-Se essa frase não aparecer, você não está vendo a V16 publicada.
-
-## 3. O que esta versão contém
-
-- Data de nascimento identificada no cadastro e edição.
-- Cidade do consulado com seleção fixa em Datas e alertas.
-- Apenas um menu aberto por vez.
-- Campo de rastreio do passaporte em Datas e alertas.
-- Email 09 usa o rastreio salvo.
-- PDF mostra rastreio do passaporte, grupo familiar e Sedex do cliente.
-- Renovação sem entrevista com destaque.
-- Link para cliente informar rastreio do Sedex em processo de renovação.
-- Grupo familiar/processo para vincular familiares.
-- Cadastro de controle sem envio de formulário.
-- Abas: processos em andamento e concluídos.
-- Botão marcar concluído/reabrir.
-- Favicon em `/public/favicon.ico`.

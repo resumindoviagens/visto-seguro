@@ -1,49 +1,33 @@
-# Resumindo Viagens — pacote final completo
+# Projeto final reconstruído
 
-Este ZIP contém o projeto completo para subir no GitHub.
-
-Inclui:
-- campo E-mail no cadastro do admin;
-- e-mail salvo e exibido na lista;
-- botão Criar email abrindo modelo premium em nova aba;
-- log em pop-up por cliente;
+Inclui as correções consolidadas:
+- campo E-mail no cadastro admin;
+- e-mail salvo e exibido na lista de clientes;
+- botão Criar email abre e-mail premium em nova aba;
+- log abaixo da lista removido;
+- botão Ver log abre pop-up do cliente específico;
 - botão Gerar PDF por cliente;
-- exclusão com confirmação de senha;
+- exclusão pede senha;
 - Instagram clicável;
-- explicação de que não é formulário do consulado;
-- nome do cliente em destaque;
-- link seguro com confirmação por CPF e data;
-- data digitada no formato DD/MM/AAAA;
-- salvamento automático;
-- PDF final;
-- balões explicativos.
+- explicação de que não é o formulário do consulado;
+- nome do cliente em destaque no cabeçalho;
+- e-mail premium com nome, botão, link em texto, explicações, logo e cores da marca.
 
-## 1. Supabase
-
-Se ainda não rodou, execute no SQL Editor:
+## Banco de dados
+Antes de testar cadastro com e-mail, rode no Supabase:
 
 ```sql
 alter table clients add column if not exists email text;
 ```
 
-Também incluí o arquivo:
+Ou rode o arquivo:
 `supabase-migration-add-client-email.sql`
 
-## 2. Vercel
+## Vercel
+Confirme se existe:
+`NEXT_PUBLIC_SITE_URL=https://visto-seguro.vercel.app`
 
-Confirme as variáveis:
-
-SUPABASE_URL  
-SUPABASE_SERVICE_ROLE_KEY  
-ADMIN_PASSWORD  
-ADMIN_SESSION_SECRET  
-NEXT_PUBLIC_SITE_URL
-
-Exemplo para NEXT_PUBLIC_SITE_URL:
-https://visto-seguro.vercel.app
-
-## 3. Atualização
-
+## Atualização
 1. Descompacte o ZIP.
 2. Suba todo o conteúdo no GitHub.
 3. Commit changes.

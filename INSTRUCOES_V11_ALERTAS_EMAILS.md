@@ -1,34 +1,27 @@
-# Projeto final reconstruído
+# V11 — alertas, checklist de emails e envio automático
 
-Inclui as correções consolidadas:
-- campo E-mail no cadastro admin;
-- e-mail salvo e exibido na lista de clientes;
-- botão Criar email abre e-mail premium em nova aba;
-- log abaixo da lista removido;
-- botão Ver log abre pop-up do cliente específico;
-- botão Gerar PDF por cliente;
-- exclusão pede senha;
-- Instagram clicável;
-- explicação de que não é o formulário do consulado;
-- nome do cliente em destaque no cabeçalho;
-- e-mail premium com nome, botão, link em texto, explicações, logo e cores da marca.
+Esta versão reativa o envio automático por Brevo, mantém os modelos de copiar e adiciona alertas de datas.
 
-## Banco de dados
-Antes de testar cadastro com e-mail, rode no Supabase:
+## Variáveis de ambiente necessárias na Vercel
+
+- `BREVO_API_KEY`
+- `EMAIL_FROM` (ex: contato@resumindoviagens.com.br)
+- `EMAIL_FROM_NAME` (opcional: Resumindo Viagens)
+- `EMAIL_REPLY_TO` (opcional)
+
+## Campos novos no Supabase
+
+Para os alertas funcionarem, execute no SQL Editor do Supabase:
 
 ```sql
-alter table clients add column if not exists email text;
+alter table clients add column if not exists interview_date date;
+alter table clients add column if not exists casv_date date;
+alter table clients add column if not exists video_call_date date;
+alter table clients add column if not exists consulate_city text;
 ```
 
-Ou rode o arquivo:
-`supabase-migration-add-client-email.sql`
+## Observações
 
-## Vercel
-Confirme se existe:
-`NEXT_PUBLIC_SITE_URL=https://visto-seguro.vercel.app`
-
-## Atualização
-1. Descompacte o ZIP.
-2. Suba todo o conteúdo no GitHub.
-3. Commit changes.
-4. Vercel > Redeploy sem cache.
+- Os emails 05 e 06 aparecem como **não disponíveis** no envio automático.
+- O checklist de emails usa o log `audit_logs` e marca automaticamente os modelos já enviados via Brevo.
+- Os modelos para copiar continuam disponíveis.

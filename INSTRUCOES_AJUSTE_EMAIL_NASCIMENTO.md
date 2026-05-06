@@ -1,16 +1,22 @@
-import { setAdminSession } from "../../../../lib/auth";
+# Ajuste aplicado
 
-export async function POST(request) {
-  const { password } = await request.json();
+Inclui:
+- data de nascimento aparecendo na lista de clientes;
+- botão "Abrir modelo para e-mail";
+- página de e-mail pronta para selecionar com Ctrl + A, copiar e colar no Gmail.
 
-  if (!process.env.ADMIN_PASSWORD) {
-    return Response.json({ error: "ADMIN_PASSWORD não configurado." }, { status: 500 });
-  }
+## Importante na Vercel
+Adicione a variável:
 
-  if (password !== process.env.ADMIN_PASSWORD) {
-    return Response.json({ error: "Senha incorreta." }, { status: 401 });
-  }
+NEXT_PUBLIC_SITE_URL
 
-  await setAdminSession();
-  return Response.json({ ok: true });
-}
+Exemplo:
+https://visto-seguro.vercel.app
+
+Sem barra no final.
+
+## Como atualizar
+1. Descompacte o ZIP.
+2. Suba tudo no GitHub.
+3. Commit changes.
+4. Vercel > Redeploy sem cache.

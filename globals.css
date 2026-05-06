@@ -1,32 +1,16 @@
-import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { setAdminSession } from "../../../../lib/auth";
 
-export async function POST(request, context) {
-  const params = await context.params;
-  const formData = await request.formData();
-  const tracking = String(formData.get("tracking") || "").trim();
+export async function POST(request) {
+  const { password } = await request.json();
 
-  if (!tracking) return Response.redirect(new URL(`/renovacao/${params.token}?erro=1`, request.url), 303);
-
-  const { data: client, error: findError } = await supabaseAdmin
-    .from("clients")
-    .select("id,is_renewal")
-    .eq("access_token", params.token)
-    .maybeSingle();
-
-  if (findError || !client || !client.is_renewal) {
-    return Response.redirect(new URL(`/renovacao/${params.token}?erro=1`, request.url), 303);
+  if (!process.env.ADMIN_PASSWORD) {
+    return Response.json({ error: "ADMIN_PASSWORD não configurado." }, { status: 500 });
   }
 
-  await supabaseAdmin
-    .from("clients")
-    .update({ client_sedex_tracking: tracking, updated_at: new Date().toISOString() })
-    .eq("id", client.id);
+  if (password !== process.env.ADMIN_PASSWORD) {
+    return Response.json({ error: "Senha incorreta." }, { status: 401 });
+  }
 
-  await supabaseAdmin.from("audit_logs").insert({
-    client_id: client.id,
-    action: "client_sedex_tracking_sent",
-    details: { tracking }
-  });
-
-  return Response.redirect(new URL(`/renovacao/${params.token}?ok=1`, request.url), 303);
+  await setAdminSession();
+  return Response.json({ ok: true });
 }
