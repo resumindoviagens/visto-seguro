@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createBrowserSupabase, ensureAdminSession } from "../../lib/supabaseAdminAuth";
 import BrandHeader from "../../components/BrandHeader";
 import { EMAIL_TEMPLATES } from "../../lib/emailTemplates";
 
@@ -291,10 +292,39 @@ Depois me conta como foi 👍`
 
 export default function AdminPage() {
   const [authorized, setAuthorized] = useState(false);
+  const supabase = createBrowserSupabase();
   const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState("");
 
+  
   useEffect(() => {
+    async function checkAuth() {
+      const session = await ensureAdminSession();
+
+      if (!session) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      setAuthorized(true);
+    }
+
+    checkAuth();
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange(async () => {
+      const session = await ensureAdminSession();
+
+      if (!session) {
+        window.location.href = "/admin/login";
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+useEffect(() => {
     fetch("/api/admin/status")
       .then((r) => r.json())
       .then((data) => setAuthorized(!!data.authenticated))
@@ -322,9 +352,8 @@ export default function AdminPage() {
   }
 
   async function logout() {
-    await fetch("/api/admin/logout", { method: "POST" });
-    setAuthorized(false);
-    setPassword("");
+    await supabase.auth.signOut();
+    window.location.href = "/admin/login";
   }
 
   if (checking) return <main style={{ padding: 30 }}>Carregando...</main>;
