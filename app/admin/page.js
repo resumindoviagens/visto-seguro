@@ -338,7 +338,7 @@ useEffect(() => {
       body: JSON.stringify({ password: pass })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Senha incorreta.");
+    if (!res.ok) throw new Error(data.error || "Acesso não autorizado.");
     return true;
   }
 
@@ -359,18 +359,7 @@ useEffect(() => {
   if (checking) return <main style={{ padding: 30 }}>Carregando...</main>;
 
   if (!authorized) {
-    return (
-      <main style={{ maxWidth: 480, margin: "60px auto", padding: 20 }}>
-        <div className="card" style={{ padding: 28 }}>
-          <BrandHeader compact />
-          <h2 style={{ color: "var(--navy)", marginTop: 24 }}>Painel interno seguro</h2>
-          <p>Digite a senha administrativa.</p>
-          <input type="password" name="rv-admin-key" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <br /><br />
-          <button className="btn-primary" onClick={login}>Entrar</button>
-        </div>
-      </main>
-    );
+    return <div style={{ padding: 40 }}>Verificando acesso...</div>;
   }
 
   return <Dashboard loginWithPassword={loginWithPassword} logout={logout} />;
@@ -757,7 +746,7 @@ function Dashboard({ loginWithPassword, logout }) {
     try {
       await loginWithPassword(pass);
     } catch (error) {
-      alert("Senha incorreta. Exclusão cancelada.");
+      alert("Acesso não autorizado. Exclusão cancelada.");
       return;
     }
 
