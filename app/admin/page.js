@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createBrowserSupabase, ensureAdminSession } from "../../lib/supabaseAdminAuth";
+import { createBrowserSupabase, getCurrentAdminSession } from "../../lib/supabaseAdminAuth";
 import BrandHeader from "../../components/BrandHeader";
 import { EMAIL_TEMPLATES } from "../../lib/emailTemplates";
 
@@ -300,19 +300,19 @@ export default function AdminPage() {
 
     async function checkAuth() {
       try {
-        const session = await ensureAdminSession();
+        const session = await getCurrentAdminSession();
 
         if (!active) return;
 
         if (!session) {
-          window.location.href = "/admin/login";
+          window.location.replace("/admin/login");
           return;
         }
 
         setAuthorized(true);
       } catch (error) {
-        console.error("Erro ao verificar autenticação:", error);
-        window.location.href = "/admin/login";
+        console.error("Falha na autenticação do admin:", error);
+        window.location.replace("/admin/login");
       } finally {
         if (active) setChecking(false);
       }
@@ -320,18 +320,9 @@ export default function AdminPage() {
 
     checkAuth();
 
-    const {
-      data: { subscription }
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session?.user?.email) {
-        window.location.href = "/admin/login";
-        return;
-      }
-
-      const currentSession = await ensureAdminSession();
-
-      if (!currentSession) {
-        window.location.href = "/admin/login";
+        window.location.replace("/admin/login");
         return;
       }
 
@@ -341,19 +332,29 @@ export default function AdminPage() {
 
     return () => {
       active = false;
-      subscription.unsubscribe();
+      data?.subscription?.unsubscribe?.();
     };
-  }, [supabase]);
+  }, []);
 
   async function logout() {
     await supabase.auth.signOut();
-    window.location.href = "/admin/login";
+    window.location.replace("/admin/login");
   }
 
-  if (checking) return <main style={{ padding: 30 }}>Verificando acesso...</main>;
+  if (checking) {
+    return (
+      <main style={{ padding: 30, fontFamily: "Arial, Helvetica, sans-serif" }}>
+        Verificando acesso...
+      </main>
+    );
+  }
 
   if (!authorized) {
-    return <main style={{ padding: 30 }}>Acesso não autorizado. Redirecionando...</main>;
+    return (
+      <main style={{ padding: 30, fontFamily: "Arial, Helvetica, sans-serif" }}>
+        Redirecionando para o login...
+      </main>
+    );
   }
 
   return <Dashboard logout={logout} />;

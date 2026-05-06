@@ -15,19 +15,21 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
       password
     });
 
-    setLoading(false);
-
     if (error) {
+      setLoading(false);
       alert(error.message);
       return;
     }
 
-    window.location.href = "/admin";
+    // Aguarda o navegador gravar a sessão local do Supabase antes de abrir o admin.
+    await supabase.auth.getSession();
+
+    window.location.assign("/admin");
   }
 
   async function forgotPassword() {
