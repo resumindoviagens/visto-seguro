@@ -1097,7 +1097,7 @@ function Dashboard({ logout }) {
                         <button className="btn-light" onClick={() => openClientWhatsApp(client, "pendente")}>Lembrete de formulário</button>
                         <button className="btn-light" onClick={() => openClientWhatsApp(client, "videochamada")}>Videochamada</button>
                       </div>
-                    )
+                    )}
 
                     <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `process-${client.id}` ? null : `process-${client.id}`)}>Processo, datas e rastreios</button>
                     {activeMenu === `process-${client.id}` && (
