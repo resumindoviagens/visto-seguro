@@ -194,7 +194,7 @@ export default function ClientAccessPage() {
           {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(0)} /> : <>
             <h1 style={{ color:"var(--navy)" }}>{numberedTitle(current, section.title)}</h1>
             <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={field} questionNumber={`${current + 1}.${fieldIndex + 1}`} value={answers[field.id]} onChange={setValue} />)}</div>
-            <div className="no-print" style={{ display:"flex", justifyContent:"space-between", marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(current - 1)}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => setCurrent(current + 1)}>Próxima</button>}</div>
+            <div className="no-print mobile-bottom-nav" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(current - 1)}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => setCurrent(current + 1)}>Próxima</button>}</div>
           </>}
         </section>
       </div>
