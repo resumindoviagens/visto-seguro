@@ -206,6 +206,10 @@ function PreInfoPage({ client, onContinue }) {
   return <div>
     <h1 style={{ color:"var(--navy)", marginBottom:8 }}>Informações prévias</h1>
     <p style={{ color:"var(--muted)", lineHeight:1.6 }}>Olá, <strong>{client?.name}</strong>. Antes de iniciar o preenchimento do formulário, veja o vídeo e leia atentamente as orientações abaixo.</p>
+    <div className="pwa-install-hint no-print">
+      <strong>Dica para celular:</strong> você pode adicionar este formulário à tela inicial do celular como se fosse um app.
+      Se estiver preenchendo formulários de familiares, salve cada ícone com o primeiro nome, por exemplo: <strong>Resumindo - João</strong>.
+    </div>
     <div style={{ background:"#fff9ec", border:"1px solid #fed7aa", borderRadius:16, padding:18, margin:"18px 0", color:"#7c2d12", lineHeight:1.55 }}>
       As perguntas estão numeradas para facilitar o atendimento. Em caso de dúvida, informe o número da pergunta, por exemplo: 2.4 ou 5.7.
     </div>

@@ -1,3 +1,4 @@
+import PWARegister from "./PWARegister";
 import "./globals.css";
 
 export const metadata = {
@@ -10,13 +11,16 @@ export const metadata = {
       { url: "/favicon-64.png", sizes: "64x64", type: "image/png" }
     ],
     apple: [{ url: "/favicon-180.png", sizes: "180x180", type: "image/png" }]
-  }
+  },
+  manifest: "/manifest.json",
+  themeColor: "#1f2a60",
+  appleWebApp: { capable: true, title: "Resumindo Viagens", statusBarStyle: "default" }
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body><PWARegister />{children}</body>
     </html>
   );
 }

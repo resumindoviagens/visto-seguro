@@ -1109,3 +1109,184 @@ button:disabled {
     white-space: normal;
   }
 }
+
+
+/* V36 — PWA + admin amigável no celular */
+.pwa-install-hint {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #1f2a60;
+  border-radius: 16px;
+  padding: 14px;
+  margin: 16px 0;
+  line-height: 1.45;
+  font-size: 14px;
+}
+
+@media (max-width: 820px) {
+  .admin-premium-page {
+    max-width: 100% !important;
+    padding: 10px !important;
+  }
+
+  .admin-premium-page > .card {
+    border-radius: 22px;
+    padding: 16px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .admin-premium-page .brand-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .admin-premium-page .brand-header img {
+    height: 48px;
+  }
+
+  .admin-premium-page .brand-title {
+    font-size: 22px;
+  }
+
+  .admin-premium-page .brand-subtitle,
+  .admin-premium-page .brand-explanation,
+  .admin-premium-page .brand-contact {
+    display: none;
+  }
+
+  .admin-premium-page .grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .admin-premium-page input,
+  .admin-premium-page select,
+  .admin-premium-page textarea {
+    min-height: 48px;
+    font-size: 16px;
+    border-radius: 14px;
+  }
+
+  .admin-premium-page table {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-premium-page thead {
+    display: none;
+  }
+
+  .admin-premium-page tbody {
+    display: grid;
+    gap: 14px;
+  }
+
+  .admin-premium-page tr {
+    display: block;
+    background: #fff;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 20px;
+    padding: 14px;
+    box-shadow: 0 12px 26px rgba(15,23,42,.07);
+  }
+
+  .admin-premium-page td {
+    display: block;
+    width: 100%;
+    border: 0;
+    padding: 8px 0 !important;
+  }
+
+  .admin-premium-page td:nth-child(1) b {
+    display: block;
+    font-size: 18px;
+    color: var(--navy);
+    margin-bottom: 6px;
+  }
+
+  .admin-premium-page td:nth-child(2)::before {
+    content: "Status";
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .admin-premium-page td:nth-child(3)::before {
+    content: "Link seguro";
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .admin-premium-page td:nth-child(4)::before {
+    content: "Ações";
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .admin-premium-page .copy-link {
+    font-size: 11px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .admin-actions {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 8px !important;
+  }
+
+  .admin-actions a,
+  .admin-actions button {
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+    min-height: 44px;
+  }
+
+  .admin-critical-alert,
+  .admin-date-alert,
+  .admin-renewal-alert {
+    margin-top: 8px;
+    border-radius: 14px;
+    font-size: 13px;
+  }
+
+  .admin-email-options,
+  .process-panel {
+    position: fixed !important;
+    inset: 12px !important;
+    min-width: 0 !important;
+    width: auto !important;
+    max-height: calc(100vh - 24px);
+    overflow: auto;
+    z-index: 1000;
+    border-radius: 22px;
+    padding: 18px !important;
+    box-shadow: 0 24px 80px rgba(15,23,42,.25);
+  }
+
+  .popup-close {
+    position: sticky;
+    top: 0;
+    margin-left: auto;
+    display: block;
+  }
+
+  .version-badge {
+    font-size: 12px;
+  }
+}
