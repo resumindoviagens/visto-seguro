@@ -147,6 +147,9 @@ export default function ClientAccessPage() {
           <div className="verify-badge">Acesso seguro</div>
           <h2 className="verify-title">Confirme seus dados para continuar</h2>
           <p className="verify-text">Este link é exclusivo do solicitante. Para proteger suas informações, confirme o CPF e a data de nascimento vinculados a este atendimento.</p>
+          <div className="pwa-install-hint no-print">
+            <strong>Dica para celular:</strong> após confirmar seus dados, você pode salvar este formulário na tela inicial como se fosse um app. Em formulários de família, salve cada ícone com o primeiro nome.
+          </div>
           <div className="verify-grid">
             <div className="field"><label>CPF</label><input value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} placeholder="000.000.000-00" inputMode="numeric" autoComplete="off" /></div>
             <div className="field"><label>Data de nascimento</label><input type="text" value={birthDateBR} onChange={(e) => setBirthDateBR(formatDateBR(e.target.value))} placeholder="DD/MM/AAAA" inputMode="numeric" autoComplete="off" maxLength={10} /></div>
@@ -206,6 +209,9 @@ function PreInfoPage({ client, onContinue }) {
   return <div>
     <h1 style={{ color:"var(--navy)", marginBottom:8 }}>Informações prévias</h1>
     <p style={{ color:"var(--muted)", lineHeight:1.6 }}>Olá, <strong>{client?.name}</strong>. Antes de iniciar o preenchimento do formulário, veja o vídeo e leia atentamente as orientações abaixo.</p>
+    <div className="pwa-install-hint no-print">
+      <strong>Dica para celular:</strong> toque em compartilhar e escolha “Adicionar à Tela de Início” para salvar este formulário como um app. Se estiver preenchendo formulários de familiares, use nomes como <strong>Resumindo - João</strong>.
+    </div>
     <div className="pwa-install-hint no-print">
       <strong>Dica para celular:</strong> você pode adicionar este formulário à tela inicial do celular como se fosse um app.
       Se estiver preenchendo formulários de familiares, salve cada ícone com o primeiro nome, por exemplo: <strong>Resumindo - João</strong>.

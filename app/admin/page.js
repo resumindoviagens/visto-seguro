@@ -372,6 +372,7 @@ export default function AdminPage() {
 }
 
 function Dashboard({ logout }) {
+  const supabase = createBrowserSupabase();
   const [clients, setClients] = useState([]);
   const [logs, setLogs] = useState([]);
   const [logClient, setLogClient] = useState(null);
@@ -745,20 +746,36 @@ function Dashboard({ logout }) {
     await loadClients();
   }
 
-  async function deleteClient(id) {
-    const pass = prompt("Digite a senha do sistema para excluir este cliente:");
-    if (!pass) return;
+  async function deleteClient(client) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const email = sessionData?.session?.user?.email;
 
-    try {
-      await loginWithPassword(pass);
-    } catch (error) {
-      alert("Acesso não autorizado. Exclusão cancelada.");
+    if (!email) {
+      alert("Sua sessão expirou. Entre novamente para excluir cadastros.");
+      window.location.href = "/admin/login";
       return;
     }
 
-    if (!confirm("Confirmar exclusão do cliente e respostas?")) return;
+    const password = prompt(`Digite sua senha de login para excluir definitivamente o cadastro de ${client.name}:`);
+    if (!password) return;
 
-    const res = await fetch(`/api/admin/clients/${id}`, { method: "DELETE" });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      alert("Senha incorreta. Exclusão cancelada.");
+      return;
+    }
+
+    const confirmation = prompt("Para confirmar a exclusão definitiva, digite EXCLUIR:");
+    if (confirmation !== "EXCLUIR") {
+      alert("Exclusão cancelada.");
+      return;
+    }
+
+    const res = await fetch(`/api/admin/clients/${client.id}`, { method: "DELETE" });
 
     if (!res.ok) {
       const data = await res.json();
@@ -767,6 +784,31 @@ function Dashboard({ logout }) {
     }
 
     await loadClients();
+  }
+
+  function cleanPhoneForWhatsApp(value) {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (!digits) return "";
+    if (digits.startsWith("55")) return digits;
+    return `55${digits}`;
+  }
+
+  function openClientWhatsApp(client, templateId = "formulario") {
+    const phone = cleanPhoneForWhatsApp(client.phone);
+    if (!phone) {
+      alert("Este cliente não possui celular cadastrado.");
+      return;
+    }
+
+    const link = clientLink(client);
+    const messages = {
+      formulario: `Olá, ${client.name}! Tudo bem? Aqui é da Resumindo Viagens. Segue seu link seguro para preenchimento do formulário de visto americano: ${link}`,
+      pendente: `Olá, ${client.name}! Passando para lembrar que seu formulário da Resumindo Viagens ainda está pendente. Você pode continuar pelo mesmo link: ${link}`,
+      videochamada: `Olá, ${client.name}! Segue o link das orientações para preparação da videochamada: ${link.replace("/acesso/", "/preparacao/")}`
+    };
+
+    const text = encodeURIComponent(messages[templateId] || messages.formulario);
+    window.open(`https://wa.me/${phone}?text=${text}`, "_blank", "noopener,noreferrer");
   }
 
   const filteredClients = useMemo(() => {
@@ -936,7 +978,7 @@ function Dashboard({ logout }) {
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v34 consolidada</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v38 — PWA, admin mobile e WhatsApp</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1045,6 +1087,17 @@ function Dashboard({ logout }) {
                   <div className="admin-actions">
                     <a className="btn-light" href={`/acesso/${client.access_token}`} target="_blank">Abrir</a>
                     <button className="btn-light" onClick={() => openEditClient(client)}>Editar dados</button>
+                    <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `whatsapp-${client.id}` ? null : `whatsapp-${client.id}`)}>WhatsApp</button>
+                    {activeMenu === `whatsapp-${client.id}` && (
+                      <div className="admin-email-options whatsapp-panel" style={{ minWidth: 300 }}>
+                        <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
+                        <h3 style={{ margin: "0 0 8px", color: "var(--navy)" }}>Enviar WhatsApp</h3>
+                        <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13 }}>Abre WhatsApp Web/App com mensagem pronta para o celular cadastrado.</p>
+                        <button className="btn-light" onClick={() => openClientWhatsApp(client, "formulario")}>Formulário</button>
+                        <button className="btn-light" onClick={() => openClientWhatsApp(client, "pendente")}>Lembrete de formulário</button>
+                        <button className="btn-light" onClick={() => openClientWhatsApp(client, "videochamada")}>Videochamada</button>
+                      </div>
+                    )
 
                     <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `process-${client.id}` ? null : `process-${client.id}`)}>Processo, datas e rastreios</button>
                     {activeMenu === `process-${client.id}` && (
@@ -1117,7 +1170,7 @@ function Dashboard({ logout }) {
                     <button className="btn-light" onClick={() => actionClient(client.id, "unlock")}>Desbloquear</button>
                     <button className="btn-light" onClick={() => actionClient(client.id, "new_token")}>Novo link</button>
                     <button className="btn-light" onClick={() => actionClient(client.id, client.is_completed ? "reopen" : "mark_completed")}>{client.is_completed ? "Reabrir processo" : "Marcar concluído"}</button>
-                    <button className="btn-light" onClick={() => deleteClient(client.id)}>Excluir</button>
+                    <button className="btn-light" onClick={() => deleteClient(client)}>Excluir</button>
                   </div>
                 </td>
               </tr>
