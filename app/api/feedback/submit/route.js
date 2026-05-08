@@ -4,37 +4,6 @@ function cleanCPF(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
-
-async function notifyAdminFeedbackReceived(client, notaNps, comentario) {
-  try {
-    console.log("Nova avaliação recebida:", client?.name || client?.nome, notaNps);
-
-    if (typeof sendWithBrevo === "function") {
-      const adminEmail =
-        process.env.ADMIN_ALERT_EMAIL ||
-        process.env.NEXT_PUBLIC_ADMIN_EMAIL ||
-        "contato@resumindoviagens.com.br";
-
-      await sendWithBrevo({
-        to: adminEmail,
-        subject: `Nova avaliação recebida — nota ${notaNps}/10`,
-        html: `
-          <div style="font-family:Arial,sans-serif">
-            <h2>Nova avaliação recebida</h2>
-            <p><strong>Cliente:</strong> ${client?.name || client?.nome || "Cliente"}</p>
-            <p><strong>Nota:</strong> ${notaNps}/10</p>
-            <p>${comentario || ""}</p>
-            <p><a href="${process.env.NEXT_PUBLIC_SITE_URL || "https://app.resumindoviagens.com.br"}/admin/feedbacks">Abrir feedbacks</a></p>
-          </div>
-        `
-      });
-    }
-  } catch (error) {
-    console.warn(error);
-  }
-}
-
-
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -95,8 +64,6 @@ export async function POST(request) {
         feedback_nota_nps: nota_nps
       })
       .eq("id", client.id);
-
-    await notifyAdminFeedbackReceived(client, nota_nps, comentario);
 
     await supabaseAdmin.from("audit_logs").insert({
       client_id: client.id,

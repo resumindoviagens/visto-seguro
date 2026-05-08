@@ -3,10 +3,21 @@ export const revalidate = 0;
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 
+function fitText(text, max = 230) {
+  if (!text) return "";
+  return text.length > max ? text.slice(0, max - 1).trim() + "…" : text;
+}
+
+function backgroundById(id) {
+  let sum = 0;
+  for (const ch of String(id || "")) sum += ch.charCodeAt(0);
+  const n = (sum % 10) + 1;
+  return `/feedback-backgrounds/feedback-bg-${String(n).padStart(2, "0")}.jpg`;
+}
+
 export default async function FeedbackCardPage({ params, searchParams }) {
   const resolvedParams = await params;
   const resolvedSearch = await searchParams;
-
   const story = resolvedSearch?.story === "1";
 
   const { data: f } = await supabaseAdmin
@@ -16,23 +27,28 @@ export default async function FeedbackCardPage({ params, searchParams }) {
     .maybeSingle();
 
   if (!f || !f.autorizou_divulgacao) {
-    return <main style={{ padding: 30 }}>Depoimento indisponível.</main>;
+    return <main style={{ padding: 30, fontFamily: "Arial" }}>Depoimento indisponível ou não autorizado.</main>;
   }
 
   const primeiroNome = (f.clients?.name || "Cliente").split(" ")[0];
+  const width = 1080;
+  const height = story ? 1920 : 1350;
+  const comentario = fitText(f.comentario, story ? 280 : 230);
+  const bg = backgroundById(f.id);
 
   return (
-    <main style={{ minHeight: "100vh", background: "#dfe6f1", padding: 20, fontFamily: "Arial" }}>
-      <div style={{ marginBottom: 12 }}>
-        <strong>Postagem pronta:</strong> faça print/salve a imagem abaixo.
+    <main style={{ minHeight: "100vh", background: "#dfe6f1", padding: 20, fontFamily: "Arial, Helvetica, sans-serif" }}>
+      <div style={{ maxWidth: 1080, margin: "0 auto 14px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <strong>Postagem pronta:</strong>
+        <span>no celular, segure/salve a imagem ou capture a tela. No computador, use print/captura.</span>
+        <a href="/admin/feedbacks" style={{ marginLeft: "auto", color: "#1f2a60", fontWeight: 700 }}>Voltar</a>
       </div>
 
       <div
         style={{
-          width: 1080,
-          height: story ? 1920 : 1350,
+          width,
+          height,
           margin: "0 auto",
-          background: "linear-gradient(135deg,#10245f,#1f2a60 60%,#ff9800)",
           color: "#fff",
           padding: story ? 80 : 60,
           boxSizing: "border-box",
@@ -40,10 +56,13 @@ export default async function FeedbackCardPage({ params, searchParams }) {
           flexDirection: "column",
           justifyContent: "space-between",
           position: "relative",
-          overflow: "hidden"
+          overflow: "hidden",
+          backgroundImage: `linear-gradient(180deg, rgba(4,14,35,.32), rgba(4,14,35,.80)), url(${bg})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center"
         }}
       >
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at top right, rgba(255,255,255,.22), transparent 25%)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at top right, rgba(255,152,0,.25), transparent 36%)" }} />
 
         <div style={{ position: "relative", zIndex: 2 }}>
           <div style={{ fontSize: story ? 58 : 46, fontWeight: 900 }}>RESUMINDO</div>
@@ -57,12 +76,14 @@ export default async function FeedbackCardPage({ params, searchParams }) {
           style={{
             position: "relative",
             zIndex: 2,
-            background: "rgba(255,255,255,.14)",
+            background: "rgba(5,18,44,.64)",
+            border: "1px solid rgba(255,255,255,.24)",
             borderRadius: 38,
-            padding: story ? 64 : 52
+            padding: story ? 64 : 52,
+            boxShadow: "0 30px 80px rgba(0,0,0,.35)"
           }}
         >
-          <div style={{ fontSize: story ? 80 : 66, color: "#ffb233" }}>“</div>
+          <div style={{ fontSize: story ? 80 : 66, color: "#ffb233", lineHeight: .75 }}>“</div>
 
           <div
             style={{
@@ -71,7 +92,7 @@ export default async function FeedbackCardPage({ params, searchParams }) {
               fontWeight: 800
             }}
           >
-            {f.comentario}
+            {comentario}
           </div>
 
           <div style={{ marginTop: 30, fontSize: story ? 30 : 26 }}>
@@ -85,12 +106,14 @@ export default async function FeedbackCardPage({ params, searchParams }) {
             zIndex: 2,
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "center"
+            alignItems: "center",
+            gap: 20
           }}
         >
           <div
             style={{
-              background: "rgba(255,255,255,.15)",
+              background: "rgba(255,152,0,.95)",
+              color: "#fff",
               borderRadius: 999,
               padding: story ? "18px 28px" : "14px 22px",
               fontSize: story ? 34 : 28,

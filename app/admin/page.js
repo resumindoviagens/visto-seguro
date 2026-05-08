@@ -1012,9 +1012,8 @@ function Dashboard({ logout }) {
         </div>
 
         <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
-          <button className="btn-primary" onClick={() => setAlertsOpen(true)}>Ver alertas</button>
-          <a className="btn-light" href="/admin/feedbacks" target="_blank">Feedbacks / Avaliações</a>
-          <a className="btn-light" href="/admin/feedbacks" target="_blank">Feedbacks</a>
+          <button className="btn-primary" onClick={() => setAlertsOpen(true)}>Ver alertas</button>\n          <a className="btn-light" href="/admin/feedbacks" target="_blank">Feedbacks / Avaliações</a>
+          
           <button className="btn-light" onClick={() => setReportOpen(true)}>Relatórios</button>
           <input placeholder="Buscar por nome, CPF, e-mail ou grupo de processo" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
