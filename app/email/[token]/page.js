@@ -1,6 +1,33 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { headers } from "next/headers";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 import { getEmailTemplate } from "../../../lib/emailTemplates";
+import { randomBytes } from "crypto";
+
+
+function makeFeedbackToken() {
+  return randomBytes(24).toString("hex");
+}
+
+async function ensureFeedbackLink(client, siteUrl) {
+  let token = client.feedback_token;
+  if (!token) {
+    token = makeFeedbackToken();
+    const expires = new Date();
+    expires.setDate(expires.getDate() + 30);
+    await supabaseAdmin
+      .from("clients")
+      .update({
+        feedback_liberado: true,
+        feedback_token: token,
+        feedback_token_expires_at: expires.toISOString()
+      })
+      .eq("id", client.id);
+  }
+  return `${siteUrl}/feedback/${token}`;
+}
 
 export default async function EmailModelPage({ params, searchParams }) {
   const resolvedParams = await params;
@@ -23,13 +50,14 @@ export default async function EmailModelPage({ params, searchParams }) {
   const protocol = headerStore.get("x-forwarded-proto") || "https";
   const currentSiteUrl = host ? `${protocol}://${host}` : "";
   const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-  const siteUrl = envSiteUrl || currentSiteUrl;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || envSiteUrl || currentSiteUrl || "https://app.resumindoviagens.com.br";
   const formLink = `${siteUrl}/acesso/${client.access_token}`;
   const preparationLink = `${siteUrl}/preparacao/${client.access_token}`;
+  const feedbackLink = templateId === "pesquisa_satisfacao" ? await ensureFeedbackLink(client, siteUrl) : "";
 
   let selectedTemplate;
   try {
-    selectedTemplate = getEmailTemplate(templateId, client, { formLink, preparationLink, rastreio: client.passport_tracking_code || "" });
+    selectedTemplate = getEmailTemplate(templateId, client, { formLink, preparationLink, feedbackLink, rastreio: client.passport_tracking_code || "" });
   } catch (error) {
     selectedTemplate = getEmailTemplate("formulario", client, { formLink, preparationLink, rastreio: client.passport_tracking_code || "" });
   }

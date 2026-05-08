@@ -81,7 +81,8 @@ function actionLabel(action) {
     client_sedex_tracking_sent: "Rastreio Sedex informado pelo cliente",
     internal_email_sent: "Alerta interno enviado",
     internal_email_failed: "Falha no alerta interno",
-    update_process_steps: "Etapas do processo atualizadas"
+    update_process_steps: "Etapas do processo atualizadas",
+    feedback_received: "Pesquisa de satisfação respondida"
   };
   return labels[action] || action;
 }
@@ -1012,6 +1013,7 @@ function Dashboard({ logout }) {
 
         <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
           <button className="btn-primary" onClick={() => setAlertsOpen(true)}>Ver alertas</button>
+          <a className="btn-light" href="/admin/feedbacks" target="_blank">Feedbacks</a>
           <button className="btn-light" onClick={() => setReportOpen(true)}>Relatórios</button>
           <input placeholder="Buscar por nome, CPF, e-mail ou grupo de processo" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
@@ -1066,6 +1068,11 @@ function Dashboard({ logout }) {
                   {getCriticalAlerts(client).length > 0 && (
                     <div className="admin-critical-alert">
                       Atenção: cliente respondeu <strong>Sim</strong> na pergunta {getCriticalAlerts(client).join(", ")}
+                    </div>
+                  )}
+                  {client.feedback_answered_at && (
+                    <div className="admin-date-alert info">
+                      Avaliação recebida: nota {client.feedback_nota_nps ?? "-"} / 10
                     </div>
                   )}
                 </td>
@@ -1140,7 +1147,7 @@ function Dashboard({ logout }) {
                       <div className="admin-email-options">
                         <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
                         {EMAIL_TEMPLATES.map((template) => (
-                          <a key={template.id} className="btn-light" href={`/email/${client.access_token}?template=${template.id}`} target="_blank">
+                          <a key={template.id} className="btn-light" href={`/email/${client.access_token}?template=${template.id}&v=v38-orlando`} target="_blank">
                             {template.label}
                           </a>
                         ))}

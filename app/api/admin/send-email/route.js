@@ -2,7 +2,35 @@ import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../lib/auth";
 import { getEmailTemplate } from "../../../../lib/emailTemplates";
 import { sendWithBrevo } from "../../../../lib/brevoEmail";
+import { randomBytes } from "crypto";
 
+
+
+function makeFeedbackToken() {
+  return randomBytes(24).toString("hex");
+}
+
+async function ensureFeedbackLink(client, origin) {
+  let token = client.feedback_token;
+  if (!token) {
+    token = makeFeedbackToken();
+    const expires = new Date();
+    expires.setDate(expires.getDate() + 30);
+
+    const { error } = await supabaseAdmin
+      .from("clients")
+      .update({
+        feedback_liberado: true,
+        feedback_token: token,
+        feedback_token_expires_at: expires.toISOString()
+      })
+      .eq("id", client.id);
+
+    if (error) throw error;
+  }
+
+  return `${origin}/feedback/${token}`;
+}
 
 function siteOrigin(request) {
   return process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
@@ -25,7 +53,8 @@ export async function POST(request) {
     const origin = siteOrigin(request);
     const formLink = `${origin}/acesso/${client.access_token}`;
     const preparationLink = `${origin}/preparacao/${client.access_token}`;
-    const template = getEmailTemplate(template_id, client, { formLink, preparationLink, rastreio: body.rastreio || client.passport_tracking_code || "" });
+    const feedbackLink = template_id === "pesquisa_satisfacao" ? await ensureFeedbackLink(client, origin) : "";
+    const template = getEmailTemplate(template_id, client, { formLink, preparationLink, feedbackLink, rastreio: body.rastreio || client.passport_tracking_code || "" });
 
     const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, subject: template.subject, html: template.html, text: template.text });
 
