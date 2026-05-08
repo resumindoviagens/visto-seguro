@@ -1,5 +1,5 @@
-import FeedbacksAdminExample from '@/components/admin/FeedbacksAdminExample';
+import FeedbacksAdminComPostagem from '@/components/admin/FeedbacksAdminComPostagem';
 
 export default function AdminFeedbacksPage() {
-  return <FeedbacksAdminExample />;
+  return <FeedbacksAdminComPostagem />;
 }

@@ -1,5 +1,5 @@
-import FeedbackPublicPageExample from '@/components/feedback/FeedbackPublicPageExample';
+import FeedbackPesquisaCliente from '@/components/feedback/FeedbackPesquisaCliente';
 
 export default function FeedbackPage() {
-  return <FeedbackPublicPageExample />;
+  return <FeedbackPesquisaCliente />;
 }
