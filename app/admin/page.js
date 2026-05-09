@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createBrowserSupabase, getCurrentAdminSession } from "../../lib/supabaseAdminAuth";
 import BrandHeader from "../../components/BrandHeader";
 import { EMAIL_TEMPLATES } from "../../lib/emailTemplates";
+import FamilyGroupSyncButton from "./components/FamilyGroupSyncButton";
 
 function cleanCPF(value) {
   return (value || "").replace(/\D/g, "");
@@ -871,7 +872,7 @@ function Dashboard({ logout }) {
   }
 
   function whatsappMessage(client) {
-    return `Olá, ${client.name}! Seu formulário da Resumindo Viagens já está pronto para preenchimento.Acesse seu link único e exclusivo:${clientLink(client)}Por segurança, o acesso será validado com CPF e data de nascimento.Se outros membros da família também estiverem preenchendo formulário, cada pessoa deverá acessar o próprio link individual.`;
+    return `Olá, ${client.name}! Seu formulário da Resumindo Viagens já está pronto para preenchimento.\n\nAcesse seu link único e exclusivo:\n${clientLink(client)}\n\nPor segurança, o acesso será validado com CPF e data de nascimento.\n\nSe outros membros da família também estiverem preenchendo formulário, cada pessoa deverá acessar o próprio link individual.`;
   }
 
 
@@ -963,7 +964,7 @@ function Dashboard({ logout }) {
         client.is_renewal ? "NÃO" : "SIM", "", "", "", "", (client.stage_ds160_completed || client.status === "submitted") ? "X" : "", client.stage_fee_paid ? "X" : "", info.interview_date ? "X" : "", info.casv_date ? "X" : "", info.video_call_date ? "X" : "", client.stage_interview_done ? "X" : "", client.visa_result === "approved" ? "X" : client.visa_result === "denied" ? "NEGADO" : "", "", "", info.passport_tracking_code ? "X" : "", client.stage_passport_returned ? "X" : "", "", "", "", "", ""
       ];
     });
-    const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(";")).join("");
+    const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(";")).join("\n");
     const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -1013,8 +1014,7 @@ function Dashboard({ logout }) {
 
         <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
           <button className="btn-primary" onClick={() => setAlertsOpen(true)}>Ver alertas</button>
-          <a className="btn-light" href="/admin/feedbacks" target="_blank">Feedbacks / Avaliações</a>
-          
+          <a className="btn-light" href="/admin/feedbacks" target="_blank">Feedbacks</a>
           <button className="btn-light" onClick={() => setReportOpen(true)}>Relatórios</button>
           <input placeholder="Buscar por nome, CPF, e-mail ou grupo de processo" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
@@ -1295,3 +1295,5 @@ function Dashboard({ logout }) {
     </main>
   );
 }
+
+/* V45: inserir no card do cliente, junto aos botões de ações: <FamilyGroupSyncButton client={client} /> */
