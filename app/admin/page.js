@@ -646,8 +646,6 @@ function Dashboard({ logout }) {
       is_renewal: !!client.is_renewal,
       client_sedex_tracking: client.client_sedex_tracking || "",
       tipo_processo: client.tipo_processo || (client.is_renewal ? "Renovação" : "Primeiro visto"),
-      data_inicio_processo: client.data_inicio_processo || "",
-      data_final_processo: client.data_final_processo || "",
       observacoes_gerais: client.observacoes_gerais || "",
       grupo_familiar_master: !!client.grupo_familiar_master,
       sincronizar_com_grupo: client.sincronizar_com_grupo !== false
@@ -1093,7 +1091,6 @@ function Dashboard({ logout }) {
           <input placeholder="Celular" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input placeholder="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <label className="admin-field-label"><span>Tipo de processo</span><select value={form.tipo_processo} onChange={(e) => setForm({ ...form, tipo_processo: e.target.value })}><option value="Primeiro visto">Primeiro visto</option><option value="Renovação">Renovação</option><option value="Passaporte">Passaporte</option><option value="Canadá">Canadá</option><option value="Outro">Outro</option></select></label>
-          <label className="admin-field-label"><span>Data de início do processo</span><input type="date" value={form.data_inicio_processo} onChange={(e) => setForm({ ...form, data_inicio_processo: e.target.value })} /></label>
           <label className="admin-field-label"><span>Grupo de processo</span><select value={form.group_process_id} onChange={(e) => setForm({ ...form, group_process_id: e.target.value })}><option value="">Sem grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.nome}</option>)}</select></label>
           <button type="button" className="btn-light" onClick={createProcessGroup}>+ Criar grupo de processo</button>
           <textarea className="wide" placeholder="Observações internas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
@@ -1212,6 +1209,7 @@ function Dashboard({ logout }) {
                         <h3 style={{ margin: "0 0 8px", color: "var(--navy)" }}>Processo, datas e rastreios</h3>
                         <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13 }}>Preencha ao longo do processo. Estes dados não fazem parte do cadastro inicial.</p>
 
+                        <label><small>Data de início do processo</small><input type="date" defaultValue={processInfo(client).data_inicio_processo || ""} onBlur={(e) => updateProcessSchedule(client, { data_inicio_processo: e.target.value })} /></label>
                         <label><small>Cidade do consulado</small><select defaultValue={processInfo(client).consulate_city || ""} onChange={(e) => updateProcessSchedule(client, { consulate_city: e.target.value })}><option value="">Selecionar cidade</option>{CONSULATE_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
                         <label><small>Data CASV</small><input type="date" defaultValue={processInfo(client).casv_date || ""} onBlur={(e) => updateProcessSchedule(client, { casv_date: e.target.value })} /></label>
                         <label><small>Data da entrevista no consulado</small><input type="date" defaultValue={processInfo(client).interview_date || ""} onBlur={(e) => updateProcessSchedule(client, { interview_date: e.target.value })} /></label>
@@ -1314,7 +1312,6 @@ function Dashboard({ logout }) {
               <input placeholder="Celular" value={editForm.phone || ""} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
               <input placeholder="E-mail" type="email" value={editForm.email || ""} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
               <label className="admin-field-label"><span>Tipo de processo</span><select value={editForm.tipo_processo || "Primeiro visto"} onChange={(e) => setEditForm({ ...editForm, tipo_processo: e.target.value })}><option value="Primeiro visto">Primeiro visto</option><option value="Renovação">Renovação</option><option value="Passaporte">Passaporte</option><option value="Canadá">Canadá</option><option value="Outro">Outro</option></select></label>
-              <label className="admin-field-label"><span>Data final do processo</span><input type="date" value={editForm.data_final_processo || ""} onChange={(e) => setEditForm({ ...editForm, data_final_processo: e.target.value })} /></label>
               <label className="admin-field-label"><span>Grupo de processo</span><select value={editForm.group_process_id || ""} onChange={(e) => setEditForm({ ...editForm, group_process_id: e.target.value })}><option value="">Sem grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.nome}</option>)}</select></label>
               <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.grupo_familiar_master} onChange={(e) => setEditForm({ ...editForm, grupo_familiar_master: e.target.checked })} /> Contato principal do grupo familiar</label>
               <label className="admin-checkbox"><input type="checkbox" checked={editForm.sincronizar_com_grupo !== false} onChange={(e) => setEditForm({ ...editForm, sincronizar_com_grupo: e.target.checked })} /> Sincronizar este membro com o grupo</label>

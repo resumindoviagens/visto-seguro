@@ -47,7 +47,6 @@ export async function PATCH(request, context) {
     updates.is_renewal = !!body.is_renewal;
     updates.client_sedex_tracking = body.client_sedex_tracking || "";
     updates.tipo_processo = body.tipo_processo || (body.is_renewal ? "Renovação" : (body.tipo_processo || ""));
-    updates.data_final_processo = body.data_final_processo || null;
     updates.observacoes_gerais = body.observacoes_gerais || "";
     updates.grupo_familiar_master = !!body.grupo_familiar_master;
     updates.sincronizar_com_grupo = body.sincronizar_com_grupo !== false;
@@ -75,7 +74,7 @@ export async function PATCH(request, context) {
     updates.stage_interview_done = !!body.stage_interview_done;
     updates.visa_result = body.visa_result || null;
     updates.stage_passport_returned = !!body.stage_passport_returned;
-    if (updates.stage_passport_returned && !oldClient?.data_final_processo) {
+    if ((updates.stage_passport_returned || body.visa_result === "denied") && !oldClient?.data_final_processo) {
       updates.data_final_processo = new Date().toISOString().slice(0, 10);
     }
   }
