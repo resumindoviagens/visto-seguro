@@ -1,18 +1,26 @@
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 
 const SYNC_FIELDS = [
-  "process_steps",
-  "current_step",
-  "etapa_atual",
+  // Etapas que alimentam a barra de progresso
+  "stage_ds160_completed",
+  "stage_fee_generated",
+  "stage_fee_paid",
+  "stage_dates_scheduled",
+  "stage_interview_done",
+  "stage_passport_returned",
+
+  // Processo, datas e rastreios
+  "interview_date",
+  "casv_date",
+  "video_call_date",
+  "consulate_city",
+  "passport_tracking_code",
+
+  // Dados operacionais internos do processo
   "data_inicio_processo",
   "data_final_processo",
   "observacoes_gerais",
-  "tipo_processo",
-  "grupo_processo",
-  "rastreio_passaporte",
-  "data_casv",
-  "data_entrevista",
-  "data_videochamada"
+  "tipo_processo"
 ];
 
 function pickSyncData(client) {
@@ -43,11 +51,17 @@ export async function POST(request) {
       return Response.json({ error: "Contato principal não encontrado." }, { status: 404 });
     }
 
-    const grupoId = master.grupo_familiar_id || master.grupo_processo;
-
-    if (!grupoId) {
+    if (!master.grupo_familiar_master) {
       return Response.json({
-        error: "Este cliente não possui grupo familiar/grupo de processo preenchido."
+        error: "Este cliente não está marcado como Contato principal do grupo."
+      }, { status: 400 });
+    }
+
+    const groupId = master.group_process_id;
+
+    if (!groupId) {
+      return Response.json({
+        error: "Este cliente não possui Grupo de processo preenchido."
       }, { status: 400 });
     }
 
@@ -55,9 +69,9 @@ export async function POST(request) {
 
     const { data: members, error: membersError } = await supabaseAdmin
       .from("clients")
-      .select("id, name, nome, grupo_familiar_id, grupo_processo, sincronizar_com_grupo")
-      .neq("id", masterId)
-      .or(`grupo_familiar_id.eq.${grupoId},grupo_processo.eq.${grupoId}`);
+      .select("id, name, sincronizar_com_grupo")
+      .eq("group_process_id", groupId)
+      .neq("id", masterId);
 
     if (membersError) {
       return Response.json({ error: membersError.message }, { status: 500 });
@@ -71,7 +85,7 @@ export async function POST(request) {
       return Response.json({
         ok: true,
         updated: 0,
-        message: "Nenhum membro vinculado encontrado para sincronizar."
+        message: "Nenhum outro membro do grupo encontrado para sincronizar."
       });
     }
 
@@ -79,8 +93,6 @@ export async function POST(request) {
       .from("clients")
       .update({
         ...syncData,
-        grupo_familiar_id: grupoId,
-        grupo_familiar_nome: master.grupo_familiar_nome || master.grupo_processo || grupoId,
         grupo_familiar_master: false,
         grupo_familiar_master_id: master.id
       })
@@ -95,14 +107,12 @@ export async function POST(request) {
         client_id: master.id,
         action: "family_group_synced",
         details: {
-          grupoId,
+          group_process_id: groupId,
           updated: targetIds.length,
           fields: SYNC_FIELDS
         }
       });
-    } catch (err) {
-      console.warn("Log de sincronização não gravado:", err?.message || err);
-    }
+    } catch {}
 
     return Response.json({
       ok: true,
