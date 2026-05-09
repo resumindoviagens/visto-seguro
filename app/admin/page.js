@@ -585,7 +585,9 @@ function Dashboard({ logout }) {
       tipo_processo: client.tipo_processo || (client.is_renewal ? "Renovação" : "Primeiro visto"),
       data_inicio_processo: client.data_inicio_processo || "",
       data_final_processo: client.data_final_processo || "",
-      observacoes_gerais: client.observacoes_gerais || ""
+      observacoes_gerais: client.observacoes_gerais || "",
+      grupo_familiar_master: !!client.grupo_familiar_master,
+      sincronizar_com_grupo: client.sincronizar_com_grupo !== false
     });
   }
 
@@ -668,6 +670,21 @@ function Dashboard({ logout }) {
       return;
     }
     await loadClients();
+
+    if (client.grupo_familiar_master && client.group_process_id) {
+      const syncNow = confirm("Dados de processo atualizados. Deseja sincronizar agora com os demais membros do grupo?");
+      if (syncNow) {
+        const syncRes = await fetch("/api/admin/sync-family-group", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ masterId: client.id })
+        });
+        const syncData = await syncRes.json();
+        if (!syncRes.ok) alert(syncData.error || "Dados salvos, mas não foi possível sincronizar o grupo.");
+        else alert(`Grupo sincronizado. ${syncData.updated || 0} membro(s) atualizado(s).`);
+        await loadClients();
+      }
+    }
   }
 
   function daysUntil(dateValue) {
@@ -746,6 +763,21 @@ function Dashboard({ logout }) {
       return;
     }
     await loadClients();
+
+    if (client.grupo_familiar_master && client.group_process_id) {
+      const syncNow = confirm("Etapa atualizada. Deseja sincronizar agora com os demais membros do grupo?");
+      if (syncNow) {
+        const syncRes = await fetch("/api/admin/sync-family-group", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ masterId: client.id })
+        });
+        const syncData = await syncRes.json();
+        if (!syncRes.ok) alert(syncData.error || "Etapa salva, mas não foi possível sincronizar o grupo.");
+        else alert(`Grupo sincronizado. ${syncData.updated || 0} membro(s) atualizado(s).`);
+        await loadClients();
+      }
+    }
   }
 
   async function deleteClient(client) {
@@ -1206,6 +1238,8 @@ function Dashboard({ logout }) {
               <label className="admin-field-label"><span>Data de início do processo</span><input type="date" value={editForm.data_inicio_processo || ""} onChange={(e) => setEditForm({ ...editForm, data_inicio_processo: e.target.value })} /></label>
               <label className="admin-field-label"><span>Data final do processo</span><input type="date" value={editForm.data_final_processo || ""} onChange={(e) => setEditForm({ ...editForm, data_final_processo: e.target.value })} /></label>
               <label className="admin-field-label"><span>Grupo de processo</span><select value={editForm.group_process_id || ""} onChange={(e) => setEditForm({ ...editForm, group_process_id: e.target.value })}><option value="">Sem grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.nome}</option>)}</select></label>
+              <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.grupo_familiar_master} onChange={(e) => setEditForm({ ...editForm, grupo_familiar_master: e.target.checked })} /> Contato principal do grupo familiar</label>
+              <label className="admin-checkbox"><input type="checkbox" checked={editForm.sincronizar_com_grupo !== false} onChange={(e) => setEditForm({ ...editForm, sincronizar_com_grupo: e.target.checked })} /> Sincronizar este membro com o grupo</label>
               <button type="button" className="btn-light" onClick={createProcessGroup}>+ Criar grupo de processo</button>
               <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.no_form_required} onChange={(e) => setEditForm({ ...editForm, no_form_required: e.target.checked })} /> Cadastro de controle — não enviar formulário</label>
               <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.is_renewal} onChange={(e) => setEditForm({ ...editForm, is_renewal: e.target.checked })} /> Processo de renovação sem entrevista</label>
@@ -1296,4 +1330,4 @@ function Dashboard({ logout }) {
   );
 }
 
-/* V45: inserir no card do cliente, junto aos botões de ações: <FamilyGroupSyncButton client={client} /> */
+

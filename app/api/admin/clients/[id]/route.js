@@ -50,6 +50,9 @@ export async function PATCH(request, context) {
     updates.data_inicio_processo = body.data_inicio_processo || null;
     updates.data_final_processo = body.data_final_processo || null;
     updates.observacoes_gerais = body.observacoes_gerais || "";
+    updates.grupo_familiar_master = !!body.grupo_familiar_master;
+    updates.sincronizar_com_grupo = body.sincronizar_com_grupo !== false;
+    updates.grupo_familiar_master_id = body.grupo_familiar_master ? null : (body.grupo_familiar_master_id || null);
   }
 
   if (body.action === "update_schedule") {
