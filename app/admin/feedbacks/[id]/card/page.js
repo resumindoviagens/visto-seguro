@@ -11,7 +11,7 @@ function fitText(text, max = 230) {
 function backgroundById(id) {
   let sum = 0;
   for (const ch of String(id || "")) sum += ch.charCodeAt(0);
-  const n = (sum % 10) + 1;
+  const n = (sum % 30) + 1;
   return `/feedback-backgrounds/feedback-bg-${String(n).padStart(2, "0")}.jpg`;
 }
 
