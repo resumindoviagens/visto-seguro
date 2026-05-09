@@ -47,7 +47,6 @@ export async function PATCH(request, context) {
     updates.is_renewal = !!body.is_renewal;
     updates.client_sedex_tracking = body.client_sedex_tracking || "";
     updates.tipo_processo = body.tipo_processo || (body.is_renewal ? "Renovação" : (body.tipo_processo || ""));
-    updates.data_inicio_processo = body.data_inicio_processo || null;
     updates.data_final_processo = body.data_final_processo || null;
     updates.observacoes_gerais = body.observacoes_gerais || "";
     updates.grupo_familiar_master = !!body.grupo_familiar_master;
@@ -61,12 +60,14 @@ export async function PATCH(request, context) {
     updates.video_call_date = body.video_call_date || null;
     updates.consulate_city = body.consulate_city || "";
     updates.passport_tracking_code = body.passport_tracking_code || "";
+    if (typeof body.data_inicio_processo !== "undefined") updates.data_inicio_processo = body.data_inicio_processo || null;
     // O rastreio Sedex do cliente e o checkbox de renovação ficam em Editar dados.
     if (typeof body.client_sedex_tracking !== "undefined") updates.client_sedex_tracking = body.client_sedex_tracking || "";
     if (typeof body.is_renewal !== "undefined") updates.is_renewal = !!body.is_renewal;
   }
 
   if (body.action === "update_process_steps") {
+    updates.status = body.status || oldClient?.status || "not_started";
     updates.stage_ds160_completed = !!body.stage_ds160_completed;
     updates.stage_fee_generated = !!body.stage_fee_generated;
     updates.stage_fee_paid = !!body.stage_fee_paid;

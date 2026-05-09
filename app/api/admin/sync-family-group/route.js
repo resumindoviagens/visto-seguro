@@ -1,7 +1,8 @@
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 
 const SYNC_FIELDS = [
-  // Etapas que alimentam a barra de progresso
+  // 10 etapas unificadas / barra de progresso
+  "status",
   "stage_ds160_completed",
   "stage_fee_generated",
   "stage_fee_paid",
@@ -15,9 +16,9 @@ const SYNC_FIELDS = [
   "video_call_date",
   "consulate_city",
   "passport_tracking_code",
+  "data_inicio_processo",
 
   // Dados operacionais internos do processo
-  "data_inicio_processo",
   "data_final_processo",
   "observacoes_gerais",
   "tipo_processo"

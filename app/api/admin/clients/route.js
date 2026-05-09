@@ -86,7 +86,6 @@ export async function POST(request) {
     no_form_required: !!body.no_form_required,
     is_renewal: !!body.is_renewal,
     tipo_processo: body.tipo_processo || (body.is_renewal ? "Renovação" : "Primeiro visto"),
-    data_inicio_processo: body.data_inicio_processo || new Date().toISOString().slice(0, 10),
     observacoes_gerais: body.observacoes_gerais || body.notes || ""
   };
 

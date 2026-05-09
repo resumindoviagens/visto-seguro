@@ -21,6 +21,7 @@ export async function PATCH(request, context) {
     interview_date: body.interview_date || null,
     video_call_date: body.video_call_date || null,
     passport_tracking_code: body.passport_tracking_code || "",
+    data_inicio_processo: body.data_inicio_processo || null,
     updated_at: new Date().toISOString()
   };
   Object.keys(updates).forEach((key) => typeof updates[key] === "undefined" && delete updates[key]);

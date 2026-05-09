@@ -26,6 +26,45 @@ function statusLabel(status) {
   return labels[status] || status;
 }
 
+const PROCESS_STEPS = [
+  ["status_not_started", "Não iniciado"],
+  ["status_in_progress", "Em preenchimento"],
+  ["status_submitted", "Enviado"],
+  ["stage_ds160_completed", "DS-160 preenchido e concluído"],
+  ["stage_fee_generated", "Taxa gerada"],
+  ["stage_fee_paid", "Taxa paga"],
+  ["stage_dates_scheduled", "Datas agendadas"],
+  ["stage_interview_done", "Entrevista realizada"],
+  ["visa_result", "Visto aprovado ou negado"],
+  ["stage_passport_returned", "Visto/passaporte devolvido"]
+];
+
+function stepDone(client, key) {
+  if (key === "status_not_started") return true;
+  if (key === "status_in_progress") return ["in_progress", "submitted"].includes(client.status) || !!client.stage_ds160_completed || !!client.stage_fee_generated || !!client.stage_fee_paid || !!client.stage_dates_scheduled || !!client.stage_interview_done || !!client.visa_result || !!client.stage_passport_returned;
+  if (key === "status_submitted") return client.status === "submitted" || !!client.stage_ds160_completed || !!client.stage_fee_generated || !!client.stage_fee_paid || !!client.stage_dates_scheduled || !!client.stage_interview_done || !!client.visa_result || !!client.stage_passport_returned;
+  if (key === "visa_result") return !!client.visa_result;
+  return !!client[key];
+}
+
+function processStepCount(client) {
+  return PROCESS_STEPS.reduce((total, [key]) => total + (stepDone(client, key) ? 1 : 0), 0);
+}
+
+function currentStepKey(client) {
+  let current = "status_not_started";
+  for (const [key] of PROCESS_STEPS) {
+    if (stepDone(client, key)) current = key;
+  }
+  return current;
+}
+
+function currentStepLabel(client) {
+  const key = currentStepKey(client);
+  const item = PROCESS_STEPS.find(([stepKey]) => stepKey === key);
+  return item?.[1] || "Não iniciado";
+}
+
 
 const CRITICAL_ALERT_QUESTIONS = ["3.19", "3.20", "3.21", "6.9", "6.11", "8.8"];
 
@@ -400,7 +439,6 @@ function Dashboard({ logout }) {
     no_form_required: false,
     is_renewal: false,
     tipo_processo: "Primeiro visto",
-    data_inicio_processo: "",
     observacoes_gerais: ""
   });
 
@@ -457,13 +495,35 @@ function Dashboard({ logout }) {
       casv_date: group?.casv_date || client.casv_date || "",
       interview_date: group?.interview_date || client.interview_date || "",
       video_call_date: group?.video_call_date || client.video_call_date || "",
-      passport_tracking_code: group?.passport_tracking_code || client.passport_tracking_code || ""
+      passport_tracking_code: group?.passport_tracking_code || client.passport_tracking_code || "",
+      data_inicio_processo: group?.data_inicio_processo || client.data_inicio_processo || ""
     };
+  }
+
+  async function syncFamilyGroup(masterClient, silent = true) {
+    if (!masterClient?.grupo_familiar_master || !masterClient?.group_process_id) return;
+    const syncRes = await fetch("/api/admin/sync-family-group", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ masterId: masterClient.id })
+    });
+    const syncData = await syncRes.json();
+    if (!syncRes.ok) {
+      alert(syncData.error || "Alteração salva, mas não foi possível sincronizar o grupo.");
+      return;
+    }
+    if (!silent) alert(`Grupo sincronizado. ${syncData.updated || 0} membro(s) atualizado(s).`);
   }
 
   async function updateProcessSchedule(client, fields) {
     const info = processInfo(client);
-    if (client.group_process_id) {
+
+    if (client.group_process_id && !client.grupo_familiar_master) {
+      alert("Este cliente faz parte de um grupo familiar, mas não é o Contato principal. Para vincular datas/rastreios a todos, altere pelo cadastro do líder do grupo.");
+      return;
+    }
+
+    if (client.group_process_id && client.grupo_familiar_master) {
       const res = await fetch(`/api/admin/process-groups/${client.group_process_id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -472,15 +532,18 @@ function Dashboard({ logout }) {
           casv_date: fields.casv_date ?? info.casv_date ?? "",
           interview_date: fields.interview_date ?? info.interview_date ?? "",
           video_call_date: fields.video_call_date ?? info.video_call_date ?? "",
-          passport_tracking_code: fields.passport_tracking_code ?? info.passport_tracking_code ?? ""
+          passport_tracking_code: fields.passport_tracking_code ?? info.passport_tracking_code ?? "",
+          data_inicio_processo: fields.data_inicio_processo ?? info.data_inicio_processo ?? ""
         })
       });
       const data = await res.json();
       if (!res.ok) { alert(data.error || "Erro ao salvar grupo de processo."); return; }
+      await syncFamilyGroup(client, true);
       await loadGroups();
       await loadClients();
       return;
     }
+
     await updateClientSchedule(client, fields);
   }
 
@@ -659,6 +722,7 @@ function Dashboard({ logout }) {
         video_call_date: fields.video_call_date ?? client.video_call_date ?? "",
         consulate_city: fields.consulate_city ?? client.consulate_city ?? "",
         passport_tracking_code: fields.passport_tracking_code ?? client.passport_tracking_code ?? "",
+        data_inicio_processo: fields.data_inicio_processo ?? client.data_inicio_processo ?? "",
         client_sedex_tracking: fields.client_sedex_tracking ?? client.client_sedex_tracking ?? "",
         is_renewal: fields.is_renewal ?? client.is_renewal ?? false
       })
@@ -671,20 +735,6 @@ function Dashboard({ logout }) {
     }
     await loadClients();
 
-    if (client.grupo_familiar_master && client.group_process_id) {
-      const syncNow = confirm("Dados de processo atualizados. Deseja sincronizar agora com os demais membros do grupo?");
-      if (syncNow) {
-        const syncRes = await fetch("/api/admin/sync-family-group", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ masterId: client.id })
-        });
-        const syncData = await syncRes.json();
-        if (!syncRes.ok) alert(syncData.error || "Dados salvos, mas não foi possível sincronizar o grupo.");
-        else alert(`Grupo sincronizado. ${syncData.updated || 0} membro(s) atualizado(s).`);
-        await loadClients();
-      }
-    }
   }
 
   function daysUntil(dateValue) {
@@ -711,28 +761,11 @@ function Dashboard({ logout }) {
     return alerts;
   }
 
-  const PROCESS_STEPS = [
-    ["stage_ds160_completed", "DS-160 preenchido e concluído"],
-    ["stage_fee_generated", "Taxa gerada"],
-    ["stage_fee_paid", "Taxa paga"],
-    ["stage_dates_scheduled", "Datas agendadas"],
-    ["stage_interview_done", "Entrevista realizada"],
-    ["visa_result", "Visto aprovado ou negado"],
-    ["stage_passport_returned", "Visto/passaporte devolvido"]
-  ];
-
-  function processStepCount(client) {
-    return PROCESS_STEPS.reduce((total, [key]) => {
-      if (key === "visa_result") return total + (client.visa_result ? 1 : 0);
-      return total + (client[key] ? 1 : 0);
-    }, 0);
-  }
-
   function Thermometer({ client }) {
     const count = processStepCount(client);
     return (
-      <div className="process-thermometer" title={`${count}/7 etapas concluídas`}>
-        <div className="thermo-label">Processo: {count}/7</div>
+      <div className="process-thermometer" title={`${count}/10 etapas concluídas`}>
+        <div className="thermo-label">Etapa: {count}/10 — {currentStepLabel(client)}</div>
         <div className="thermo-bars">
           {PROCESS_STEPS.map(([key], index) => (
             <span key={key} className={index < count ? "filled" : ""}></span>
@@ -742,42 +775,77 @@ function Dashboard({ logout }) {
     );
   }
 
-  async function updateProcessSteps(client, fields) {
+  function buildStepUpdate(client, clickedKey, clickedValue, visaResultValue) {
+    const update = {
+      status: client.status || "not_started",
+      stage_ds160_completed: !!client.stage_ds160_completed,
+      stage_fee_generated: !!client.stage_fee_generated,
+      stage_fee_paid: !!client.stage_fee_paid,
+      stage_dates_scheduled: !!client.stage_dates_scheduled,
+      stage_interview_done: !!client.stage_interview_done,
+      visa_result: client.visa_result || "",
+      stage_passport_returned: !!client.stage_passport_returned
+    };
+
+    const index = PROCESS_STEPS.findIndex(([key]) => key === clickedKey);
+
+    if (clickedValue && index >= 0) {
+      for (let i = 0; i <= index; i++) {
+        const key = PROCESS_STEPS[i][0];
+        if (key === "status_not_started") update.status = "not_started";
+        else if (key === "status_in_progress") update.status = "in_progress";
+        else if (key === "status_submitted") update.status = "submitted";
+        else if (key === "visa_result") update.visa_result = visaResultValue || update.visa_result || "approved";
+        else update[key] = true;
+      }
+    } else {
+      if (clickedKey === "status_not_started") {
+        update.status = "not_started";
+      } else if (clickedKey === "status_in_progress") {
+        update.status = clickedValue ? "in_progress" : "not_started";
+      } else if (clickedKey === "status_submitted") {
+        update.status = clickedValue ? "submitted" : "in_progress";
+      } else if (clickedKey === "visa_result") {
+        update.visa_result = visaResultValue || "";
+      } else {
+        update[clickedKey] = !!clickedValue;
+      }
+    }
+
+    if (update.stage_ds160_completed || update.stage_fee_generated || update.stage_fee_paid || update.stage_dates_scheduled || update.stage_interview_done || update.visa_result || update.stage_passport_returned) {
+      update.status = "submitted";
+    }
+
+    return update;
+  }
+
+  async function updateProcessSteps(client, clickedKey, clickedValue, visaResultValue = "") {
+    if (client.group_process_id && !client.grupo_familiar_master) {
+      alert("Este cliente faz parte de um grupo familiar, mas não é o Contato principal. Para vincular etapas a todos, altere pelo cadastro do líder do grupo.");
+      return;
+    }
+
+    const fields = buildStepUpdate(client, clickedKey, clickedValue, visaResultValue);
+
     const res = await fetch(`/api/admin/clients/${client.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "update_process_steps",
-        stage_ds160_completed: fields.stage_ds160_completed ?? !!client.stage_ds160_completed,
-        stage_fee_generated: fields.stage_fee_generated ?? !!client.stage_fee_generated,
-        stage_fee_paid: fields.stage_fee_paid ?? !!client.stage_fee_paid,
-        stage_dates_scheduled: fields.stage_dates_scheduled ?? !!client.stage_dates_scheduled,
-        stage_interview_done: fields.stage_interview_done ?? !!client.stage_interview_done,
-        visa_result: fields.visa_result ?? client.visa_result ?? "",
-        stage_passport_returned: fields.stage_passport_returned ?? !!client.stage_passport_returned
+        ...fields
       })
     });
     const data = await res.json();
     if (!res.ok) {
-      alert(data.error || "Erro ao atualizar etapas do processo. Confira se o SQL da v21 foi executado.");
+      alert(data.error || "Erro ao atualizar etapas do processo.");
       return;
     }
-    await loadClients();
 
     if (client.grupo_familiar_master && client.group_process_id) {
-      const syncNow = confirm("Etapa atualizada. Deseja sincronizar agora com os demais membros do grupo?");
-      if (syncNow) {
-        const syncRes = await fetch("/api/admin/sync-family-group", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ masterId: client.id })
-        });
-        const syncData = await syncRes.json();
-        if (!syncRes.ok) alert(syncData.error || "Etapa salva, mas não foi possível sincronizar o grupo.");
-        else alert(`Grupo sincronizado. ${syncData.updated || 0} membro(s) atualizado(s).`);
-        await loadClients();
-      }
+      await syncFamilyGroup(client, true);
     }
+
+    await loadClients();
   }
 
   async function deleteClient(client) {
@@ -874,7 +942,7 @@ function Dashboard({ logout }) {
         ].filter(Boolean).join(" ").toLowerCase();
 
         const matchesSearch = !query || haystack.includes(query) || (!!queryCpf && (client.cpf || "").includes(queryCpf));
-        const matchesStatus = statusFilter === "all" || client.status === statusFilter;
+        const matchesStatus = statusFilter === "all" || currentStepKey(client) === statusFilter;
         const matchesTab = processTab === "concluidos" ? !!client.is_completed : !client.is_completed;
         return matchesSearch && matchesStatus && matchesTab;
       })
@@ -1050,10 +1118,8 @@ function Dashboard({ logout }) {
           <button className="btn-light" onClick={() => setReportOpen(true)}>Relatórios</button>
           <input placeholder="Buscar por nome, CPF, e-mail ou grupo de processo" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="all">Todos os status</option>
-            <option value="not_started">Não iniciado</option>
-            <option value="in_progress">Em preenchimento</option>
-            <option value="submitted">Enviado</option>
+            <option value="all">Todas as etapas</option>
+            {PROCESS_STEPS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
           </select>
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
             <option value="created_desc">Ordenar: cadastro mais recente</option>
@@ -1070,7 +1136,7 @@ function Dashboard({ logout }) {
           <thead>
             <tr style={{ background: "#f1f5f9" }}>
               <th align="left">Cliente</th>
-              <th align="left">Status</th>
+              <th align="left">Etapa</th>
               <th align="left">Link seguro</th>
               <th align="left">Ações</th>
             </tr>
@@ -1112,7 +1178,7 @@ function Dashboard({ logout }) {
 
                 <td>
                   <span className="status-pill" style={{ background: client.status === "submitted" ? "#dcfce7" : "#fff7e8", color: client.status === "submitted" ? "#166534" : "#92400e" }}>
-                    {statusLabel(client.status)} {client.is_locked ? "🔒" : ""}
+                    {currentStepLabel(client)} {client.is_locked ? "🔒" : ""}
                   </span>
                 </td>
 
@@ -1165,13 +1231,26 @@ function Dashboard({ logout }) {
                         <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
                         <h3 style={{ margin: "0 0 8px", color: "var(--navy)" }}>Etapas do processo</h3>
                         <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13 }}>Marque cada etapa concluída para acompanhar o andamento.</p>
-                        <label className="admin-checkbox"><input type="checkbox" checked={!!client.stage_ds160_completed} onChange={(e) => updateProcessSteps(client, { stage_ds160_completed: e.target.checked })} /> DS-160 preenchido e concluído</label>
-                        <label className="admin-checkbox"><input type="checkbox" checked={!!client.stage_fee_generated} onChange={(e) => updateProcessSteps(client, { stage_fee_generated: e.target.checked })} /> Taxa gerada</label>
-                        <label className="admin-checkbox"><input type="checkbox" checked={!!client.stage_fee_paid} onChange={(e) => updateProcessSteps(client, { stage_fee_paid: e.target.checked })} /> Taxa paga</label>
-                        <label className="admin-checkbox"><input type="checkbox" checked={!!client.stage_dates_scheduled} onChange={(e) => updateProcessSteps(client, { stage_dates_scheduled: e.target.checked })} /> Datas agendadas</label>
-                        <label className="admin-checkbox"><input type="checkbox" checked={!!client.stage_interview_done} onChange={(e) => updateProcessSteps(client, { stage_interview_done: e.target.checked })} /> Entrevista realizada</label>
-                        <label><small>Resultado do visto</small><select value={client.visa_result || ""} onChange={(e) => updateProcessSteps(client, { visa_result: e.target.value })}><option value="">Ainda sem resultado</option><option value="approved">Visto aprovado</option><option value="denied">Visto negado</option></select></label>
-                        <label className="admin-checkbox"><input type="checkbox" checked={!!client.stage_passport_returned} onChange={(e) => updateProcessSteps(client, { stage_passport_returned: e.target.checked })} /> Visto/passaporte devolvido</label>
+                        {PROCESS_STEPS.map(([key, label]) => {
+                          if (key === "visa_result") {
+                            return (
+                              <label key={key}>
+                                <small>{label}</small>
+                                <select value={client.visa_result || ""} onChange={(e) => updateProcessSteps(client, "visa_result", !!e.target.value, e.target.value)}>
+                                  <option value="">Ainda sem resultado</option>
+                                  <option value="approved">Visto aprovado</option>
+                                  <option value="denied">Visto negado</option>
+                                </select>
+                              </label>
+                            );
+                          }
+                          return (
+                            <label key={key} className="admin-checkbox">
+                              <input type="checkbox" checked={stepDone(client, key)} onChange={(e) => updateProcessSteps(client, key, e.target.checked)} />
+                              {label}
+                            </label>
+                          );
+                        })}
                       </div>
                     )}
 
@@ -1235,7 +1314,6 @@ function Dashboard({ logout }) {
               <input placeholder="Celular" value={editForm.phone || ""} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
               <input placeholder="E-mail" type="email" value={editForm.email || ""} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
               <label className="admin-field-label"><span>Tipo de processo</span><select value={editForm.tipo_processo || "Primeiro visto"} onChange={(e) => setEditForm({ ...editForm, tipo_processo: e.target.value })}><option value="Primeiro visto">Primeiro visto</option><option value="Renovação">Renovação</option><option value="Passaporte">Passaporte</option><option value="Canadá">Canadá</option><option value="Outro">Outro</option></select></label>
-              <label className="admin-field-label"><span>Data de início do processo</span><input type="date" value={editForm.data_inicio_processo || ""} onChange={(e) => setEditForm({ ...editForm, data_inicio_processo: e.target.value })} /></label>
               <label className="admin-field-label"><span>Data final do processo</span><input type="date" value={editForm.data_final_processo || ""} onChange={(e) => setEditForm({ ...editForm, data_final_processo: e.target.value })} /></label>
               <label className="admin-field-label"><span>Grupo de processo</span><select value={editForm.group_process_id || ""} onChange={(e) => setEditForm({ ...editForm, group_process_id: e.target.value })}><option value="">Sem grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.nome}</option>)}</select></label>
               <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.grupo_familiar_master} onChange={(e) => setEditForm({ ...editForm, grupo_familiar_master: e.target.checked })} /> Contato principal do grupo familiar</label>
@@ -1272,7 +1350,7 @@ function Dashboard({ logout }) {
             <button className="btn-primary" onClick={exportReportCsv} style={{ margin: "12px 0" }}>Exportar relatório CSV/Excel</button>
             <div style={{ overflowX: "auto", maxHeight: "65vh" }}>
               <table width="100%" cellPadding="8" style={{ borderCollapse: "collapse", fontSize: 13 }}>
-                <thead><tr style={{ background: "#f1f5f9" }}><th align="left">Nome</th><th align="left">Grupo</th><th align="left">Tipo</th><th align="left">Status</th><th align="left">Etapa</th><th align="left">Início</th><th align="left">CASV</th><th align="left">Entrevista</th><th align="left">Progresso</th><th align="left">Dias</th></tr></thead>
+                <thead><tr style={{ background: "#f1f5f9" }}><th align="left">Nome</th><th align="left">Grupo</th><th align="left">Tipo</th><th align="left">Etapa</th><th align="left">Etapa</th><th align="left">Início</th><th align="left">CASV</th><th align="left">Entrevista</th><th align="left">Progresso</th><th align="left">Dias</th></tr></thead>
                 <tbody>
                   {reportRows().map((row, index) => (
                     <tr key={`${row.cpf}-${index}`} style={{ borderTop: "1px solid #e5e7eb" }}>
