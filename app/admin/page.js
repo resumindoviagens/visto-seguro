@@ -72,22 +72,22 @@ function currentStepLabel(client) {
 const CRITICAL_ALERT_QUESTIONS = ["3.19", "3.20", "3.21", "6.9", "6.11", "8.8"];
 
 const GROUP_CARD_COLORS = [
-  "#fff1b8", // amarelo
-  "#c7f9cc", // verde
-  "#cde7ff", // azul
-  "#ffd6e7", // rosa
-  "#e0d4ff", // lilás
-  "#c6f6f1", // turquesa
-  "#ffd8a8", // pêssego
-  "#d9f99d", // lima
-  "#fecaca", // vermelho suave
-  "#bae6fd", // céu
-  "#fde68a", // âmbar
-  "#ddd6fe"  // roxo
+  "#fff1b8",
+  "#c7f9cc",
+  "#cde7ff",
+  "#ffd6e7",
+  "#e0d4ff",
+  "#c6f6f1",
+  "#ffd8a8",
+  "#d9f99d",
+  "#fecaca",
+  "#bae6fd",
+  "#fde68a",
+  "#ddd6fe"
 ];
 
 function groupColorFor(client) {
-  const groupKey = String(client.group_process_id || client.family_group || processInfo?.(client)?.groupName || "");
+  const groupKey = String(client.group_process_id || client.family_group || processInfo(client).groupName || "");
   if (!groupKey) return "";
   let sum = 0;
   for (const ch of groupKey) sum += ch.charCodeAt(0);
@@ -1144,7 +1144,7 @@ function Dashboard({ logout }) {
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v38 — PWA, admin mobile e WhatsApp</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v53 — Feedback login, grupos coloridos e versão atualizada</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1208,8 +1208,8 @@ function Dashboard({ logout }) {
 
           <tbody>
             {filteredClients.map((client) => (
-              <tr key={client.id} className={processInfo(client).groupName ? "family-row" : ""} style={{ borderTop: "1px solid #e5e7eb" }}>
-                <td>
+              <tr key={client.id} className={processInfo(client).groupName ? "family-row" : ""} style={{ borderTop: "1px solid #e5e7eb", ...groupRowStyle(client) }}>
+                <td style={{ backgroundColor: groupColorFor(client) || undefined }}>
                   <b>{client.name}</b><br />
                   <small>CPF: {client.cpf}</small><br />
                   <small>Nascimento: {formatDateBR(client.birth_date)}</small><br />
@@ -1341,7 +1341,7 @@ function Dashboard({ logout }) {
                               {template.label} (indisponível)
                             </button>
                           ) : (
-                            <a key={template.id} className="btn-light" href={`/email/${client.access_token}?template=${template.id}&v=v38-orlando`} target="_blank">
+                            <a key={template.id} className="btn-light" href={`/email/${client.access_token}?template=${template.id}&v=v53-feedback-login`} target="_blank">
                               {template.label}
                             </a>
                           );
