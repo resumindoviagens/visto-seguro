@@ -908,29 +908,8 @@ function Dashboard({ logout }) {
   }
 
   async function deleteClient(client) {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const email = sessionData?.session?.user?.email;
+    const confirmation = prompt(`Para excluir definitivamente o cadastro de ${client.name}, digite EXCLUIR:`);
 
-    if (!email) {
-      alert("Sua sessão expirou. Entre novamente para excluir cadastros.");
-      window.location.href = "/admin/login";
-      return;
-    }
-
-    const password = prompt(`Digite sua senha de login para excluir definitivamente o cadastro de ${client.name}:`);
-    if (!password) return;
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-
-    if (error) {
-      alert("Senha incorreta. Exclusão cancelada.");
-      return;
-    }
-
-    const confirmation = prompt("Para confirmar a exclusão definitiva, digite EXCLUIR:");
     if (confirmation !== "EXCLUIR") {
       alert("Exclusão cancelada.");
       return;
@@ -944,6 +923,7 @@ function Dashboard({ logout }) {
       return;
     }
 
+    alert("Cadastro excluído.");
     await loadClients();
   }
 
@@ -1049,9 +1029,45 @@ function Dashboard({ logout }) {
     alert(message);
   }
 
-  function feedbackSurveyWhatsAppMessage(client) {
-    const link = `${origin}/feedback/${client.feedback_token || client.access_token || ""}`;
-    return `Olá, ${client.name}. Tudo bem?\n\nSeu processo com a Resumindo Viagens foi concluído e gostaríamos muito de ouvir sua opinião.\n\nA pesquisa é rápida e leva menos de 1 minuto:\n${link}\n\nSua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confiança!`;
+  async function ensureFeedbackLinkForClient(client) {
+    const res = await fetch(`/api/admin/feedback-link/${client.id}`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Não foi possível gerar o link da pesquisa.");
+      return "";
+    }
+    await loadClients();
+    return data.feedbackLink || "";
+  }
+
+  async function openFeedbackSurveyWhatsApp(client) {
+    if (!client.stage_passport_returned) {
+      alert("Disponível somente após marcar Visto/passaporte devolvido.");
+      return;
+    }
+
+    const link = await ensureFeedbackLinkForClient(client);
+    if (!link) return;
+
+    const digits = cleanPhoneForWhatsApp(client.phone);
+    if (!digits) {
+      alert("Cliente sem celular cadastrado.");
+      return;
+    }
+
+    const message = encodeURIComponent(`Olá, ${client.name}. Tudo bem?\n\nSeu processo com a Resumindo Viagens foi concluído e gostaríamos muito de ouvir sua opinião.\n\nA pesquisa é rápida e leva menos de 1 minuto:\n${link}\n\nSua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confiança!`);
+    window.open(`https://wa.me/${digits}?text=${message}`, "_blank");
+  }
+
+  function feedbackSurveyWhatsAppMessage(client, link = "") {
+    return `Olá, ${client.name}. Tudo bem?
+
+Seu processo com a Resumindo Viagens foi concluído e gostaríamos muito de ouvir sua opinião.
+
+A pesquisa é rápida e leva menos de 1 minuto:
+${link || "[link da pesquisa]"}
+
+Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confiança!`;
   }
 
   function feedbackSurveyWhatsAppUrl(client) {
@@ -1170,7 +1186,7 @@ function Dashboard({ logout }) {
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v57 — validade do visto, WhatsApp pesquisa e prévia estática</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v58 — correções V57: WhatsApp, feedback, PDF e exclusão</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1300,11 +1316,7 @@ function Dashboard({ logout }) {
                     {isControlClient(client) ? <button className="btn-light" disabled>Abrir</button> : <a className="btn-light" href={`/acesso/${client.access_token}`} target="_blank">Abrir</a>}
                     <button className="btn-light" onClick={() => openEditClient(client)}>Editar dados</button>
                     <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `whatsapp-${client.id}` ? null : `whatsapp-${client.id}`)}>WhatsApp</button>
-                    {client.stage_passport_returned ? (
-                      <a className="btn-light" href={feedbackSurveyWhatsAppUrl(client)} target="_blank">WhatsApp pesquisa</a>
-                    ) : (
-                      <button className="btn-light" disabled title="Disponível após marcar Visto/passaporte devolvido">WhatsApp pesquisa</button>
-                    )}
+
                     {activeMenu === `whatsapp-${client.id}` && (
                       <div className="admin-email-options whatsapp-panel" style={{ minWidth: 300 }}>
                         <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
@@ -1377,7 +1389,7 @@ function Dashboard({ logout }) {
                               {template.label} (indisponível)
                             </button>
                           ) : (
-                            <a key={template.id} className="btn-light" href={`/email/${client.access_token}?template=${template.id}&v=v53-feedback-login`} target="_blank">
+                            <a key={template.id} className="btn-light" href={template.id === "pesquisa_satisfacao" ? `/email-feedback/${client.id}` : `/email/${client.access_token}?template=${template.id}&v=v58-correcoes`} target="_blank">
                               {template.label}
                             </a>
                           );
@@ -1401,9 +1413,9 @@ function Dashboard({ logout }) {
                       </div>
                     )}
 
-                    <a className="btn-light" href={`/admin/pdf/${client.access_token}`} target="_blank">Gerar PDF</a>
-                    <a className="btn-light" href={`/admin/pdf-manual/${client.access_token}`} target="_blank">PDF para preencher à mão</a>
-                    <a className="btn-light" href={`/foto-instrucoes/${client.access_token}`} target="_blank">Instruções Foto</a>
+                    {isControlClient(client) ? <button className="btn-light" disabled>Gerar PDF</button> : <a className="btn-light" href={`/admin/pdf/${client.access_token}`} target="_blank">Gerar PDF</a>}
+                    {isControlClient(client) ? <button className="btn-light" disabled>PDF para preencher à mão</button> : <a className="btn-light" href={`/admin/pdf-manual/${client.access_token}`} target="_blank">PDF para preencher à mão</a>}
+                    {isControlClient(client) ? <button className="btn-light" disabled>Instruções Foto</button> : <a className="btn-light" href={`/foto-instrucoes/${client.access_token}`} target="_blank">Instruções Foto</a>}
                     <button className="btn-light" onClick={() => loadLogs(client)}>Ver log</button>
                     <button className="btn-light" onClick={() => actionClient(client.id, "unlock")}>Desbloquear</button>
                     <button className="btn-light" disabled={isControlClient(client)} title={isControlClient(client) ? "Cadastro de controle não possui link de formulário" : ""} onClick={() => actionClient(client.id, "new_token")}>Novo link</button>

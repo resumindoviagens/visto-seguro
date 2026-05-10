@@ -1,1 +1,1 @@
-v57 — validade do visto, WhatsApp pesquisa e prévia estática
+v58 — correções V57: WhatsApp, feedback, PDF e exclusão
