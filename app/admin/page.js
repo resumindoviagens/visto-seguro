@@ -72,16 +72,31 @@ function currentStepLabel(client) {
 const CRITICAL_ALERT_QUESTIONS = ["3.19", "3.20", "3.21", "6.9", "6.11", "8.8"];
 
 const GROUP_CARD_COLORS = [
-  "#fff7ed", "#eff6ff", "#ecfdf5", "#fdf2f8", "#f5f3ff",
-  "#f0fdfa", "#fefce8", "#f8fafc", "#eef2ff", "#f0f9ff"
+  "#fff1b8", // amarelo
+  "#c7f9cc", // verde
+  "#cde7ff", // azul
+  "#ffd6e7", // rosa
+  "#e0d4ff", // lilás
+  "#c6f6f1", // turquesa
+  "#ffd8a8", // pêssego
+  "#d9f99d", // lima
+  "#fecaca", // vermelho suave
+  "#bae6fd", // céu
+  "#fde68a", // âmbar
+  "#ddd6fe"  // roxo
 ];
 
 function groupColorFor(client) {
-  const groupKey = String(client.group_process_id || client.family_group || "");
+  const groupKey = String(client.group_process_id || client.family_group || processInfo?.(client)?.groupName || "");
   if (!groupKey) return "";
   let sum = 0;
   for (const ch of groupKey) sum += ch.charCodeAt(0);
   return GROUP_CARD_COLORS[sum % GROUP_CARD_COLORS.length];
+}
+
+function groupRowStyle(client) {
+  const color = groupColorFor(client);
+  return color ? { backgroundColor: color } : {};
 }
 
 function shouldDisableRenewalField(clientOrForm, field) {
@@ -993,7 +1008,26 @@ function Dashboard({ logout }) {
   }, [clients, groups, search, statusFilter, processTab, sortBy]);
 
   function clientLink(client) {
+    if (client.no_form_required || !client.access_token) return "";
     return `${origin}/acesso/${client.access_token}`;
+  }
+
+  function isControlClient(client) {
+    return !!client.no_form_required;
+  }
+
+  function templateNumber(template) {
+    const match = String(template?.label || "").match(/^(\d+)/);
+    return match ? Number(match[1]) : null;
+  }
+
+  function isInitialFormTemplate(template) {
+    const n = templateNumber(template);
+    return n === 1 || n === 2 || n === 3;
+  }
+
+  function isTemplateDisabledForClient(client, template) {
+    return isControlClient(client) && isInitialFormTemplate(template);
   }
 
   async function copyText(text, message = "Copiado.") {
@@ -1132,7 +1166,7 @@ function Dashboard({ logout }) {
         </div>
 
         <button className="btn-primary" onClick={createClient}>
-          Cadastrar cliente e gerar link seguro
+          {form.no_form_required ? "Cadastrar controle sem link" : "Cadastrar cliente e gerar link seguro"}
         </button>
       </div>
 
@@ -1218,15 +1252,21 @@ function Dashboard({ logout }) {
                 </td>
 
                 <td>
-                  <div className="copy-link">{clientLink(client)}</div>
-                  <button className="btn-light" onClick={() => copyText(clientLink(client), "Link copiado.")} style={{ marginTop: 6 }}>
-                    Copiar link
-                  </button>
+                  {isControlClient(client) ? (
+                    <div className="copy-link muted">Cadastro de controle — sem link de formulário</div>
+                  ) : (
+                    <>
+                      <div className="copy-link">{clientLink(client)}</div>
+                      <button className="btn-light" disabled={!clientLink(client)} onClick={() => copyText(clientLink(client), "Link copiado.")} style={{ marginTop: 6 }}>
+                        Copiar link
+                      </button>
+                    </>
+                  )}
                 </td>
 
                 <td>
                   <div className="admin-actions">
-                    <a className="btn-light" href={`/acesso/${client.access_token}`} target="_blank">Abrir</a>
+                    {isControlClient(client) ? <button className="btn-light" disabled>Abrir</button> : <a className="btn-light" href={`/acesso/${client.access_token}`} target="_blank">Abrir</a>}
                     <button className="btn-light" onClick={() => openEditClient(client)}>Editar dados</button>
                     <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `whatsapp-${client.id}` ? null : `whatsapp-${client.id}`)}>WhatsApp</button>
                     {activeMenu === `whatsapp-${client.id}` && (
@@ -1294,11 +1334,18 @@ function Dashboard({ logout }) {
                     {activeMenu === `copy-${client.id}` && (
                       <div className="admin-email-options">
                         <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
-                        {EMAIL_TEMPLATES.map((template) => (
-                          <a key={template.id} className="btn-light" href={`/email/${client.access_token}?template=${template.id}&v=v38-orlando`} target="_blank">
-                            {template.label}
-                          </a>
-                        ))}
+                        {EMAIL_TEMPLATES.map((template) => {
+                          const disabledForClient = isTemplateDisabledForClient(client, template);
+                          return disabledForClient ? (
+                            <button key={template.id} className="btn-light" disabled title="Indisponível para cadastro de controle">
+                              {template.label} (indisponível)
+                            </button>
+                          ) : (
+                            <a key={template.id} className="btn-light" href={`/email/${client.access_token}?template=${template.id}&v=v38-orlando`} target="_blank">
+                              {template.label}
+                            </a>
+                          );
+                        })}
                       </div>
                     )}
 
@@ -1307,7 +1354,7 @@ function Dashboard({ logout }) {
                       <div className="admin-email-options">
                         <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
                         {EMAIL_TEMPLATES.map((template) => {
-                          const disabled = DISABLED_AUTO_EMAILS.has(template.id);
+                          const disabled = DISABLED_AUTO_EMAILS.has(template.id) || isTemplateDisabledForClient(client, template);
                           const sentAt = client.email_sent_templates?.[template.id];
                           return (
                             <button key={template.id} className={sentAt ? "btn-success" : "btn-light"} disabled={disabled} onClick={() => sendEmail(client, template.id)} title={sentAt ? `Enviado em ${new Date(sentAt).toLocaleString("pt-BR")}` : ""}>
@@ -1323,7 +1370,7 @@ function Dashboard({ logout }) {
                     <a className="btn-light" href={`/foto-instrucoes/${client.access_token}`} target="_blank">Instruções Foto</a>
                     <button className="btn-light" onClick={() => loadLogs(client)}>Ver log</button>
                     <button className="btn-light" onClick={() => actionClient(client.id, "unlock")}>Desbloquear</button>
-                    <button className="btn-light" onClick={() => actionClient(client.id, "new_token")}>Novo link</button>
+                    <button className="btn-light" disabled={isControlClient(client)} title={isControlClient(client) ? "Cadastro de controle não possui link de formulário" : ""} onClick={() => actionClient(client.id, "new_token")}>Novo link</button>
                     <button className="btn-light" onClick={() => actionClient(client.id, client.is_completed ? "reopen" : "mark_completed")}>{client.is_completed ? "Reabrir processo" : "Marcar concluído"}</button>
                     <button className="btn-light" onClick={() => deleteClient(client)}>Excluir</button>
                   </div>
