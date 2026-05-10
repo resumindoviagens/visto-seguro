@@ -112,6 +112,11 @@ function shouldDisableRenewalField(clientOrForm, field) {
 }
 
 
+
+function canFillVisaExpiration(clientOrForm) {
+  return clientOrForm?.visa_result === "approved" && !!clientOrForm?.stage_passport_returned;
+}
+
 function normalizeAnswer(value) {
   return String(value || "").trim().toLowerCase();
 }
@@ -692,6 +697,9 @@ function Dashboard({ logout }) {
       client_sedex_tracking: client.client_sedex_tracking || "",
       tipo_processo: client.tipo_processo || (client.is_renewal ? "Renovação" : "Primeiro visto"),
       passport_expiration_date: client.passport_expiration_date || "",
+      visa_expiration_date: client.visa_expiration_date || "",
+      visa_result: client.visa_result || "",
+      stage_passport_returned: !!client.stage_passport_returned,
       observacoes_gerais: client.observacoes_gerais || "",
       grupo_familiar_master: !!client.grupo_familiar_master,
       sincronizar_com_grupo: client.sincronizar_com_grupo !== false
@@ -1041,6 +1049,18 @@ function Dashboard({ logout }) {
     alert(message);
   }
 
+  function feedbackSurveyWhatsAppMessage(client) {
+    const link = `${origin}/feedback/${client.feedback_token || client.access_token || ""}`;
+    return `Olá, ${client.name}. Tudo bem?\n\nSeu processo com a Resumindo Viagens foi concluído e gostaríamos muito de ouvir sua opinião.\n\nA pesquisa é rápida e leva menos de 1 minuto:\n${link}\n\nSua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confiança!`;
+  }
+
+  function feedbackSurveyWhatsAppUrl(client) {
+    const digits = cleanPhoneForWhatsApp(client.phone);
+    const message = encodeURIComponent(feedbackSurveyWhatsAppMessage(client));
+    return digits ? `https://wa.me/${digits}?text=${message}` : "";
+  }
+
+
   function whatsappMessage(client) {
     return `Olá, ${client.name}! Seu formulário da Resumindo Viagens já está pronto para preenchimento.\n\nAcesse seu link único e exclusivo:\n${clientLink(client)}\n\nPor segurança, o acesso será validado com CPF e data de nascimento.\n\nSe outros membros da família também estiverem preenchendo formulário, cada pessoa deverá acessar o próprio link individual.`;
   }
@@ -1150,7 +1170,7 @@ function Dashboard({ logout }) {
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v54 — correção do login do Admin</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v57 — validade do visto, WhatsApp pesquisa e prévia estática</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1244,6 +1264,11 @@ function Dashboard({ logout }) {
                       Falta data de validade do passaporte
                     </div>
                   )}
+                  {client.visa_result === "approved" && client.stage_passport_returned && !client.visa_expiration_date && (
+                    <div className="admin-date-alert warning">
+                      Falta data da validade do visto
+                    </div>
+                  )}
                   {client.feedback_answered_at && (
                     <div className="admin-date-alert info">
                       Avaliação recebida: nota {client.feedback_nota_nps ?? "-"} / 10
@@ -1275,6 +1300,11 @@ function Dashboard({ logout }) {
                     {isControlClient(client) ? <button className="btn-light" disabled>Abrir</button> : <a className="btn-light" href={`/acesso/${client.access_token}`} target="_blank">Abrir</a>}
                     <button className="btn-light" onClick={() => openEditClient(client)}>Editar dados</button>
                     <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `whatsapp-${client.id}` ? null : `whatsapp-${client.id}`)}>WhatsApp</button>
+                    {client.stage_passport_returned ? (
+                      <a className="btn-light" href={feedbackSurveyWhatsAppUrl(client)} target="_blank">WhatsApp pesquisa</a>
+                    ) : (
+                      <button className="btn-light" disabled title="Disponível após marcar Visto/passaporte devolvido">WhatsApp pesquisa</button>
+                    )}
                     {activeMenu === `whatsapp-${client.id}` && (
                       <div className="admin-email-options whatsapp-panel" style={{ minWidth: 300 }}>
                         <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
@@ -1401,6 +1431,8 @@ function Dashboard({ logout }) {
               <input placeholder="CPF" value={editForm.cpf || ""} onChange={(e) => setEditForm({ ...editForm, cpf: e.target.value })} />
               <label className="admin-field-label"><span>Data de nascimento</span><input type="date" value={editForm.birth_date || ""} onChange={(e) => setEditForm({ ...editForm, birth_date: e.target.value })} /></label>
               <label className="admin-field-label"><span>Validade do passaporte</span><input type="date" value={editForm.passport_expiration_date || ""} onChange={(e) => setEditForm({ ...editForm, passport_expiration_date: e.target.value })} /></label>
+              <label className="admin-field-label"><span>Validade do visto</span><input type="date" disabled={!canFillVisaExpiration(editForm)} value={editForm.visa_expiration_date || ""} onChange={(e) => setEditForm({ ...editForm, visa_expiration_date: e.target.value })} /></label>
+              {!canFillVisaExpiration(editForm) && <small className="wide" style={{ color: "#64748b" }}>A validade do visto fica disponível somente após marcar Visto aprovado e Visto/passaporte devolvido.</small>}
               <input placeholder="Celular" value={editForm.phone || ""} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
               <input placeholder="E-mail" type="email" value={editForm.email || ""} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
               <label className="admin-field-label"><span>Tipo de processo</span><select value={editForm.tipo_processo || "Primeiro visto"} onChange={(e) => setEditForm({ ...editForm, tipo_processo: e.target.value })}><option value="Primeiro visto">Primeiro visto</option><option value="Renovação">Renovação</option><option value="Passaporte">Passaporte</option><option value="Canadá">Canadá</option><option value="Outro">Outro</option></select></label>

@@ -44,6 +44,8 @@ export async function PATCH(request, context) {
     updates.phone = body.phone || "";
     updates.email = body.email || "";
     updates.passport_expiration_date = body.passport_expiration_date || null;
+    const canSaveVisaExpiration = oldClient?.visa_result === "approved" && !!oldClient?.stage_passport_returned;
+    updates.visa_expiration_date = canSaveVisaExpiration ? (body.visa_expiration_date || null) : null;
     updates.notes = body.notes || "";
     updates.family_group = body.family_group || "";
     updates.group_process_id = body.group_process_id || null;

@@ -1,1 +1,1 @@
-v54 — correção do login do Admin
+v57 — validade do visto, WhatsApp pesquisa e prévia estática

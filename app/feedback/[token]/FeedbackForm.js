@@ -181,46 +181,13 @@ export default function FeedbackForm({ token, clientName }) {
           )}
 
           <div style={{ border: "1px solid #e5e7eb", borderRadius: 16, padding: 16, background: "#f9fafb" }}>
-            <strong>Prévia aproximada da postagem:</strong>
-
-            <div
-              style={{
-                marginTop: 10,
-                borderRadius: 18,
-                overflow: "hidden",
-                color: "#fff",
-                minHeight: 520,
-                padding: 26,
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-                backgroundImage: "linear-gradient(180deg, rgba(4,14,35,.28), rgba(4,14,35,.84)), url('/feedback-backgrounds/feedback-bg-01.png')",
-                backgroundSize: "cover",
-                backgroundPosition: "center"
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 900, fontSize: 25 }}>RESUMINDO</div>
-                <div style={{ fontWeight: 900, fontSize: 23, color: "#ffb233", marginTop: -4 }}>VIAGENS</div>
-              </div>
-
-              <div style={{ background: "rgba(5,18,44,.64)", borderRadius: 22, padding: 22 }}>
-                <div style={{ color: "#ffb233", fontSize: 42, lineHeight: .7 }}>“</div>
-                <div style={{ marginTop: 8, fontSize: 23, lineHeight: 1.18, fontWeight: 800 }}>
-                  {form.comentario || "Seu comentário aparecerá aqui."}
-                </div>
-                <div style={{ marginTop: 16, opacity: .9 }}>— Cliente Resumindo Viagens</div>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <div style={{ background: "#ff9800", borderRadius: 999, padding: "9px 14px", fontWeight: 900 }}>
-                  Nota {form.nota_nps}/10
-                </div>
-                <div style={{ fontWeight: 800 }}>
-                  {form.instagram_usuario || "@resumindoviagens"}
-                </div>
-              </div>
-            </div>
+            <strong>Modelo aproximado da postagem:</strong>
+            <p style={{ color: "#4b5563", margin: "8px 0 12px" }}>A arte final poderá variar conforme o fundo escolhido, mas seguirá este estilo visual.</p>
+            <img
+              src="/feedback-preview-modelo.png"
+              alt="Modelo de postagem de avaliação no Instagram"
+              style={{ width: "100%", maxWidth: 360, display: "block", margin: "0 auto", borderRadius: 18, boxShadow: "0 14px 35px rgba(15,23,42,.18)" }}
+            />
           </div>
 
           <button disabled={loading} style={{ background: "#1f2a60", color: "#fff", border: 0, borderRadius: 12, padding: 14, fontWeight: 700 }}>
