@@ -68,7 +68,7 @@ export async function POST(request) {
     return Response.json({ error: "Nome, CPF e data de nascimento são obrigatórios." }, { status: 400 });
   }
 
-  const accessToken = createAccessToken();
+  const accessToken = body.no_form_required ? null : createAccessToken();
 
   const insertData = {
     name: body.name,
@@ -76,6 +76,7 @@ export async function POST(request) {
     birth_date: body.birth_date,
     phone: body.phone || "",
     email: body.email || "",
+    passport_expiration_date: body.passport_expiration_date || null,
     notes: body.notes || "",
     access_token: accessToken,
     status: "not_started",

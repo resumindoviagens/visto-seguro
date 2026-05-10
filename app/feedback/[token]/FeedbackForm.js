@@ -14,7 +14,7 @@ const pontos = [
 
 export default function FeedbackForm({ token, clientName }) {
   const [auth, setAuth] = useState({ cpf: "", birth_date: "" });
-  const [form, setForm] = useState({ nota_nps: "10", ponto_forte: "videochamada individual", comentario: "", autorizou_divulgacao: false });
+  const [form, setForm] = useState({ nota_nps: "10", ponto_forte: "videochamada individual", comentario: "", autorizou_divulgacao: false, instagram_usuario: "" });
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -86,6 +86,28 @@ export default function FeedbackForm({ token, clientName }) {
             <input type="checkbox" checked={form.autorizou_divulgacao} onChange={(e) => setForm({ ...form, autorizou_divulgacao: e.target.checked })} />
             Autorizo a utilização parcial do meu depoimento, sem exposição de dados sensíveis.
           </label>
+
+          {form.autorizou_divulgacao && (
+            <label>
+              Gostaria de ser marcado na postagem do comentário? Se positivo, coloque aqui seu usuário do Instagram:
+              <input
+                placeholder="@seuusuario"
+                value={form.instagram_usuario || ""}
+                onChange={(e) => setForm({ ...form, instagram_usuario: e.target.value })}
+                style={{ display: "block", width: "100%", boxSizing: "border-box", marginTop: 6, padding: 13, borderRadius: 12, border: "1px solid #d1d5db" }}
+              />
+            </label>
+          )}
+
+          <div style={{ border: "1px solid #e5e7eb", borderRadius: 16, padding: 16, background: "#f9fafb" }}>
+            <strong>Prévia da postagem:</strong>
+            <div style={{ marginTop: 10, borderRadius: 18, overflow: "hidden", background: "linear-gradient(180deg,#1f2a60,#0b132f)", color: "#fff", padding: 22 }}>
+              <div style={{ fontWeight: 900, color: "#ffb233" }}>RESUMINDO VIAGENS</div>
+              <div style={{ marginTop: 28, fontSize: 22, fontWeight: 800 }}>“{form.comentario || "Seu comentário aparecerá aqui."}”</div>
+              <div style={{ marginTop: 20 }}>Nota {form.nota_nps}/10</div>
+              <div style={{ marginTop: 8, opacity: .85 }}>{form.instagram_usuario ? `Marcação: ${form.instagram_usuario}` : "@resumindoviagens"}</div>
+            </div>
+          </div>
 
           <button disabled={loading} style={{ background: "#1f2a60", color: "#fff", border: 0, borderRadius: 12, padding: 14, fontWeight: 700 }}>
             {loading ? "Enviando..." : "Enviar avaliação"}

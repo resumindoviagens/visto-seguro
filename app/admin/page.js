@@ -36,7 +36,10 @@ const PROCESS_STEPS = [
   ["stage_dates_scheduled", "Datas agendadas"],
   ["stage_interview_done", "Entrevista realizada"],
   ["visa_result", "Visto aprovado ou negado"],
-  ["stage_passport_returned", "Visto/passaporte devolvido"]
+  ["stage_passport_returned", "Visto/passaporte devolvido"],
+  ["stage_feedback_sent", "Pesquisa de satisfação enviada"],
+  ["stage_feedback_posted", "Pesquisa de satisfação postada"],
+  ["stage_ready_to_archive", "Pronto para arquivar"]
 ];
 
 function stepDone(client, key) {
@@ -67,6 +70,26 @@ function currentStepLabel(client) {
 
 
 const CRITICAL_ALERT_QUESTIONS = ["3.19", "3.20", "3.21", "6.9", "6.11", "8.8"];
+
+const GROUP_CARD_COLORS = [
+  "#fff7ed", "#eff6ff", "#ecfdf5", "#fdf2f8", "#f5f3ff",
+  "#f0fdfa", "#fefce8", "#f8fafc", "#eef2ff", "#f0f9ff"
+];
+
+function groupColorFor(client) {
+  const groupKey = String(client.group_process_id || client.family_group || "");
+  if (!groupKey) return "";
+  let sum = 0;
+  for (const ch of groupKey) sum += ch.charCodeAt(0);
+  return GROUP_CARD_COLORS[sum % GROUP_CARD_COLORS.length];
+}
+
+function shouldDisableRenewalField(clientOrForm, field) {
+  const isRenewal = !!clientOrForm?.is_renewal || clientOrForm?.tipo_processo === "Renovação";
+  if (!isRenewal) return false;
+  return field === "video_call_date" || field === "interview_date" || field === "consulate_city";
+}
+
 
 function normalizeAnswer(value) {
   return String(value || "").trim().toLowerCase();
@@ -439,6 +462,7 @@ function Dashboard({ logout }) {
     no_form_required: false,
     is_renewal: false,
     tipo_processo: "Primeiro visto",
+    passport_expiration_date: "",
     observacoes_gerais: ""
   });
 
@@ -646,6 +670,7 @@ function Dashboard({ logout }) {
       is_renewal: !!client.is_renewal,
       client_sedex_tracking: client.client_sedex_tracking || "",
       tipo_processo: client.tipo_processo || (client.is_renewal ? "Renovação" : "Primeiro visto"),
+      passport_expiration_date: client.passport_expiration_date || "",
       observacoes_gerais: client.observacoes_gerais || "",
       grupo_familiar_master: !!client.grupo_familiar_master,
       sincronizar_com_grupo: client.sincronizar_com_grupo !== false
@@ -762,8 +787,8 @@ function Dashboard({ logout }) {
   function Thermometer({ client }) {
     const count = processStepCount(client);
     return (
-      <div className="process-thermometer" title={`${count}/10 etapas concluídas`}>
-        <div className="thermo-label">Etapa: {count}/10 — {currentStepLabel(client)}</div>
+      <div className="process-thermometer" title={`${count}/13 etapas concluídas`}>
+        <div className="thermo-label">Etapa: {count}/13 — {currentStepLabel(client)}</div>
         <div className="thermo-bars">
           {PROCESS_STEPS.map(([key], index) => (
             <span key={key} className={index < count ? "filled" : ""}></span>
@@ -782,7 +807,10 @@ function Dashboard({ logout }) {
       stage_dates_scheduled: !!client.stage_dates_scheduled,
       stage_interview_done: !!client.stage_interview_done,
       visa_result: client.visa_result || "",
-      stage_passport_returned: !!client.stage_passport_returned
+      stage_passport_returned: !!client.stage_passport_returned,
+      stage_feedback_sent: !!client.stage_feedback_sent,
+      stage_feedback_posted: !!client.stage_feedback_posted,
+      stage_ready_to_archive: !!client.stage_ready_to_archive
     };
 
     const index = PROCESS_STEPS.findIndex(([key]) => key === clickedKey);
@@ -810,8 +838,12 @@ function Dashboard({ logout }) {
       }
     }
 
-    if (update.stage_ds160_completed || update.stage_fee_generated || update.stage_fee_paid || update.stage_dates_scheduled || update.stage_interview_done || update.visa_result || update.stage_passport_returned) {
+    if (update.stage_ds160_completed || update.stage_fee_generated || update.stage_fee_paid || update.stage_dates_scheduled || update.stage_interview_done || update.visa_result || update.stage_passport_returned || update.stage_feedback_sent || update.stage_feedback_posted || update.stage_ready_to_archive) {
       update.status = "submitted";
+    }
+
+    if (update.stage_ready_to_archive) {
+      update.is_completed = true;
     }
 
     return update;
@@ -1088,6 +1120,7 @@ function Dashboard({ logout }) {
           <input placeholder="Nome" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input placeholder="CPF" value={form.cpf} onChange={(e) => setForm({ ...form, cpf: e.target.value })} />
           <label className="admin-field-label"><span>Data de nascimento</span><input type="date" value={form.birth_date} onChange={(e) => setForm({ ...form, birth_date: e.target.value })} /></label>
+        <label className="admin-field-label"><span>Validade do passaporte</span><input type="date" value={form.passport_expiration_date || ""} onChange={(e) => setForm({ ...form, passport_expiration_date: e.target.value })} /></label>
           <input placeholder="Celular" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input placeholder="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <label className="admin-field-label"><span>Tipo de processo</span><select value={form.tipo_processo} onChange={(e) => setForm({ ...form, tipo_processo: e.target.value })}><option value="Primeiro visto">Primeiro visto</option><option value="Renovação">Renovação</option><option value="Passaporte">Passaporte</option><option value="Canadá">Canadá</option><option value="Outro">Outro</option></select></label>
@@ -1166,6 +1199,11 @@ function Dashboard({ logout }) {
                       Atenção: cliente respondeu <strong>Sim</strong> na pergunta {getCriticalAlerts(client).join(", ")}
                     </div>
                   )}
+                  {!client.passport_expiration_date && (
+                    <div className="admin-date-alert warning">
+                      Falta data de validade do passaporte
+                    </div>
+                  )}
                   {client.feedback_answered_at && (
                     <div className="admin-date-alert info">
                       Avaliação recebida: nota {client.feedback_nota_nps ?? "-"} / 10
@@ -1212,8 +1250,8 @@ function Dashboard({ logout }) {
                         <label><small>Data de início do processo</small><input type="date" defaultValue={processInfo(client).data_inicio_processo || ""} onBlur={(e) => updateProcessSchedule(client, { data_inicio_processo: e.target.value })} /></label>
                         <label><small>Cidade do consulado</small><select defaultValue={processInfo(client).consulate_city || ""} onChange={(e) => updateProcessSchedule(client, { consulate_city: e.target.value })}><option value="">Selecionar cidade</option>{CONSULATE_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
                         <label><small>Data CASV</small><input type="date" defaultValue={processInfo(client).casv_date || ""} onBlur={(e) => updateProcessSchedule(client, { casv_date: e.target.value })} /></label>
-                        <label><small>Data da entrevista no consulado</small><input type="date" defaultValue={processInfo(client).interview_date || ""} onBlur={(e) => updateProcessSchedule(client, { interview_date: e.target.value })} /></label>
-                        <label><small>Data da videochamada</small><input type="date" defaultValue={processInfo(client).video_call_date || ""} onBlur={(e) => updateProcessSchedule(client, { video_call_date: e.target.value })} /></label>
+                        <label><small>Data da entrevista no consulado</small><input disabled={shouldDisableRenewalField(client, "interview_date")} type="date" defaultValue={processInfo(client).interview_date || ""} onBlur={(e) => updateProcessSchedule(client, { interview_date: e.target.value })} /></label>
+                        <label><small>Data da videochamada</small><input disabled={shouldDisableRenewalField(client, "video_call_date")} type="date" defaultValue={processInfo(client).video_call_date || ""} onBlur={(e) => updateProcessSchedule(client, { video_call_date: e.target.value })} /></label>
 
                         <hr style={{ width: "100%", border: 0, borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
                         <label><small>Rastreio do passaporte enviado ao cliente</small><input defaultValue={processInfo(client).passport_tracking_code || ""} placeholder="Ex.: AA123456789BR" onBlur={(e) => updateProcessSchedule(client, { passport_tracking_code: e.target.value })} /></label>
@@ -1309,6 +1347,7 @@ function Dashboard({ logout }) {
               <input placeholder="Nome" value={editForm.name || ""} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
               <input placeholder="CPF" value={editForm.cpf || ""} onChange={(e) => setEditForm({ ...editForm, cpf: e.target.value })} />
               <label className="admin-field-label"><span>Data de nascimento</span><input type="date" value={editForm.birth_date || ""} onChange={(e) => setEditForm({ ...editForm, birth_date: e.target.value })} /></label>
+              <label className="admin-field-label"><span>Validade do passaporte</span><input type="date" value={editForm.passport_expiration_date || ""} onChange={(e) => setEditForm({ ...editForm, passport_expiration_date: e.target.value })} /></label>
               <input placeholder="Celular" value={editForm.phone || ""} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
               <input placeholder="E-mail" type="email" value={editForm.email || ""} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
               <label className="admin-field-label"><span>Tipo de processo</span><select value={editForm.tipo_processo || "Primeiro visto"} onChange={(e) => setEditForm({ ...editForm, tipo_processo: e.target.value })}><option value="Primeiro visto">Primeiro visto</option><option value="Renovação">Renovação</option><option value="Passaporte">Passaporte</option><option value="Canadá">Canadá</option><option value="Outro">Outro</option></select></label>

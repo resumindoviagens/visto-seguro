@@ -7,7 +7,7 @@ function cleanCPF(value) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { token, cpf, birth_date, nota_nps, ponto_forte, comentario, autorizou_divulgacao } = body;
+    const { token, cpf, birth_date, nota_nps, ponto_forte, comentario, autorizou_divulgacao, instagram_usuario } = body;
 
     if (!token || !cpf || !birth_date) {
       return Response.json({ error: "Dados de autenticação obrigatórios." }, { status: 400 });
@@ -49,6 +49,7 @@ export async function POST(request) {
       ponto_forte,
       comentario,
       autorizou_divulgacao: !!autorizou_divulgacao,
+      instagram_usuario: instagram_usuario || "",
       ip,
       user_agent: userAgent
     });

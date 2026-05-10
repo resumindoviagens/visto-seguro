@@ -40,10 +40,12 @@ export async function PATCH(request, context) {
     updates.birth_date = body.birth_date;
     updates.phone = body.phone || "";
     updates.email = body.email || "";
+    updates.passport_expiration_date = body.passport_expiration_date || null;
     updates.notes = body.notes || "";
     updates.family_group = body.family_group || "";
     updates.group_process_id = body.group_process_id || null;
     updates.no_form_required = !!body.no_form_required;
+    if (!updates.no_form_required && !oldClient?.access_token) updates.access_token = createAccessToken();
     updates.is_renewal = !!body.is_renewal;
     updates.client_sedex_tracking = body.client_sedex_tracking || "";
     updates.tipo_processo = body.tipo_processo || (body.is_renewal ? "Renovação" : (body.tipo_processo || ""));
@@ -74,7 +76,11 @@ export async function PATCH(request, context) {
     updates.stage_interview_done = !!body.stage_interview_done;
     updates.visa_result = body.visa_result || null;
     updates.stage_passport_returned = !!body.stage_passport_returned;
-    if ((updates.stage_passport_returned || body.visa_result === "denied") && !oldClient?.data_final_processo) {
+    updates.stage_feedback_sent = !!body.stage_feedback_sent;
+    updates.stage_feedback_posted = !!body.stage_feedback_posted;
+    updates.stage_ready_to_archive = !!body.stage_ready_to_archive;
+    if (typeof body.is_completed !== "undefined") updates.is_completed = !!body.is_completed;
+    if ((updates.stage_passport_returned || updates.stage_ready_to_archive || body.visa_result === "denied") && !oldClient?.data_final_processo) {
       updates.data_final_processo = new Date().toISOString().slice(0, 10);
     }
   }

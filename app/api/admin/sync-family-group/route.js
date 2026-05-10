@@ -9,6 +9,10 @@ const SYNC_FIELDS = [
   "stage_dates_scheduled",
   "stage_interview_done",
   "stage_passport_returned",
+  "stage_feedback_sent",
+  "stage_feedback_posted",
+  "stage_ready_to_archive",
+  "is_completed",
 
   // Processo, datas e rastreios
   "interview_date",

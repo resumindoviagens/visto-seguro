@@ -131,7 +131,7 @@ export default async function FeedbackCardPage({ params, searchParams }) {
           </div>
 
           <div style={{ fontSize: story ? 34 : 28, fontWeight: 800 }}>
-            @resumindoviagens
+            {f.instagram_usuario || "@resumindoviagens"}
           </div>
         </div>
       </div>
