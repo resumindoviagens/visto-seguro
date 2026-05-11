@@ -587,7 +587,7 @@ function Dashboard({ logout }) {
           video_call_date: fields.video_call_date ?? info.video_call_date ?? "",
           passport_tracking_code: fields.passport_tracking_code ?? info.passport_tracking_code ?? "",
           data_inicio_processo: fields.data_inicio_processo ?? info.data_inicio_processo ?? "",
-          stage_dates_scheduled: !!(fields.casv_date ?? info.casv_date ?? "" || fields.interview_date ?? info.interview_date ?? "")
+          stage_dates_scheduled: !!((fields.casv_date ?? info.casv_date ?? "") || (fields.interview_date ?? info.interview_date ?? ""))
         })
       });
       const data = await res.json();
@@ -786,7 +786,7 @@ function Dashboard({ logout }) {
         consulate_city: fields.consulate_city ?? client.consulate_city ?? "",
         passport_tracking_code: fields.passport_tracking_code ?? client.passport_tracking_code ?? "",
         data_inicio_processo: fields.data_inicio_processo ?? client.data_inicio_processo ?? "",
-        stage_dates_scheduled: !!(fields.casv_date ?? client.casv_date ?? "" || fields.interview_date ?? client.interview_date ?? ""),
+        stage_dates_scheduled: !!((fields.casv_date ?? client.casv_date ?? "") || (fields.interview_date ?? client.interview_date ?? "")),
         client_sedex_tracking: fields.client_sedex_tracking ?? client.client_sedex_tracking ?? "",
         is_renewal: fields.is_renewal ?? client.is_renewal ?? false
       })
@@ -1201,7 +1201,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v62 — videochamada nas etapas e ajustes de grupo</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v63 — correção de build V62</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
