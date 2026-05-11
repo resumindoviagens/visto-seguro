@@ -1188,7 +1188,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v59 — pesquisa enviada/respondida com alerta</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v61 — correção definitiva dos links de email</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1391,7 +1391,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                               {template.label} (indisponível)
                             </button>
                           ) : (
-                            <a key={template.id} className="btn-light" href={template.id === "pesquisa_satisfacao" ? `/email-feedback/${client.id}` : `/email/${client.access_token}?template=${template.id}&v=v58-correcoes`} target="_blank">
+                            <a key={template.id} className="btn-light" href={template.id === "pesquisa_satisfacao" ? `/email-feedback/${client.id}` : `/email-preview/${client.id}?template=${template.id}`} target="_blank">
                               {template.label}
                             </a>
                           );

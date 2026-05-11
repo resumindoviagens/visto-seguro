@@ -52,8 +52,8 @@ export async function POST(request) {
     if (!client.email) return Response.json({ error: "Cliente sem email cadastrado." }, { status: 400 });
 
     const origin = siteOrigin(request);
-    const formLink = `${origin}/acesso/${client.access_token}`;
-    const preparationLink = `${origin}/preparacao/${client.access_token}`;
+    const formLink = client.access_token ? `${origin}/acesso/${client.access_token}` : "";
+    const preparationLink = client.access_token ? `${origin}/preparacao/${client.access_token}` : "";
     const feedbackLink = template_id === "pesquisa_satisfacao" ? await ensureFeedbackLink(client, origin) : "";
     const template = getEmailTemplate(template_id, client, { formLink, preparationLink, feedbackLink, rastreio: body.rastreio || client.passport_tracking_code || "" });
 

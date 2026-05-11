@@ -38,7 +38,7 @@ export default async function EmailModelPage({ params, searchParams }) {
   const { data: client } = await supabaseAdmin
     .from("clients")
     .select("*")
-    .eq("access_token", token)
+    .or(`access_token.eq.${token},id.eq.${token}`)
     .maybeSingle();
 
   if (!client) {
@@ -51,8 +51,8 @@ export default async function EmailModelPage({ params, searchParams }) {
   const currentSiteUrl = host ? `${protocol}://${host}` : "";
   const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || envSiteUrl || currentSiteUrl || "https://app.resumindoviagens.com.br";
-  const formLink = `${siteUrl}/acesso/${client.access_token}`;
-  const preparationLink = `${siteUrl}/preparacao/${client.access_token}`;
+  const formLink = client.access_token ? `${siteUrl}/acesso/${client.access_token}` : "";
+  const preparationLink = client.access_token ? `${siteUrl}/preparacao/${client.access_token}` : "";
   const feedbackLink = templateId === "pesquisa_satisfacao" ? await ensureFeedbackLink(client, siteUrl) : "";
 
   let selectedTemplate;
