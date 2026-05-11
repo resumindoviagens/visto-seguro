@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { sendInternalAlert, simpleHtml } from "../../../../lib/brevoEmail";
 
 function cleanCPF(value) {
   return String(value || "").replace(/\D/g, "");
@@ -62,7 +63,8 @@ export async function POST(request) {
       .from("clients")
       .update({
         feedback_answered_at: new Date().toISOString(),
-        feedback_nota_nps: nota_nps
+        feedback_nota_nps: nota_nps,
+        stage_feedback_answered: true
       })
       .eq("id", client.id);
 
@@ -71,6 +73,28 @@ export async function POST(request) {
       action: "feedback_received",
       details: { nota_nps, ponto_forte, autorizou_divulgacao: !!autorizou_divulgacao }
     });
+
+    try {
+      await sendInternalAlert({
+        subject: `Pesquisa de satisfação respondida — ${client.name}`,
+        html: simpleHtml("Pesquisa de satisfação respondida", [
+          `Cliente: <strong>${client.name}</strong>`,
+          `Nota: <strong>${nota_nps}/10</strong>`,
+          `Ponto forte: ${ponto_forte || "-"}`,
+          comentario ? `Comentário: ${comentario}` : "",
+          autorizou_divulgacao ? "Autorizou divulgação: sim" : "Autorizou divulgação: não",
+          instagram_usuario ? `Instagram para marcação: ${instagram_usuario}` : ""
+        ].filter(Boolean)),
+        text: `Pesquisa respondida por ${client.name}. Nota ${nota_nps}/10. Comentário: ${comentario || "-"}`,
+        tags: ["resumindo-viagens", "feedback-recebido"]
+      });
+    } catch (emailError) {
+      await supabaseAdmin.from("audit_logs").insert({
+        client_id: client.id,
+        action: "feedback_alert_failed",
+        details: { error: emailError?.message || String(emailError) }
+      });
+    }
 
     return Response.json({ ok: true });
   } catch (error) {

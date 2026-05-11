@@ -38,6 +38,7 @@ const PROCESS_STEPS = [
   ["visa_result", "Visto aprovado ou negado"],
   ["stage_passport_returned", "Visto/passaporte devolvido"],
   ["stage_feedback_sent", "Pesquisa de satisfação enviada"],
+  ["stage_feedback_answered", "Pesquisa de satisfação respondida"],
   ["stage_feedback_posted", "Pesquisa de satisfação postada"],
   ["stage_ready_to_archive", "Pronto para arquivar"]
 ];
@@ -816,8 +817,8 @@ function Dashboard({ logout }) {
   function Thermometer({ client }) {
     const count = processStepCount(client);
     return (
-      <div className="process-thermometer" title={`${count}/13 etapas concluídas`}>
-        <div className="thermo-label">Etapa: {count}/13 — {currentStepLabel(client)}</div>
+      <div className="process-thermometer" title={`${count}/14 etapas concluídas`}>
+        <div className="thermo-label">Etapa: {count}/14 — {currentStepLabel(client)}</div>
         <div className="thermo-bars">
           {PROCESS_STEPS.map(([key], index) => (
             <span key={key} className={index < count ? "filled" : ""}></span>
@@ -838,6 +839,7 @@ function Dashboard({ logout }) {
       visa_result: client.visa_result || "",
       stage_passport_returned: !!client.stage_passport_returned,
       stage_feedback_sent: !!client.stage_feedback_sent,
+      stage_feedback_answered: !!client.stage_feedback_answered,
       stage_feedback_posted: !!client.stage_feedback_posted,
       stage_ready_to_archive: !!client.stage_ready_to_archive
     };
@@ -867,7 +869,7 @@ function Dashboard({ logout }) {
       }
     }
 
-    if (update.stage_ds160_completed || update.stage_fee_generated || update.stage_fee_paid || update.stage_dates_scheduled || update.stage_interview_done || update.visa_result || update.stage_passport_returned || update.stage_feedback_sent || update.stage_feedback_posted || update.stage_ready_to_archive) {
+    if (update.stage_ds160_completed || update.stage_fee_generated || update.stage_fee_paid || update.stage_dates_scheduled || update.stage_interview_done || update.visa_result || update.stage_passport_returned || update.stage_feedback_sent || update.stage_feedback_answered || update.stage_feedback_posted || update.stage_ready_to_archive) {
       update.status = "submitted";
     }
 
@@ -1186,7 +1188,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v58 — correções V57: WhatsApp, feedback, PDF e exclusão</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v59 — pesquisa enviada/respondida com alerta</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>

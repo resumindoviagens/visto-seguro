@@ -1,1 +1,1 @@
-v58 — correções V57: WhatsApp, feedback, PDF e exclusão
+v59 — pesquisa enviada/respondida com alerta

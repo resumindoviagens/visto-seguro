@@ -22,7 +22,8 @@ async function ensureFeedbackLink(client, origin) {
       .update({
         feedback_liberado: true,
         feedback_token: token,
-        feedback_token_expires_at: expires.toISOString()
+        feedback_token_expires_at: expires.toISOString(),
+        stage_feedback_sent: true
       })
       .eq("id", client.id);
 
@@ -57,6 +58,13 @@ export async function POST(request) {
     const template = getEmailTemplate(template_id, client, { formLink, preparationLink, feedbackLink, rastreio: body.rastreio || client.passport_tracking_code || "" });
 
     const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, subject: template.subject, html: template.html, text: template.text });
+
+    if (template_id === "pesquisa_satisfacao") {
+      await supabaseAdmin
+        .from("clients")
+        .update({ stage_feedback_sent: true })
+        .eq("id", client_id);
+    }
 
     await supabaseAdmin.from("audit_logs").insert({
       client_id,
