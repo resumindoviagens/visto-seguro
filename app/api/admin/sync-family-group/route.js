@@ -7,6 +7,8 @@ const SYNC_FIELDS = [
   "stage_fee_generated",
   "stage_fee_paid",
   "stage_dates_scheduled",
+  "stage_video_call_scheduled",
+  "stage_video_call_done",
   "stage_interview_done",
   "stage_passport_returned",
   "stage_feedback_sent",

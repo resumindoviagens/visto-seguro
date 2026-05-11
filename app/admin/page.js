@@ -34,6 +34,8 @@ const PROCESS_STEPS = [
   ["stage_fee_generated", "Taxa gerada"],
   ["stage_fee_paid", "Taxa paga"],
   ["stage_dates_scheduled", "Datas agendadas"],
+  ["stage_video_call_scheduled", "Videochamada agendada"],
+  ["stage_video_call_done", "Videochamada realizada"],
   ["stage_interview_done", "Entrevista realizada"],
   ["visa_result", "Visto aprovado ou negado"],
   ["stage_passport_returned", "Visto/passaporte devolvido"],
@@ -45,8 +47,8 @@ const PROCESS_STEPS = [
 
 function stepDone(client, key) {
   if (key === "status_not_started") return true;
-  if (key === "status_in_progress") return ["in_progress", "submitted"].includes(client.status) || !!client.stage_ds160_completed || !!client.stage_fee_generated || !!client.stage_fee_paid || !!client.stage_dates_scheduled || !!client.stage_interview_done || !!client.visa_result || !!client.stage_passport_returned;
-  if (key === "status_submitted") return client.status === "submitted" || !!client.stage_ds160_completed || !!client.stage_fee_generated || !!client.stage_fee_paid || !!client.stage_dates_scheduled || !!client.stage_interview_done || !!client.visa_result || !!client.stage_passport_returned;
+  if (key === "status_in_progress") return ["in_progress", "submitted"].includes(client.status) || !!client.stage_ds160_completed || !!client.stage_fee_generated || !!client.stage_fee_paid || !!client.stage_dates_scheduled || !!client.stage_video_call_scheduled || !!client.stage_video_call_done || !!client.stage_interview_done || !!client.visa_result || !!client.stage_passport_returned;
+  if (key === "status_submitted") return client.status === "submitted" || !!client.stage_ds160_completed || !!client.stage_fee_generated || !!client.stage_fee_paid || !!client.stage_dates_scheduled || !!client.stage_video_call_scheduled || !!client.stage_video_call_done || !!client.stage_interview_done || !!client.visa_result || !!client.stage_passport_returned;
   if (key === "visa_result") return !!client.visa_result;
   return !!client[key];
 }
@@ -584,11 +586,19 @@ function Dashboard({ logout }) {
           interview_date: fields.interview_date ?? info.interview_date ?? "",
           video_call_date: fields.video_call_date ?? info.video_call_date ?? "",
           passport_tracking_code: fields.passport_tracking_code ?? info.passport_tracking_code ?? "",
-          data_inicio_processo: fields.data_inicio_processo ?? info.data_inicio_processo ?? ""
+          data_inicio_processo: fields.data_inicio_processo ?? info.data_inicio_processo ?? "",
+          stage_dates_scheduled: !!(fields.casv_date ?? info.casv_date ?? "" || fields.interview_date ?? info.interview_date ?? "")
         })
       });
       const data = await res.json();
       if (!res.ok) { alert(data.error || "Erro ao salvar grupo de processo."); return; }
+      if ((fields.casv_date ?? info.casv_date ?? "") || (fields.interview_date ?? info.interview_date ?? "")) {
+        await fetch(`/api/admin/clients/${client.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "update_process_steps", stage_dates_scheduled: true })
+        });
+      }
       await syncFamilyGroup(client, true);
       await loadGroups();
       await loadClients();
@@ -776,6 +786,7 @@ function Dashboard({ logout }) {
         consulate_city: fields.consulate_city ?? client.consulate_city ?? "",
         passport_tracking_code: fields.passport_tracking_code ?? client.passport_tracking_code ?? "",
         data_inicio_processo: fields.data_inicio_processo ?? client.data_inicio_processo ?? "",
+        stage_dates_scheduled: !!(fields.casv_date ?? client.casv_date ?? "" || fields.interview_date ?? client.interview_date ?? ""),
         client_sedex_tracking: fields.client_sedex_tracking ?? client.client_sedex_tracking ?? "",
         is_renewal: fields.is_renewal ?? client.is_renewal ?? false
       })
@@ -835,6 +846,8 @@ function Dashboard({ logout }) {
       stage_fee_generated: !!client.stage_fee_generated,
       stage_fee_paid: !!client.stage_fee_paid,
       stage_dates_scheduled: !!client.stage_dates_scheduled,
+      stage_video_call_scheduled: !!client.stage_video_call_scheduled,
+      stage_video_call_done: !!client.stage_video_call_done,
       stage_interview_done: !!client.stage_interview_done,
       visa_result: client.visa_result || "",
       stage_passport_returned: !!client.stage_passport_returned,
@@ -869,7 +882,7 @@ function Dashboard({ logout }) {
       }
     }
 
-    if (update.stage_ds160_completed || update.stage_fee_generated || update.stage_fee_paid || update.stage_dates_scheduled || update.stage_interview_done || update.visa_result || update.stage_passport_returned || update.stage_feedback_sent || update.stage_feedback_answered || update.stage_feedback_posted || update.stage_ready_to_archive) {
+    if (update.stage_ds160_completed || update.stage_fee_generated || update.stage_fee_paid || update.stage_dates_scheduled || update.stage_video_call_scheduled || update.stage_video_call_done || update.stage_interview_done || update.visa_result || update.stage_passport_returned || update.stage_feedback_sent || update.stage_feedback_answered || update.stage_feedback_posted || update.stage_ready_to_archive) {
       update.status = "submitted";
     }
 
@@ -1188,7 +1201,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v61 — correção definitiva dos links de email</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v62 — videochamada nas etapas e ajustes de grupo</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1417,7 +1430,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
 
                     {isControlClient(client) ? <button className="btn-light" disabled>Gerar PDF</button> : <a className="btn-light" href={`/admin/pdf/${client.access_token}`} target="_blank">Gerar PDF</a>}
                     {isControlClient(client) ? <button className="btn-light" disabled>PDF para preencher à mão</button> : <a className="btn-light" href={`/admin/pdf-manual/${client.access_token}`} target="_blank">PDF para preencher à mão</a>}
-                    {isControlClient(client) ? <button className="btn-light" disabled>Instruções Foto</button> : <a className="btn-light" href={`/foto-instrucoes/${client.access_token}`} target="_blank">Instruções Foto</a>}
+                    <a className="btn-light" href={`/foto-instrucoes/${client.access_token || client.id}`} target="_blank">Instruções Foto</a>
                     <button className="btn-light" onClick={() => loadLogs(client)}>Ver log</button>
                     <button className="btn-light" onClick={() => actionClient(client.id, "unlock")}>Desbloquear</button>
                     <button className="btn-light" disabled={isControlClient(client)} title={isControlClient(client) ? "Cadastro de controle não possui link de formulário" : ""} onClick={() => actionClient(client.id, "new_token")}>Novo link</button>

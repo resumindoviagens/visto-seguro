@@ -44,8 +44,8 @@ export async function PATCH(request, context) {
     updates.phone = body.phone || "";
     updates.email = body.email || "";
     updates.passport_expiration_date = body.passport_expiration_date || null;
-    const canSaveVisaExpiration = oldClient?.visa_result === "approved" && !!oldClient?.stage_passport_returned;
-    updates.visa_expiration_date = canSaveVisaExpiration ? (body.visa_expiration_date || null) : null;
+    const canSaveVisaExpiration = (oldClient?.visa_result === "approved" && !!oldClient?.stage_passport_returned) || (body.visa_result === "approved" && !!body.stage_passport_returned);
+    if (canSaveVisaExpiration || typeof body.visa_expiration_date !== "undefined") updates.visa_expiration_date = body.visa_expiration_date || null;
     updates.notes = body.notes || "";
     updates.family_group = body.family_group || "";
     updates.group_process_id = body.group_process_id || null;
@@ -68,6 +68,7 @@ export async function PATCH(request, context) {
     updates.consulate_city = body.consulate_city || "";
     updates.passport_tracking_code = body.passport_tracking_code || "";
     if (typeof body.data_inicio_processo !== "undefined") updates.data_inicio_processo = body.data_inicio_processo || null;
+    if (body.casv_date || body.interview_date) updates.stage_dates_scheduled = true;
     // O rastreio Sedex do cliente e o checkbox de renovação ficam em Editar dados.
     if (typeof body.client_sedex_tracking !== "undefined") updates.client_sedex_tracking = body.client_sedex_tracking || "";
     if (typeof body.is_renewal !== "undefined") updates.is_renewal = !!body.is_renewal;
@@ -79,6 +80,8 @@ export async function PATCH(request, context) {
     updates.stage_fee_generated = !!body.stage_fee_generated;
     updates.stage_fee_paid = !!body.stage_fee_paid;
     updates.stage_dates_scheduled = !!body.stage_dates_scheduled;
+    updates.stage_video_call_scheduled = !!body.stage_video_call_scheduled;
+    updates.stage_video_call_done = !!body.stage_video_call_done;
     updates.stage_interview_done = !!body.stage_interview_done;
     updates.visa_result = body.visa_result || null;
     updates.stage_passport_returned = !!body.stage_passport_returned;
