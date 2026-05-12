@@ -17,6 +17,21 @@ function formatDateBR(value) {
   return `${day}/${month}/${year}`;
 }
 
+function formatDateTimeBR(value) {
+  if (!value) return "";
+  const [datePart, timePartRaw] = String(value).split("T");
+  const date = formatDateBR(datePart);
+  if (!timePartRaw) return date;
+  const [hour, minute] = timePartRaw.split(":");
+  if (!hour || !minute) return date;
+  return `${date} às ${hour}:${minute}`;
+}
+
+function toDatetimeLocal(value) {
+  if (!value) return "";
+  return String(value).slice(0, 16);
+}
+
 function statusLabel(status) {
   const labels = {
     not_started: "Não iniciado",
@@ -29,7 +44,7 @@ function statusLabel(status) {
 const PROCESS_STEPS = [
   ["status_not_started", "Não iniciado"],
   ["status_in_progress", "Em preenchimento"],
-  ["status_submitted", "Enviado"],
+  ["status_submitted", "Preencher DS-160"],
   ["stage_ds160_completed", "DS-160 preenchido e concluído"],
   ["stage_fee_generated", "Taxa gerada"],
   ["stage_fee_paid", "Taxa paga"],
@@ -605,7 +620,23 @@ function Dashboard({ logout }) {
         })
       });
       const data = await res.json();
-      if (!res.ok) { alert(data.error || "Erro ao salvar grupo de processo."); return; }
+      if (!res.ok) {
+        const fallbackClientSchedule = await fetch(`/api/admin/clients/${client.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_schedule",
+            consulate_city: fields.consulate_city ?? info.consulate_city ?? "",
+            casv_date: fields.casv_date ?? info.casv_date ?? "",
+            interview_date: fields.interview_date ?? info.interview_date ?? "",
+            video_call_date: fields.video_call_date ?? info.video_call_date ?? "",
+            passport_tracking_code: fields.passport_tracking_code ?? info.passport_tracking_code ?? "",
+            data_inicio_processo: fields.data_inicio_processo ?? info.data_inicio_processo ?? ""
+          })
+        });
+        const fallbackData = await fallbackClientSchedule.json();
+        if (!fallbackClientSchedule.ok) { alert(fallbackData.error || data.error || "Erro ao salvar grupo de processo."); return; }
+      }
       if ((fields.casv_date ?? info.casv_date ?? "") || (fields.interview_date ?? info.interview_date ?? "")) {
         await fetch(`/api/admin/clients/${client.id}`, {
           method: "PATCH",
@@ -1217,7 +1248,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v64 — ajustes solicitante principal e resultado individual</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v65 — videochamada com horário e emails</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1291,7 +1322,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                   <small><b>Consulado:</b> {processInfo(client).consulate_city || "-"}</small><br />
                   <small>CASV: {formatDateBR(processInfo(client).casv_date) || "-"}</small><br />
                   <small>Entrevista: {formatDateBR(processInfo(client).interview_date) || "-"}</small><br />
-                  <small>Videochamada: {formatDateBR(processInfo(client).video_call_date) || "-"}</small><br />
+                  <small>Videochamada: {formatDateTimeBR(processInfo(client).video_call_date) || "-"}</small><br />
                   <small>Grupo de processo: {processInfo(client).groupName || "-"}</small><br />
                   {client.grupo_familiar_master && <><small style={{ color: "#166534", fontWeight: 700 }}>Contato principal</small><br /></>}
                   <small><b>Rastreio passaporte:</b> {processInfo(client).passport_tracking_code || "-"}</small>
@@ -1371,7 +1402,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                         <label><small>Cidade do consulado</small><select defaultValue={processInfo(client).consulate_city || ""} onChange={(e) => updateProcessSchedule(client, { consulate_city: e.target.value })}><option value="">Selecionar cidade</option>{CONSULATE_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
                         <label><small>Data CASV</small><input type="date" defaultValue={processInfo(client).casv_date || ""} onBlur={(e) => updateProcessSchedule(client, { casv_date: e.target.value })} /></label>
                         <label><small>Data da entrevista no consulado</small><input disabled={shouldDisableRenewalField(client, "interview_date")} type="date" defaultValue={processInfo(client).interview_date || ""} onBlur={(e) => updateProcessSchedule(client, { interview_date: e.target.value })} /></label>
-                        <label><small>Data da videochamada</small><input disabled={shouldDisableRenewalField(client, "video_call_date")} type="date" defaultValue={processInfo(client).video_call_date || ""} onBlur={(e) => updateProcessSchedule(client, { video_call_date: e.target.value })} /></label>
+                        <label><small>Data da videochamada</small><input disabled={shouldDisableRenewalField(client, "video_call_date")} type="datetime-local" defaultValue={toDatetimeLocal(processInfo(client).video_call_date)} onBlur={(e) => updateProcessSchedule(client, { video_call_date: e.target.value })} /></label>
 
                         <hr style={{ width: "100%", border: 0, borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
                         <label><small>Rastreio do passaporte enviado ao cliente</small><input defaultValue={processInfo(client).passport_tracking_code || ""} placeholder="Ex.: AA123456789BR" onBlur={(e) => updateProcessSchedule(client, { passport_tracking_code: e.target.value })} /></label>

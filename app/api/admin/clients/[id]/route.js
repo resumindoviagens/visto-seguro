@@ -69,6 +69,7 @@ export async function PATCH(request, context) {
     updates.passport_tracking_code = body.passport_tracking_code || "";
     if (typeof body.data_inicio_processo !== "undefined") updates.data_inicio_processo = body.data_inicio_processo || null;
     if (body.casv_date || body.interview_date) updates.stage_dates_scheduled = true;
+    if (body.video_call_date) updates.stage_video_call_scheduled = true;
     // O rastreio Sedex do cliente e o checkbox de renovação ficam em Editar dados.
     if (typeof body.client_sedex_tracking !== "undefined") updates.client_sedex_tracking = body.client_sedex_tracking || "";
     if (typeof body.is_renewal !== "undefined") updates.is_renewal = !!body.is_renewal;

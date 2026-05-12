@@ -1,1 +1,1 @@
-v64 — ajustes solicitante principal e resultado individual
+v65 — videochamada com horário e emails
