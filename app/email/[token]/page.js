@@ -51,15 +51,26 @@ export default async function EmailModelPage({ params, searchParams }) {
   const currentSiteUrl = host ? `${protocol}://${host}` : "";
   const envSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || envSiteUrl || currentSiteUrl || "https://app.resumindoviagens.com.br";
+  let processGroup = null;
+  if (client.group_process_id) {
+    const { data: group } = await supabaseAdmin
+      .from("grupos_processo")
+      .select("*")
+      .eq("id", client.group_process_id)
+      .maybeSingle();
+    processGroup = group || null;
+  }
+
+  const clientWithGroup = { ...client, process_group: processGroup };
   const formLink = client.access_token ? `${siteUrl}/acesso/${client.access_token}` : "";
-  const preparationLink = client.access_token ? `${siteUrl}/preparacao/${client.access_token}` : "";
+  const preparationLink = `${siteUrl}/preparacao/${client.access_token || client.id}`;
   const feedbackLink = templateId === "pesquisa_satisfacao" ? await ensureFeedbackLink(client, siteUrl) : "";
 
   let selectedTemplate;
   try {
-    selectedTemplate = getEmailTemplate(templateId, client, { formLink, preparationLink, feedbackLink, rastreio: client.passport_tracking_code || "" });
+    selectedTemplate = getEmailTemplate(templateId, clientWithGroup, { formLink, preparationLink, feedbackLink, rastreio: client.passport_tracking_code || processGroup?.passport_tracking_code || "", videoCallDateTime: processGroup?.video_call_date || client.video_call_date || "" });
   } catch (error) {
-    selectedTemplate = getEmailTemplate("formulario", client, { formLink, preparationLink, rastreio: client.passport_tracking_code || "" });
+    selectedTemplate = getEmailTemplate("formulario", clientWithGroup, { formLink, preparationLink, rastreio: client.passport_tracking_code || processGroup?.passport_tracking_code || "", videoCallDateTime: processGroup?.video_call_date || client.video_call_date || "" });
   }
 
   return (

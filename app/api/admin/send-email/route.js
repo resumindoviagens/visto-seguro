@@ -51,11 +51,28 @@ export async function POST(request) {
     if (error || !client) return Response.json({ error: "Cliente não encontrado." }, { status: 404 });
     if (!client.email) return Response.json({ error: "Cliente sem email cadastrado." }, { status: 400 });
 
+    let processGroup = null;
+    if (client.group_process_id) {
+      const { data: group } = await supabaseAdmin
+        .from("grupos_processo")
+        .select("*")
+        .eq("id", client.group_process_id)
+        .maybeSingle();
+      processGroup = group || null;
+    }
+
+    const clientWithGroup = { ...client, process_group: processGroup };
     const origin = siteOrigin(request);
     const formLink = client.access_token ? `${origin}/acesso/${client.access_token}` : "";
-    const preparationLink = client.access_token ? `${origin}/preparacao/${client.access_token}` : "";
+    const preparationLink = `${origin}/preparacao/${client.access_token || client.id}`;
     const feedbackLink = template_id === "pesquisa_satisfacao" ? await ensureFeedbackLink(client, origin) : "";
-    const template = getEmailTemplate(template_id, client, { formLink, preparationLink, feedbackLink, rastreio: body.rastreio || client.passport_tracking_code || "" });
+    const template = getEmailTemplate(template_id, clientWithGroup, {
+      formLink,
+      preparationLink,
+      feedbackLink,
+      rastreio: body.rastreio || client.passport_tracking_code || processGroup?.passport_tracking_code || "",
+      videoCallDateTime: processGroup?.video_call_date || client.video_call_date || ""
+    });
 
     const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, subject: template.subject, html: template.html, text: template.text });
 

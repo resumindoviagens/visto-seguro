@@ -1,1 +1,1 @@
-v65 — videochamada com horário e emails
+v66 — correção email videochamada e preparação

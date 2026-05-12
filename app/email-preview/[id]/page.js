@@ -55,17 +55,29 @@ export default async function EmailPreviewPage({ params, searchParams }) {
   const currentSiteUrl = host ? `${protocol}://${host}` : "";
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || currentSiteUrl || "https://app.resumindoviagens.com.br";
 
+  let processGroup = null;
+  if (client.group_process_id) {
+    const { data: group } = await supabaseAdmin
+      .from("grupos_processo")
+      .select("*")
+      .eq("id", client.group_process_id)
+      .maybeSingle();
+    processGroup = group || null;
+  }
+
+  const clientWithGroup = { ...client, process_group: processGroup };
   const formLink = client.access_token ? `${siteUrl}/acesso/${client.access_token}` : "";
-  const preparationLink = client.access_token ? `${siteUrl}/preparacao/${client.access_token}` : "";
+  const preparationLink = `${siteUrl}/preparacao/${client.access_token || client.id}`;
   const feedbackLink = templateId === "pesquisa_satisfacao"
     ? await ensureFeedbackLink(client, siteUrl)
     : (client.feedback_token ? `${siteUrl}/feedback/${client.feedback_token}` : "");
 
-  const selectedTemplate = getEmailTemplate(templateId, client, {
+  const selectedTemplate = getEmailTemplate(templateId, clientWithGroup, {
     formLink,
     preparationLink,
     feedbackLink,
-    rastreio: client.passport_tracking_code || ""
+    rastreio: client.passport_tracking_code || processGroup?.passport_tracking_code || "",
+    videoCallDateTime: processGroup?.video_call_date || client.video_call_date || ""
   });
 
   return (

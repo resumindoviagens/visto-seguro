@@ -45,7 +45,7 @@ export async function POST(request, context) {
   const { data: client, error } = await supabaseAdmin
     .from("clients")
     .select("id, name, cpf, birth_date, email, phone, access_token")
-    .eq("access_token", token)
+    .or(`access_token.eq.${token},id.eq.${token}`)
     .maybeSingle();
 
   if (error || !client) {
