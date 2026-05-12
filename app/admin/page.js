@@ -553,6 +553,20 @@ function Dashboard({ logout }) {
     };
   }
 
+  function groupMasterName(client) {
+    if (!client?.group_process_id) return "";
+    const master = clients.find((item) =>
+      item.group_process_id === client.group_process_id &&
+      item.grupo_familiar_master
+    );
+    return master?.name || "solicitante principal";
+  }
+
+  function groupMasterAlert(client, area = "esta alteração") {
+    const masterName = groupMasterName(client);
+    return `Este cliente faz parte de um grupo familiar, mas não é o Contato principal. Para ${area}, altere pelo solicitante principal: ${masterName}.`;
+  }
+
   async function syncFamilyGroup(masterClient, silent = true) {
     if (!masterClient?.grupo_familiar_master || !masterClient?.group_process_id) return;
     const syncRes = await fetch("/api/admin/sync-family-group", {
@@ -572,7 +586,7 @@ function Dashboard({ logout }) {
     const info = processInfo(client);
 
     if (client.group_process_id && !client.grupo_familiar_master) {
-      alert("Este cliente faz parte de um grupo familiar, mas não é o Contato principal. Para vincular datas/rastreios a todos, altere pelo cadastro do líder do grupo.");
+      alert(groupMasterAlert(client, "vincular datas/rastreios a todos"));
       return;
     }
 
@@ -894,8 +908,10 @@ function Dashboard({ logout }) {
   }
 
   async function updateProcessSteps(client, clickedKey, clickedValue, visaResultValue = "") {
-    if (client.group_process_id && !client.grupo_familiar_master) {
-      alert("Este cliente faz parte de um grupo familiar, mas não é o Contato principal. Para vincular etapas a todos, altere pelo cadastro do líder do grupo.");
+    const isIndividualVisaResult = clickedKey === "visa_result";
+
+    if (client.group_process_id && !client.grupo_familiar_master && !isIndividualVisaResult) {
+      alert(groupMasterAlert(client, "vincular etapas a todos"));
       return;
     }
 
@@ -915,7 +931,7 @@ function Dashboard({ logout }) {
       return;
     }
 
-    if (client.grupo_familiar_master && client.group_process_id) {
+    if (client.grupo_familiar_master && client.group_process_id && clickedKey !== "visa_result") {
       await syncFamilyGroup(client, true);
     }
 
@@ -1201,7 +1217,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v63 — correção de build V62</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v64 — ajustes solicitante principal e resultado individual</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1267,7 +1283,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
             {filteredClients.map((client) => (
               <tr key={client.id} className={processInfo(client).groupName ? "family-row" : ""} style={{ borderTop: "1px solid #e5e7eb", ...groupRowStyle(client) }}>
                 <td style={{ backgroundColor: groupColorFor(client) || undefined }}>
-                  <b>{client.name}</b><br />
+                  <b style={{ textDecoration: client.grupo_familiar_master ? "underline" : "none", textDecorationThickness: client.grupo_familiar_master ? 2 : undefined }}>{client.name}</b><br />
                   <small>CPF: {client.cpf}</small><br />
                   <small>Nascimento: {formatDateBR(client.birth_date)}</small><br />
                   <small>Celular: {client.phone || "-"}</small><br />
@@ -1277,6 +1293,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                   <small>Entrevista: {formatDateBR(processInfo(client).interview_date) || "-"}</small><br />
                   <small>Videochamada: {formatDateBR(processInfo(client).video_call_date) || "-"}</small><br />
                   <small>Grupo de processo: {processInfo(client).groupName || "-"}</small><br />
+                  {client.grupo_familiar_master && <><small style={{ color: "#166534", fontWeight: 700 }}>Contato principal</small><br /></>}
                   <small><b>Rastreio passaporte:</b> {processInfo(client).passport_tracking_code || "-"}</small>
                   <Thermometer client={client} />
                   {client.client_sedex_tracking && <><br /><small>Sedex cliente: {client.client_sedex_tracking}</small></>}

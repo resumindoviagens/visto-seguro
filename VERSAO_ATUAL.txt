@@ -1,1 +1,1 @@
-v63 — correção de build V62
+v64 — ajustes solicitante principal e resultado individual
