@@ -45,7 +45,7 @@ const PROCESS_STEPS = [
   ["status_not_started", "Não iniciado"],
   ["status_in_progress", "Em preenchimento"],
   ["status_submitted", "Preencher DS-160"],
-  ["stage_ds160_completed", "DS-160 preenchido e concluído"],
+  ["stage_ds160_completed", "PREENCHER DS-160 no consulado"],
   ["stage_fee_generated", "Taxa gerada"],
   ["stage_fee_paid", "Taxa paga"],
   ["stage_dates_scheduled", "Datas agendadas"],
@@ -1152,7 +1152,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     if (client.stage_dates_scheduled) return "Agendado";
     if (client.stage_fee_paid) return "Aguardando agendamento";
     if (client.stage_fee_generated) return "Taxa gerada";
-    if (client.stage_ds160_completed || client.status === "submitted") return "DS-160 concluído";
+    if (client.stage_ds160_completed || client.status === "submitted") return "PREENCHER DS-160 no consulado";
     if (client.status === "in_progress") return "Formulário em preenchimento";
     return "Iniciado";
   }
@@ -1164,7 +1164,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     if (client.stage_dates_scheduled) return "Datas agendadas";
     if (client.stage_fee_paid) return "Taxa paga";
     if (client.stage_fee_generated) return "Taxa gerada";
-    if (client.stage_ds160_completed || client.status === "submitted") return "DS-160 concluído";
+    if (client.stage_ds160_completed || client.status === "submitted") return "PREENCHER DS-160 no consulado";
     if (client.status === "in_progress") return "Formulário iniciado";
     return "Cadastro iniciado";
   }
@@ -1248,7 +1248,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v66 — correção email videochamada e preparação</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v67 — datas PT, PDF completo e visto aprovado rápido</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1413,6 +1413,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                     )}
 
                     <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `steps-${client.id}` ? null : `steps-${client.id}`)}>Etapas do processo</button>
+                    <button className={client.visa_result === "approved" ? "btn-primary" : "btn-light"} title="Marcar/desmarcar visto aprovado rapidamente" onClick={() => updateProcessSteps(client, "visa_result", client.visa_result !== "approved", client.visa_result === "approved" ? "" : "approved")}>☑ Visto aprovado rápido</button>
                     {activeMenu === `steps-${client.id}` && (
                       <div className="admin-email-options process-panel" style={{ minWidth: 420 }}>
                         <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>

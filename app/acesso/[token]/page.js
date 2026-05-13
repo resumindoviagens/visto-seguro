@@ -61,6 +61,21 @@ function isAnswerFilled(value) {
   return String(value).trim() !== "";
 }
 
+const MONTHS_PT = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+
+function formatAnswerForDisplay(value) {
+  if (!isAnswerFilled(value)) return "NÃO RESPONDIDO";
+  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (Array.isArray(value)) return value.join(", ");
+  const raw = String(value);
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+  if (iso) {
+    const month = MONTHS_PT[Number(iso[2]) - 1] || iso[2];
+    return `${iso[3]}/${month}/${iso[1]}`;
+  }
+  return raw;
+}
+
 function calculateProgress(answers) {
   const total = sections.reduce((sum, section) => sum + section.fields.length, 0);
   const filled = sections.reduce((sum, section) => {
@@ -257,7 +272,7 @@ function PDFView({ client, answers }) {
       <div className="card" style={{ padding:34 }}>
         <BrandHeader clientName={client?.name} />
         <h2 style={{ color:"var(--navy)", marginTop:28 }}>Respostas do formulário</h2>
-        {sections.map((section, sectionIndex) => <section key={section.title} style={{ breakInside:"avoid", marginTop:28 }}><h3 style={{ background:"var(--navy)", color:"#fff", padding:12, borderRadius:10 }}>{numberedTitle(sectionIndex, section.title)}</h3><div className="grid">{section.fields.filter((field) => answers[field.id]).map((field, fieldIndex) => <div key={field.id} className={field.wide || field.full ? "wide" : ""} style={{ border:"1px solid #E4E8F0", borderRadius:12, padding:12 }}><b style={{ color:"var(--navy)" }}><span style={{ color:"var(--orange)" }}>{sectionIndex + 1}.{fieldIndex + 1}</span> {field.label}</b><br/><span>{String(answers[field.id])}</span></div>)}</div></section>)}
+        {sections.map((section, sectionIndex) => <section key={section.title} style={{ breakInside:"avoid", marginTop:28 }}><h3 style={{ background:"var(--navy)", color:"#fff", padding:12, borderRadius:10 }}>{numberedTitle(sectionIndex, section.title)}</h3><div className="grid">{section.fields.map((field, fieldIndex) => <div key={field.id} className={field.wide || field.full ? "wide" : ""} style={{ border:"1px solid #E4E8F0", borderRadius:12, padding:12 }}><b style={{ color:"var(--navy)" }}><span style={{ color:"var(--orange)" }}>{sectionIndex + 1}.{fieldIndex + 1}</span> {field.label}</b><br/><span style={{ color: isAnswerFilled(answers[field.id]) ? "inherit" : "#b91c1c", fontWeight: isAnswerFilled(answers[field.id]) ? 400 : 700 }}>{formatAnswerForDisplay(answers[field.id])}</span></div>)}</div></section>)}
         <div className="print-footer">Resumindo Viagens • contato@resumindoviagens.com.br • Instagram: @resumindoviagens</div>
       </div>
     </main>

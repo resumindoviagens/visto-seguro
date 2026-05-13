@@ -6,6 +6,29 @@ import { sections } from "../../../../lib/formSchema";
 function cleanSectionTitle(title) { return title.replace(/^\d+\.\s*/, ""); }
 function numberedTitle(index, title) { return `${index + 1}. ${cleanSectionTitle(title)}`; }
 
+function isFilled(value) {
+  if (value === true) return true;
+  if (Array.isArray(value)) return value.length > 0;
+  if (value === null || value === undefined) return false;
+  return String(value).trim() !== "";
+}
+
+const MONTHS_PT = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+
+function formatAnswer(value) {
+  if (!isFilled(value)) return "NÃO RESPONDIDO";
+  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (Array.isArray(value)) return value.join(", ");
+  const raw = String(value);
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+  if (iso) {
+    const month = MONTHS_PT[Number(iso[2]) - 1] || iso[2];
+    return `${iso[3]}/${month}/${iso[1]}`;
+  }
+  return raw;
+}
+
+
 export default async function AdminPdfPage({ params }) {
   const authenticated = await isAdminAuthenticated();
 
@@ -62,11 +85,10 @@ export default async function AdminPdfPage({ params }) {
             <h3 style={{ background: "var(--navy)", color: "#fff", padding: 12, borderRadius: 10 }}>{numberedTitle(sectionIndex, section.title)}</h3>
             <div className="grid">
               {section.fields
-                .filter((field) => answers[field.id])
                 .map((field, fieldIndex) => (
                   <div key={field.id} className={field.wide || field.full ? "wide" : ""} style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}>
                     <b style={{ color: "var(--navy)" }}><span style={{ color: "var(--orange)" }}>{sectionIndex + 1}.{fieldIndex + 1}</span> {field.label}</b><br />
-                    <span>{String(answers[field.id])}</span>
+                    <span style={{ color: isFilled(answers[field.id]) ? "inherit" : "#b91c1c", fontWeight: isFilled(answers[field.id]) ? 400 : 700 }}>{formatAnswer(answers[field.id])}</span>
                   </div>
                 ))}
             </div>
