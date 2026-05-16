@@ -142,9 +142,9 @@ function normalizeAnswer(value) {
 function buildQuestionNumberMap() {
   // Mantém o alerta correto mesmo que o ID interno dos campos seja diferente do número exibido.
   const map = {
-    "3.19": "vistoCancelado",
-    "3.20": "vistoNegado",
-    "3.21": "pedidoImigracao",
+    "3.20": "vistoCancelado",
+    "3.21": "vistoNegado",
+    "3.22": "pedidoImigracao",
     "6.9": "parenteEUA",
     "6.11": "familiaresEUA",
     "8.8": "organizacaoBeneficente"
@@ -168,6 +168,20 @@ function getCriticalAlerts(client) {
     const fieldId = QUESTION_ID_BY_NUMBER[number];
     return normalizeAnswer(answers[fieldId]) === "sim" || normalizeAnswer(answers[number]) === "sim";
   });
+}
+
+function isFilled(value) {
+  if (value === true) return true;
+  if (Array.isArray(value)) return value.length > 0;
+  if (value === null || value === undefined) return false;
+  return String(value).trim() !== "";
+}
+
+function salaryMissingAlert(client) {
+  const answers = client?.answers || {};
+  const page7Started = ["ocupacao", "empregador", "enderecoEmpregador", "telefoneEmpregador", "dataInicioAtual", "atividades", "empregoAnterior", "dadosEmpregoAnterior", "estudoConcluido", "formacao"]
+    .some((fieldId) => isFilled(answers[fieldId]));
+  return page7Started && !isFilled(answers.salario);
 }
 
 function actionLabel(action) {
@@ -493,6 +507,7 @@ function Dashboard({ logout }) {
   const [groups, setGroups] = useState([]);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [dismissedAlerts, setDismissedAlerts] = useState(new Set());
   const [processTab, setProcessTab] = useState("andamento");
   const [sortBy, setSortBy] = useState("created_desc");
   const [form, setForm] = useState({
@@ -522,6 +537,28 @@ function Dashboard({ logout }) {
     setClients(data.clients || []);
   }
 
+
+  async function loadDismissedAlerts() {
+    try {
+      const res = await fetch("/api/admin/alerts/dismiss", { cache: "no-store" });
+      const data = await res.json();
+      if (res.ok) setDismissedAlerts(new Set(data.dismissed || []));
+    } catch {}
+  }
+
+  async function dismissAlert(alertKey) {
+    const res = await fetch("/api/admin/alerts/dismiss", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alert_key: alertKey })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao baixar alerta.");
+      return;
+    }
+    setDismissedAlerts((current) => new Set([...current, alertKey]));
+  }
 
   async function loadGroups() {
     const res = await fetch("/api/admin/process-groups");
@@ -666,18 +703,21 @@ function Dashboard({ logout }) {
       const interviewDays = daysUntil(info.interview_date);
       const videoDays = daysUntil(info.video_call_date);
       const casvDays = daysUntil(info.casv_date);
-      if (interviewDays !== null && interviewDays >= 0 && interviewDays <= 7) alerts.push({ ...base, text: `Entrevista em ${interviewDays === 0 ? "hoje" : `${interviewDays} dia(s)`}${info.consulate_city ? ` — ${info.consulate_city}` : ""}` });
-      if (casvDays !== null && casvDays >= 0 && casvDays <= 3) alerts.push({ ...base, text: `CASV em ${casvDays === 0 ? "hoje" : `${casvDays} dia(s)`}` });
-      if (videoDays !== null && videoDays >= 0 && videoDays <= 2) alerts.push({ ...base, text: `Videochamada em ${videoDays === 0 ? "hoje" : `${videoDays} dia(s)`}` });
+      if (interviewDays !== null && interviewDays >= 0 && interviewDays <= 7) alerts.push({ ...base, key: `interview-${info.group?.id || client.id}-${info.interview_date}`, text: `Entrevista em ${interviewDays === 0 ? "hoje" : `${interviewDays} dia(s)`}${info.consulate_city ? ` — ${info.consulate_city}` : ""}` });
+      if (casvDays !== null && casvDays >= 0 && casvDays <= 3) alerts.push({ ...base, key: `casv-${info.group?.id || client.id}-${info.casv_date}`, text: `CASV em ${casvDays === 0 ? "hoje" : `${casvDays} dia(s)`}` });
+      if (videoDays !== null && videoDays >= 0 && videoDays <= 2) alerts.push({ ...base, key: `video-${info.group?.id || client.id}-${info.video_call_date}`, text: `Videochamada em ${videoDays === 0 ? "hoje" : `${videoDays} dia(s)`}` });
     });
     clients.forEach((client) => {
       const formStarted = client.status === "in_progress";
       const formSubmitted = client.status === "submitted";
-      if (formStarted) alerts.push({ label: `Cliente: ${client.name}`, text: "Formulário iniciado" });
-      if (formSubmitted) alerts.push({ label: `Cliente: ${client.name}`, text: "Formulário concluído" });
-      if (client.is_renewal && !client.client_sedex_tracking) alerts.push({ label: `Cliente: ${client.name}`, text: "Renovação sem rastreio Sedex informado" });
+      if (formStarted) alerts.push({ key: `form-started-${client.id}`, label: `Cliente: ${client.name}`, text: "Formulário iniciado" });
+      if (formSubmitted) alerts.push({ key: `form-submitted-${client.id}`, label: `Cliente: ${client.name}`, text: "Formulário concluído" });
+      if (client.is_renewal && !client.client_sedex_tracking) alerts.push({ key: `renewal-sedex-${client.id}`, label: `Cliente: ${client.name}`, text: "Renovação sem rastreio Sedex informado" });
+      if (salaryMissingAlert(client)) alerts.push({ key: `salary-missing-${client.id}`, label: `Cliente: ${client.name}`, text: "Deixou informação de salário em branco" });
+      const critical = getCriticalAlerts(client);
+      if (critical.length > 0) alerts.push({ key: `critical-${client.id}-${critical.join("-")}`, label: `Cliente: ${client.name}`, text: `Respondeu Sim na pergunta ${critical.join(", ")}` });
     });
-    return alerts;
+    return alerts.filter((item) => !dismissedAlerts.has(item.key));
   }
 
   async function loadLogs(client) {
@@ -701,6 +741,7 @@ function Dashboard({ logout }) {
   useEffect(() => {
     loadClients();
     loadGroups();
+    loadDismissedAlerts();
   }, []);
 
   async function createClient() {
@@ -1248,7 +1289,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v67 — datas PT, PDF completo e visto aprovado rápido</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v68 — balões editáveis e alertas baixáveis</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1284,6 +1325,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
           <button className="btn-primary" onClick={() => setAlertsOpen(true)}>Ver alertas</button>
           <a className="btn-light" href="/admin/feedbacks" target="_blank">Feedbacks</a>
           <button className="btn-light" onClick={() => setReportOpen(true)}>Relatórios</button>
+          <a className="btn-light" href="/admin/baloes" target="_blank">Balões explicativos</a>
           <input placeholder="Buscar por nome, CPF, e-mail ou grupo de processo" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="all">Todas as etapas</option>
@@ -1336,6 +1378,11 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                   {getCriticalAlerts(client).length > 0 && (
                     <div className="admin-critical-alert">
                       Atenção: cliente respondeu <strong>Sim</strong> na pergunta {getCriticalAlerts(client).join(", ")}
+                    </div>
+                  )}
+                  {salaryMissingAlert(client) && (
+                    <div className="admin-date-alert warning">
+                      Deixou informação de salário em branco
                     </div>
                   )}
                   {!client.passport_expiration_date && (
@@ -1481,7 +1528,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                     {isControlClient(client) ? <button className="btn-light" disabled>PDF para preencher à mão</button> : <a className="btn-light" href={`/admin/pdf-manual/${client.access_token}`} target="_blank">PDF para preencher à mão</a>}
                     <a className="btn-light" href={`/foto-instrucoes/${client.access_token || client.id}`} target="_blank">Instruções Foto</a>
                     <button className="btn-light" onClick={() => loadLogs(client)}>Ver log</button>
-                    <button className="btn-light" onClick={() => actionClient(client.id, "unlock")}>Desbloquear</button>
+                    <button className="btn-light" disabled={isControlClient(client)} title={isControlClient(client) ? "Cadastro de controle não possui formulário para desbloquear" : ""} onClick={() => actionClient(client.id, "unlock")}>Desbloquear</button>
                     <button className="btn-light" disabled={isControlClient(client)} title={isControlClient(client) ? "Cadastro de controle não possui link de formulário" : ""} onClick={() => actionClient(client.id, "new_token")}>Novo link</button>
                     <button className="btn-light" onClick={() => actionClient(client.id, client.is_completed ? "reopen" : "mark_completed")}>{client.is_completed ? "Reabrir processo" : "Marcar concluído"}</button>
                     <button className="btn-light" onClick={() => deleteClient(client)}>Excluir</button>
@@ -1568,9 +1615,12 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
             <h2 style={{ marginTop: 0 }}>Alertas do dia</h2>
             {buildGlobalAlerts().length === 0 && <p style={{ color: "var(--muted)" }}>Nenhum alerta no momento.</p>}
             {buildGlobalAlerts().map((alert, index) => (
-              <div key={index} style={{ borderTop: "1px solid #e5e7eb", padding: "12px 0" }}>
-                <b style={{ color: "var(--navy)" }}>{alert.label}</b><br />
-                <span>{alert.text}</span>
+              <div key={alert.key || index} style={{ borderTop: "1px solid #e5e7eb", padding: "12px 0", display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <div>
+                  <b style={{ color: "var(--navy)" }}>{alert.label}</b><br />
+                  <span>{alert.text}</span>
+                </div>
+                <button className="btn-light" onClick={() => dismissAlert(alert.key)}>Dar baixa</button>
               </div>
             ))}
           </div>

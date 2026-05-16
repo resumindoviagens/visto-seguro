@@ -99,8 +99,17 @@ export default function ClientAccessPage() {
   const [verificationError, setVerificationError] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
+  const [helpOverrides, setHelpOverrides] = useState({});
 
-  useEffect(() => { if (token) load(); }, [token]);
+  useEffect(() => { if (token) load(); loadHelpTexts(); }, [token]);
+
+  async function loadHelpTexts() {
+    try {
+      const res = await fetch("/api/help-texts", { cache: "no-store" });
+      const data = await res.json();
+      if (res.ok) setHelpOverrides(data.helpTexts || {});
+    } catch {}
+  }
 
   async function load() {
     setLoading(true);
