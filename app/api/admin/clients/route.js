@@ -87,7 +87,9 @@ export async function POST(request) {
     no_form_required: !!body.no_form_required,
     is_renewal: !!body.is_renewal,
     tipo_processo: body.tipo_processo || (body.is_renewal ? "Renovação" : "Primeiro visto"),
-    observacoes_gerais: body.observacoes_gerais || body.notes || ""
+    observacoes_gerais: body.observacoes_gerais || body.notes || "",
+    legacy_import: !!body.legacy_import,
+    legacy_import_batch: body.legacy_import_batch || null
   };
 
   // Estes campos dependem das colunas opcionais da V11. Se você ainda não executou o SQL,

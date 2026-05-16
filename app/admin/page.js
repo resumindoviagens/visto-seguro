@@ -1085,7 +1085,12 @@ function Dashboard({ logout }) {
 
         const matchesSearch = !query || haystack.includes(query) || (!!queryCpf && (client.cpf || "").includes(queryCpf));
         const matchesStatus = statusFilter === "all" || currentStepKey(client) === statusFilter;
-        const matchesTab = processTab === "concluidos" ? !!client.is_completed : !client.is_completed;
+        const matchesTab =
+          processTab === "antigo"
+            ? !!client.legacy_import
+            : processTab === "concluidos"
+              ? !!client.is_completed && !client.legacy_import
+              : !client.is_completed && !client.legacy_import;
         return matchesSearch && matchesStatus && matchesTab;
       })
       .sort((a, b) => {
@@ -1289,7 +1294,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v71 — balões aplicados no formulário</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v73 — SQL importação corrigido</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1319,6 +1324,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
         <div className="admin-tabs" style={{ marginBottom: 16 }}>
           <button className={processTab === "andamento" ? "btn-primary" : "btn-light"} onClick={() => setProcessTab("andamento")}>Processos em andamento</button>
           <button className={processTab === "concluidos" ? "btn-primary" : "btn-light"} onClick={() => setProcessTab("concluidos")}>Processos concluídos</button>
+          <button className={processTab === "antigo" ? "btn-primary" : "btn-light"} onClick={() => setProcessTab("antigo")}>Cadastro antigo</button>
         </div>
 
         <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
@@ -1372,6 +1378,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                   {client.client_sedex_tracking && <><br /><small>Sedex cliente: {client.client_sedex_tracking}</small></>}
                   {client.is_renewal && <div className="admin-renewal-alert">Renovação sem entrevista</div>}
                   {client.no_form_required && <div className="admin-renewal-alert muted">Cadastro de controle — sem formulário ao cliente</div>}
+                  {client.legacy_import && <div className="admin-renewal-alert info">Cadastro antigo — revisar antes de concluir</div>}
                   {scheduleAlerts(client).map((alert, index) => (
                     <div key={index} className={`admin-date-alert ${alert.level}`}>{alert.text}</div>
                   ))}
@@ -1530,7 +1537,11 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                     <button className="btn-light" onClick={() => loadLogs(client)}>Ver log</button>
                     <button className="btn-light" disabled={isControlClient(client)} title={isControlClient(client) ? "Cadastro de controle não possui formulário para desbloquear" : ""} onClick={() => actionClient(client.id, "unlock")}>Desbloquear</button>
                     <button className="btn-light" disabled={isControlClient(client)} title={isControlClient(client) ? "Cadastro de controle não possui link de formulário" : ""} onClick={() => actionClient(client.id, "new_token")}>Novo link</button>
-                    <button className="btn-light" onClick={() => actionClient(client.id, client.is_completed ? "reopen" : "mark_completed")}>{client.is_completed ? "Reabrir processo" : "Marcar concluído"}</button>
+                    {client.legacy_import ? (
+                      <button className="btn-primary" onClick={() => actionClient(client.id, "move_legacy_completed")}>Remeter para concluídos</button>
+                    ) : (
+                      <button className="btn-light" onClick={() => actionClient(client.id, client.is_completed ? "reopen" : "mark_completed")}>{client.is_completed ? "Reabrir processo" : "Marcar concluído"}</button>
+                    )}
                     <button className="btn-light" onClick={() => deleteClient(client)}>Excluir</button>
                   </div>
                 </td>

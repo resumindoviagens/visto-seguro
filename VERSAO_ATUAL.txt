@@ -1,1 +1,1 @@
-v71 — balões aplicados no formulário
+v73 — correção SQL importação cadastro antigo

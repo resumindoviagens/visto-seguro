@@ -33,6 +33,10 @@ export async function PATCH(request, context) {
   if (body.action === "new_token") updates.access_token = createAccessToken();
   if (body.action === "mark_completed") updates.is_completed = true;
   if (body.action === "reopen") updates.is_completed = false;
+  if (body.action === "move_legacy_completed") {
+    updates.legacy_import = false;
+    updates.is_completed = true;
+  }
 
   if (body.action === "update_details") {
     if (!body.name || !body.cpf || !body.birth_date) {
