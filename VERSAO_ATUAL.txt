@@ -1,1 +1,1 @@
-v69 — correção de build da V68
+v70 — correção dos balões explicativos

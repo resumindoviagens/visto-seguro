@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../lib/auth";
 import { defaultHelpTexts, sections } from "../../../../lib/formSchema";

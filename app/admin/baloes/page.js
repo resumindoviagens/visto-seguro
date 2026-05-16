@@ -41,6 +41,7 @@ export default function BaloesExplicativosPage() {
     }
 
     alert("Balões explicativos salvos.");
+    await load();
     if (closeAfter) window.close();
   }
 
