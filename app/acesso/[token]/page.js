@@ -117,7 +117,7 @@ export default function ClientAccessPage() {
     const data = await res.json();
     if (res.status === 401 && data.needs_verification) { setNeedsVerification(true); setLoading(false); return; }
     if (!res.ok) { alert(data.error || "Link inválido."); setLoading(false); return; }
-    setNeedsVerification(false); setClient(data.client); setAnswers(data.response?.answers || {}); setSubmittedAt(data.response?.submitted_at || null); setLoading(false);
+    setNeedsVerification(false); setClient(data.client); setAnswers(data.response?.answers || {}); await loadHelpTexts(); setSubmittedAt(data.response?.submitted_at || null); setLoading(false);
   }
 
   async function verifyIdentity() {
@@ -220,7 +220,7 @@ export default function ClientAccessPage() {
         <section className="card" style={{ padding:28 }}>
           {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(0)} /> : <>
             <h1 style={{ color:"var(--navy)" }}>{numberedTitle(current, section.title)}</h1>
-            <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={field} questionNumber={`${current + 1}.${fieldIndex + 1}`} value={answers[field.id]} onChange={setValue} />)}</div>
+            <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={{ ...field, help: helpOverrides[field.id] || field.help }} questionNumber={`${current + 1}.${fieldIndex + 1}`} value={answers[field.id]} onChange={setValue} />)}</div>
             <div className="no-print mobile-bottom-nav" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(current - 1)}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => setCurrent(current + 1)}>Próxima</button>}</div>
           </>}
         </section>

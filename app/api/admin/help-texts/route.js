@@ -29,7 +29,7 @@ export async function GET() {
     });
   });
 
-  return Response.json({ fields });
+  return Response.json({ fields }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
 }
 
 export async function POST(request) {
@@ -50,5 +50,5 @@ export async function POST(request) {
       }, { onConflict: "field_id" });
   }
 
-  return Response.json({ ok: true });
+  return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
 }

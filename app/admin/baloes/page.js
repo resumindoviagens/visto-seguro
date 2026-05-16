@@ -8,7 +8,7 @@ export default function BaloesExplicativosPage() {
   const [search, setSearch] = useState("");
 
   async function load() {
-    const res = await fetch("/api/admin/help-texts", { cache: "no-store" });
+    const res = await fetch(`/api/admin/help-texts?t=${Date.now()}`, { cache: "no-store" });
     const data = await res.json();
     if (!res.ok) {
       alert(data.error || "Erro ao carregar balões.");
@@ -27,7 +27,7 @@ export default function BaloesExplicativosPage() {
 
   async function save(closeAfter = false) {
     setSaving(true);
-    const res = await fetch("/api/admin/help-texts", {
+    const res = await fetch(`/api/admin/help-texts?t=${Date.now()}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items: fields.map(({ field_id, help_text }) => ({ field_id, help_text })) })

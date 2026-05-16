@@ -8,7 +8,7 @@ export async function GET() {
     .select("field_id, help_text");
 
   if (error) {
-    return Response.json({ helpTexts: {} });
+    return Response.json({ helpTexts: {} }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
   }
 
   const helpTexts = {};
@@ -16,5 +16,5 @@ export async function GET() {
     if (item.field_id) helpTexts[item.field_id] = item.help_text || "";
   }
 
-  return Response.json({ helpTexts });
+  return Response.json({ helpTexts }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate" } });
 }
