@@ -1,1 +1,1 @@
-v68 — balões editáveis e alertas baixáveis
+v69 — correção de build da V68
