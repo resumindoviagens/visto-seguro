@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { sendCalendarEmail } from "../../../../../lib/brevoEmail";
 import { requireAdmin } from "../../../../../lib/auth";
 import { createAccessToken } from "../../../../../lib/tokens";
 import { sendInternalAlert, simpleHtml } from "../../../../../lib/brevoEmail";
@@ -144,5 +145,44 @@ export async function DELETE(request, context) {
 
   const { error } = await supabaseAdmin.from("clients").delete().eq("id", params.id);
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ ok: true });
+  
+  try {
+    if (body.action === "update_schedule") {
+      const events = [];
+      if (body.video_call_date && body.video_call_date !== oldClient?.video_call_date) {
+        events.push({
+          subject: `Agenda — videochamada — ${updates.name || oldClient?.name}`,
+          title: `Videochamada — ${updates.name || oldClient?.name}`,
+          description: `Videochamada agendada para ${updates.name || oldClient?.name}.`,
+          location: "Zoom / WhatsApp",
+          start: body.video_call_date
+        });
+      }
+      if (body.interview_date && body.interview_date !== oldClient?.interview_date) {
+        events.push({
+          subject: `Agenda — entrevista consular — ${updates.name || oldClient?.name}`,
+          title: `Entrevista consular — ${updates.name || oldClient?.name}`,
+          description: `Entrevista consular cadastrada para ${updates.name || oldClient?.name}.`,
+          location: body.consulate_city || oldClient?.consulate_city || "",
+          start: `${body.interview_date}T09:00:00`
+        });
+      }
+      for (const event of events) await sendCalendarEmail(event);
+      if (events.length > 0) {
+        await supabaseAdmin.from("audit_logs").insert({
+          client_id: params.id,
+          action: "calendar_alert_sent",
+          details: { count: events.length }
+        });
+      }
+    }
+  } catch (calendarError) {
+    await supabaseAdmin.from("audit_logs").insert({
+      client_id: params.id,
+      action: "calendar_alert_failed",
+      details: { error: calendarError?.message || String(calendarError) }
+    });
+  }
+
+return Response.json({ ok: true });
 }

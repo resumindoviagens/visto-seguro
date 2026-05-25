@@ -510,6 +510,8 @@ function Dashboard({ logout }) {
   const [dismissedAlerts, setDismissedAlerts] = useState(new Set());
   const [processTab, setProcessTab] = useState("andamento");
   const [sortBy, setSortBy] = useState("created_desc");
+  const [emailComposer, setEmailComposer] = useState(null);
+  const [emailComposerLoading, setEmailComposerLoading] = useState(false);
   const [form, setForm] = useState({
     name: "",
     cpf: "",
@@ -558,6 +560,122 @@ function Dashboard({ logout }) {
       return;
     }
     setDismissedAlerts((current) => new Set([...current, alertKey]));
+  }
+
+  async function clearCurrentAlerts() {
+    const currentAlerts = buildGlobalAlerts();
+    if (currentAlerts.length === 0) return;
+    if (!confirm(`Dar baixa em ${currentAlerts.length} alerta(s) atualmente exibidos?`)) return;
+    for (const item of currentAlerts) {
+      if (item.key) await dismissAlert(item.key);
+    }
+  }
+
+  async function openEmailComposer(client) {
+    setEmailComposerLoading(true);
+    try {
+      const templateId = "formulario";
+      const res = await fetch(`/api/admin/email-compose/${client.id}?template=${templateId}`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Erro ao abrir editor de email.");
+        setEmailComposerLoading(false);
+        return;
+      }
+      setEmailComposer({
+        client,
+        templateId,
+        templates: data.templates || [],
+        toEmail: data.toEmail || client.email || "",
+        toName: data.toName || client.name || "",
+        subject: data.subject || "",
+        html: data.html || "",
+        text: data.text || ""
+      });
+    } catch (err) {
+      alert(err.message || "Erro ao abrir editor de email.");
+    } finally {
+      setEmailComposerLoading(false);
+    }
+  }
+
+  async function changeEmailComposerTemplate(templateId) {
+    if (!emailComposer?.client?.id) return;
+    setEmailComposerLoading(true);
+    try {
+      const res = await fetch(`/api/admin/email-compose/${emailComposer.client.id}?template=${templateId}`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Erro ao carregar modelo.");
+        return;
+      }
+      setEmailComposer((current) => ({
+        ...current,
+        templateId,
+        toEmail: data.toEmail || current.toEmail,
+        toName: data.toName || current.toName,
+        subject: data.subject || "",
+        html: data.html || "",
+        text: data.text || ""
+      }));
+    } finally {
+      setEmailComposerLoading(false);
+    }
+  }
+
+  async function sendEmailComposer() {
+    if (!emailComposer?.client?.id) return;
+    if (!emailComposer.toEmail) {
+      alert("Informe o email de destino.");
+      return;
+    }
+    if (!emailComposer.subject) {
+      alert("Informe o assunto.");
+      return;
+    }
+    setEmailComposerLoading(true);
+    try {
+      const res = await fetch("/api/admin/email-compose/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: emailComposer.client.id,
+          template_id: emailComposer.templateId,
+          to_email: emailComposer.toEmail,
+          to_name: emailComposer.toName,
+          subject: emailComposer.subject,
+          html: emailComposer.html,
+          text: emailComposer.text
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Erro ao enviar email.");
+        return;
+      }
+      alert("Email enviado com sucesso.");
+      setEmailComposer(null);
+      await loadClients();
+    } finally {
+      setEmailComposerLoading(false);
+    }
+  }
+
+  async function openFeedbackWhatsApp(client) {
+    if (!client.phone) {
+      alert("Cliente sem telefone cadastrado.");
+      return;
+    }
+    const res = await fetch(`/api/admin/feedback-link/${client.id}`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao gerar link da pesquisa.");
+      return;
+    }
+    const digits = String(client.phone || "").replace(/\D/g, "");
+    const message = encodeURIComponent(`Olá, ${client.name}. Tudo bem?\n\nSeu processo com a Resumindo Viagens foi concluído e gostaríamos muito de ouvir sua opinião.\n\nA pesquisa é rápida e leva menos de 1 minuto:\n${data.feedbackLink}\n\nMuito obrigado pela confiança!`);
+    window.open(`https://wa.me/${digits}?text=${message}`, "_blank", "noopener,noreferrer");
+    await loadClients();
   }
 
   async function loadGroups() {
@@ -1294,7 +1412,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v73 — SQL importação corrigido</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v74 — etapa 1 email editor e feedbacks</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1330,6 +1448,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
         <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
           <button className="btn-primary" onClick={() => setAlertsOpen(true)}>Ver alertas</button>
           <a className="btn-light" href="/admin/feedbacks" target="_blank">Feedbacks</a>
+          <a className="btn-light" href="/admin/feedback-agenda" target="_blank">Agenda pesquisas</a>
           <button className="btn-light" onClick={() => setReportOpen(true)}>Relatórios</button>
           <a className="btn-light" href="/admin/baloes" target="_blank">Balões explicativos</a>
           <input placeholder="Buscar por nome, CPF, e-mail ou grupo de processo" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -1624,6 +1743,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <button className="popup-close" onClick={() => setAlertsOpen(false)}>×</button>
             <h2 style={{ marginTop: 0 }}>Alertas do dia</h2>
+            <button className="btn-light" onClick={clearCurrentAlerts}>Baixar todos os alertas exibidos</button>
             {buildGlobalAlerts().length === 0 && <p style={{ color: "var(--muted)" }}>Nenhum alerta no momento.</p>}
             {buildGlobalAlerts().map((alert, index) => (
               <div key={alert.key || index} style={{ borderTop: "1px solid #e5e7eb", padding: "12px 0", display: "flex", justifyContent: "space-between", gap: 12 }}>
@@ -1637,6 +1757,57 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
           </div>
         </div>
       )}
+
+      {emailComposer && (
+        <div className="modal-backdrop" onClick={() => setEmailComposer(null)}>
+          <div className="modal-card" style={{ maxWidth: 1100, width: "94vw" }} onClick={(e) => e.stopPropagation()}>
+            <button className="popup-close" onClick={() => setEmailComposer(null)}>×</button>
+            <h2 style={{ marginTop: 0 }}>Editor de email</h2>
+            <p style={{ color: "var(--muted)" }}>Revise, personalize e envie pelo próprio sistema. Os botões antigos continuam disponíveis por segurança.</p>
+
+            <div className="grid" style={{ marginTop: 12 }}>
+              <label className="admin-field-label">
+                <span>Modelo</span>
+                <select value={emailComposer.templateId} onChange={(e) => changeEmailComposerTemplate(e.target.value)}>
+                  {(emailComposer.templates || []).map((template) => (
+                    <option key={template.id} value={template.id}>{template.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="admin-field-label">
+                <span>Para</span>
+                <input value={emailComposer.toEmail || ""} onChange={(e) => setEmailComposer({ ...emailComposer, toEmail: e.target.value })} />
+              </label>
+              <label className="admin-field-label wide">
+                <span>Assunto</span>
+                <input value={emailComposer.subject || ""} onChange={(e) => setEmailComposer({ ...emailComposer, subject: e.target.value })} />
+              </label>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <label className="admin-field-label">
+                <span>Corpo do email em HTML editável</span>
+                <textarea
+                  value={emailComposer.html || ""}
+                  onChange={(e) => setEmailComposer({ ...emailComposer, html: e.target.value })}
+                  style={{ minHeight: 260, fontFamily: "monospace", width: "100%" }}
+                />
+              </label>
+            </div>
+
+            <h3>Pré-visualização</h3>
+            <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 18, maxHeight: 420, overflow: "auto", background: "#fff" }} dangerouslySetInnerHTML={{ __html: emailComposer.html || "" }} />
+
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 18, flexWrap: "wrap" }}>
+              <button className="btn-light" onClick={() => setEmailComposer(null)}>Cancelar</button>
+              <button className="btn-primary" disabled={emailComposerLoading} onClick={sendEmailComposer}>
+                {emailComposerLoading ? "Enviando..." : "Enviar email"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {logClient && (
         <div className="modal-backdrop" onClick={() => setLogClient(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>

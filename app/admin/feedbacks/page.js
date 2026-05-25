@@ -1,40 +1,65 @@
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+"use client";
 
-import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+import { useEffect, useState } from "react";
 
-export default async function AdminFeedbacksPage() {
-  const { data: feedbacks, error } = await supabaseAdmin
-    .from("feedbacks")
-    .select("*, clients(name, email, phone)")
-    .order("created_at", { ascending: false });
+export default function AdminFeedbacksPage() {
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [showPosted, setShowPosted] = useState(false);
 
-  if (error) {
-    return <main style={{ padding: 30, fontFamily: "Arial, Helvetica, sans-serif" }}>Erro ao carregar feedbacks: {error.message}</main>;
+  async function load() {
+    const res = await fetch("/api/admin/feedbacks", { cache: "no-store" });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao carregar feedbacks.");
+      return;
+    }
+    setFeedbacks(data.feedbacks || []);
   }
 
+  useEffect(() => { load(); }, []);
+
+  async function markPosted(item) {
+    const clientId = item.client_id || item.client?.id;
+    if (!clientId) return;
+    const res = await fetch(`/api/admin/clients/${clientId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update_process_steps", stage_feedback_posted: true })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao marcar postado.");
+      return;
+    }
+    await load();
+  }
+
+  const visible = feedbacks.filter((item) => showPosted || !item.client?.stage_feedback_posted);
+
   return (
-    <main style={{ padding: 30, fontFamily: "Arial, Helvetica, sans-serif", background: "#f6f8fb", minHeight: "100vh" }}>
-      <h1 style={{ color: "#1f2a60" }}>Feedbacks</h1>
-      <p>Aqui aparecem as pesquisas respondidas pelos clientes.</p>
+    <main style={{ maxWidth: 1100, margin: "30px auto", padding: 24, fontFamily: "Arial, Helvetica, sans-serif" }}>
+      <h1 style={{ color: "#1f2a60" }}>Feedbacks recebidos</h1>
+      <p>Avaliações postadas podem ser baixadas da lista principal.</p>
+      <label style={{ display: "inline-flex", gap: 8, alignItems: "center", marginBottom: 18 }}>
+        <input type="checkbox" checked={showPosted} onChange={(e) => setShowPosted(e.target.checked)} />
+        Mostrar feedbacks já postados
+      </label>
 
-      <div style={{ display: "grid", gap: 16, marginTop: 22 }}>
-        {(feedbacks || []).length === 0 && <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 18 }}>Nenhuma avaliação recebida ainda.</div>}
+      {visible.map((item) => (
+        <section key={item.id} style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 18, marginBottom: 14, background: "#fff" }}>
+          <h3 style={{ margin: 0 }}>{item.client?.name || item.client_name || "Cliente"}</h3>
+          <p><strong>Nota:</strong> {item.nota_nps ?? item.nota ?? "-"}/10</p>
+          <p><strong>Ponto forte:</strong> {item.ponto_forte || "-"}</p>
+          <p><strong>Comentário:</strong> {item.comentario || item.depoimento || "-"}</p>
+          {item.client?.stage_feedback_posted ? (
+            <span style={{ color: "#166534", fontWeight: 700 }}>Postado</span>
+          ) : (
+            <button onClick={() => markPosted(item)}>Marcar postado / baixar da lista</button>
+          )}
+        </section>
+      ))}
 
-        {(feedbacks || []).map((f) => (
-          <section key={f.id} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 18 }}>
-            <h2 style={{ margin: 0, color: "#1f2a60" }}>{f.clients?.name || "Cliente"}</h2>
-            <p style={{ margin: "8px 0" }}><strong>Nota:</strong> {f.nota_nps}/10 | <strong>Tipo:</strong> {f.tipo_feedback} | <strong>Ponto forte:</strong> {f.ponto_forte}</p>
-            <p style={{ whiteSpace: "pre-wrap" }}>{f.comentario}</p>
-            <p><strong>Autorizou divulgação:</strong> {f.autorizou_divulgacao ? "Sim" : "Não"}</p>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <a href={`/admin/feedbacks/${f.id}/card`} target="_blank" style={{ pointerEvents: f.autorizou_divulgacao ? "auto" : "none", opacity: f.autorizou_divulgacao ? 1 : .45, background: "#1f2a60", color: "#fff", textDecoration: "none", padding: "10px 14px", borderRadius: 10, fontWeight: 700 }}>
-                Gerar postagem Instagram
-              </a>
-            </div>
-          </section>
-        ))}
-      </div>
+      {visible.length === 0 && <p>Nenhum feedback nesta visão.</p>}
     </main>
   );
 }
