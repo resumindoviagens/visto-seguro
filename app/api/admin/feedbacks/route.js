@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 
-import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
-import { requireAdmin } from "../../../../../lib/auth";
+import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
+import { requireAdmin } from "../../../../lib/auth";
 
 export async function GET() {
   const unauthorized = await requireAdmin();
