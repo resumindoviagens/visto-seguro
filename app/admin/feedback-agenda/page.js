@@ -18,6 +18,36 @@ export default function FeedbackAgendaPage() {
   const [emailComposer, setEmailComposer] = useState(null);
   const [sendingEmail, setSendingEmail] = useState(false);
 
+  function escapeHtmlComposer(value = "") {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function applyPlainTextToEmailLayout(originalHtml = "", plainText = "") {
+    const safeParagraphs = String(plainText || "")
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean)
+      .map((paragraph) => `<p style="margin:0 0 14px;">${escapeHtmlComposer(paragraph).replace(/\n/g, "<br />")}</p>`)
+      .join("");
+
+    const firstParagraph = originalHtml.indexOf("<p");
+    const contactsDivider = originalHtml.indexOf("<hr");
+    if (firstParagraph !== -1 && contactsDivider !== -1 && contactsDivider > firstParagraph) {
+      return originalHtml.slice(0, firstParagraph) + safeParagraphs + originalHtml.slice(contactsDivider);
+    }
+    return originalHtml + `<div style="padding:24px;">${safeParagraphs}</div>`;
+  }
+
+  function generateEmailPreview() {
+    setEmailComposer((current) => {
+      if (!current) return current;
+      return { ...current, html: applyPlainTextToEmailLayout(current.originalHtml || current.html, current.plainText || "") };
+    });
+  }
+
   async function load() {
     setLoading(true);
     const res = await fetch("/api/admin/clients", { cache: "no-store" });
@@ -81,7 +111,9 @@ export default function FeedbackAgendaPage() {
       toName: data.toName || client.name || "",
       subject: data.subject || "",
       html: data.html || "",
+      originalHtml: data.html || "",
       text: data.text || "",
+      plainText: data.plainText || data.text || "",
       templateId: "pesquisa_satisfacao"
     });
   }
@@ -100,7 +132,7 @@ export default function FeedbackAgendaPage() {
           to_name: emailComposer.toName,
           subject: emailComposer.subject,
           html: emailComposer.html,
-          text: emailComposer.text
+          text: emailComposer.plainText || emailComposer.text
         })
       });
       const data = await res.json();
@@ -180,7 +212,7 @@ export default function FeedbackAgendaPage() {
           <div style={{ background: "#fff", borderRadius: 18, maxWidth: 1050, width: "96vw", maxHeight: "92vh", overflow: "auto", padding: 22 }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setEmailComposer(null)} style={{ float: "right", border: 0, borderRadius: 999, padding: "8px 12px" }}>×</button>
             <h2 style={{ color: "#1f2a60" }}>Email de lembrete da pesquisa</h2>
-            <p>Revise e personalize antes de enviar.</p>
+            <p>Edite apenas o texto. Depois clique em Gerar pré-visualização para aplicar o layout automaticamente.</p>
             <label style={{ display: "block", marginBottom: 10 }}>
               <strong>Para</strong>
               <input value={emailComposer.toEmail || ""} onChange={(e) => setEmailComposer({ ...emailComposer, toEmail: e.target.value })} style={{ width: "100%", padding: 10, border: "1px solid #d1d5db", borderRadius: 10 }} />
@@ -190,9 +222,10 @@ export default function FeedbackAgendaPage() {
               <input value={emailComposer.subject || ""} onChange={(e) => setEmailComposer({ ...emailComposer, subject: e.target.value })} style={{ width: "100%", padding: 10, border: "1px solid #d1d5db", borderRadius: 10 }} />
             </label>
             <label style={{ display: "block", marginBottom: 10 }}>
-              <strong>HTML do email</strong>
-              <textarea value={emailComposer.html || ""} onChange={(e) => setEmailComposer({ ...emailComposer, html: e.target.value })} style={{ width: "100%", minHeight: 220, padding: 10, border: "1px solid #d1d5db", borderRadius: 10, fontFamily: "monospace" }} />
+              <strong>Mensagem em texto simples</strong>
+              <textarea value={emailComposer.plainText || ""} onChange={(e) => setEmailComposer({ ...emailComposer, plainText: e.target.value })} style={{ width: "100%", minHeight: 220, padding: 10, border: "1px solid #d1d5db", borderRadius: 10, fontSize: 16, lineHeight: 1.5 }} />
             </label>
+            <button onClick={generateEmailPreview} style={{ marginBottom: 12 }}>Gerar pré-visualização</button>
             <h3>Pré-visualização</h3>
             <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 16, maxHeight: 320, overflow: "auto" }} dangerouslySetInnerHTML={{ __html: emailComposer.html || "" }} />
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>

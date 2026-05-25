@@ -590,7 +590,9 @@ function Dashboard({ logout }) {
         toName: data.toName || client.name || "",
         subject: data.subject || "",
         html: data.html || "",
-        text: data.text || ""
+        originalHtml: data.html || "",
+        text: data.text || "",
+        plainText: data.plainText || data.text || ""
       });
     } catch (err) {
       alert(err.message || "Erro ao abrir editor de email.");
@@ -616,11 +618,50 @@ function Dashboard({ logout }) {
         toName: data.toName || current.toName,
         subject: data.subject || "",
         html: data.html || "",
-        text: data.text || ""
+        originalHtml: data.html || "",
+        text: data.text || "",
+        plainText: data.plainText || data.text || ""
       }));
     } finally {
       setEmailComposerLoading(false);
     }
+  }
+
+
+  function escapeHtmlComposer(value = "") {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function applyPlainTextToEmailLayout(originalHtml = "", plainText = "") {
+    const safeParagraphs = String(plainText || "")
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean)
+      .map((paragraph) => `<p style="margin:0 0 14px;">${escapeHtmlComposer(paragraph).replace(/\n/g, "<br />")}</p>`)
+      .join("");
+
+    if (!originalHtml) return safeParagraphs;
+
+    const firstParagraph = originalHtml.indexOf("<p");
+    const contactsDivider = originalHtml.indexOf("<hr");
+    if (firstParagraph !== -1 && contactsDivider !== -1 && contactsDivider > firstParagraph) {
+      return originalHtml.slice(0, firstParagraph) + safeParagraphs + originalHtml.slice(contactsDivider);
+    }
+
+    return originalHtml + `<div style="padding:24px;">${safeParagraphs}</div>`;
+  }
+
+  function generateEmailPreview() {
+    setEmailComposer((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        html: applyPlainTextToEmailLayout(current.originalHtml || current.html, current.plainText || "")
+      };
+    });
   }
 
   async function sendEmailComposer() {
@@ -645,7 +686,7 @@ function Dashboard({ logout }) {
           to_name: emailComposer.toName,
           subject: emailComposer.subject,
           html: emailComposer.html,
-          text: emailComposer.text
+          text: emailComposer.plainText || emailComposer.text
         })
       });
       const data = await res.json();
@@ -1412,7 +1453,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v76 — botão email e agenda personalizável</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v77 — editor de email em texto simples</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1766,7 +1807,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
           <div className="modal-card" style={{ maxWidth: 1100, width: "94vw" }} onClick={(e) => e.stopPropagation()}>
             <button className="popup-close" onClick={() => setEmailComposer(null)}>×</button>
             <h2 style={{ marginTop: 0 }}>Editor de email</h2>
-            <p style={{ color: "var(--muted)" }}>Revise, personalize e envie pelo próprio sistema. Os botões antigos continuam disponíveis por segurança.</p>
+            <p style={{ color: "var(--muted)" }}>Edite somente o texto da mensagem. Depois clique em Gerar pré-visualização para o sistema aplicar o visual do email automaticamente.</p>
 
             <div className="grid" style={{ marginTop: 12 }}>
               <label className="admin-field-label">
@@ -1789,13 +1830,17 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
 
             <div style={{ marginTop: 16 }}>
               <label className="admin-field-label">
-                <span>Corpo do email em HTML editável</span>
+                <span>Mensagem em texto simples</span>
                 <textarea
-                  value={emailComposer.html || ""}
-                  onChange={(e) => setEmailComposer({ ...emailComposer, html: e.target.value })}
-                  style={{ minHeight: 260, fontFamily: "monospace", width: "100%" }}
+                  value={emailComposer.plainText || ""}
+                  onChange={(e) => setEmailComposer({ ...emailComposer, plainText: e.target.value })}
+                  style={{ minHeight: 220, width: "100%", fontSize: 16, lineHeight: 1.5 }}
+                  placeholder="Edite aqui apenas o texto da mensagem, sem código HTML."
                 />
               </label>
+              <button className="btn-light" style={{ marginTop: 10 }} onClick={generateEmailPreview}>
+                Gerar pré-visualização
+              </button>
             </div>
 
             <h3>Pré-visualização</h3>

@@ -10,6 +10,24 @@ function makeFeedbackToken() {
   return randomBytes(24).toString("hex");
 }
 
+function htmlToPlainText(html = "") {
+  return String(html)
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function siteOriginFromHeaders(headerStore) {
   const host = headerStore.get("x-forwarded-host") || headerStore.get("host");
   const protocol = headerStore.get("x-forwarded-proto") || "https";
@@ -89,6 +107,7 @@ export async function GET(request, context) {
     toName: client.name || "",
     subject: template.subject,
     html: template.html,
-    text: template.text
+    text: template.text,
+    plainText: template.text || htmlToPlainText(template.html)
   }, { headers: { "Cache-Control": "no-store" } });
 }
