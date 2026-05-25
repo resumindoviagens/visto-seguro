@@ -1412,7 +1412,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v75 — correção build feedbacks</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v76 — botão email e agenda personalizável</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1561,6 +1561,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                         <button className="btn-light" onClick={() => openClientWhatsApp(client, "formulario")}>Formulário</button>
                         <button className="btn-light" onClick={() => openClientWhatsApp(client, "pendente")}>Lembrete de formulário</button>
                         <button className="btn-light" onClick={() => openClientWhatsApp(client, "videochamada")}>Videochamada</button>
+                        <button className="btn-light" disabled={!client.phone} onClick={() => openFeedbackWhatsApp(client)}>Avaliação / pesquisa de satisfação</button>
                       </div>
                     )}
 
@@ -1615,6 +1616,8 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                       </div>
                     )}
 
+                    <button className="btn-primary" disabled={!client.email || emailComposerLoading} onClick={() => openEmailComposer(client)}>Email</button>
+                    <button className="btn-light" disabled={!client.phone} onClick={() => openFeedbackWhatsApp(client)}>Convite avaliação WhatsApp</button>
                     <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `copy-${client.id}` ? null : `copy-${client.id}`)}>Gerar modelos de email (copiar)</button>
                     {activeMenu === `copy-${client.id}` && (
                       <div className="admin-email-options">

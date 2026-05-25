@@ -15,6 +15,8 @@ export default function FeedbackAgendaPage() {
   const [clients, setClients] = useState([]);
   const [filter, setFilter] = useState("pendentes");
   const [loading, setLoading] = useState(true);
+  const [emailComposer, setEmailComposer] = useState(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -67,18 +69,51 @@ export default function FeedbackAgendaPage() {
   }
 
   async function emailReminder(client) {
-    const res = await fetch("/api/admin/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ client_id: client.id, template_id: "pesquisa_satisfacao" })
-    });
+    const res = await fetch(`/api/admin/email-compose/${client.id}?template=pesquisa_satisfacao`, { cache: "no-store" });
     const data = await res.json();
     if (!res.ok) {
-      alert(data.error || "Erro ao enviar email.");
+      alert(data.error || "Erro ao carregar modelo de email.");
       return;
     }
-    alert("Lembrete enviado por email.");
-    await load();
+    setEmailComposer({
+      client,
+      toEmail: data.toEmail || client.email || "",
+      toName: data.toName || client.name || "",
+      subject: data.subject || "",
+      html: data.html || "",
+      text: data.text || "",
+      templateId: "pesquisa_satisfacao"
+    });
+  }
+
+  async function sendEmailComposer() {
+    if (!emailComposer?.client?.id) return;
+    setSendingEmail(true);
+    try {
+      const res = await fetch("/api/admin/email-compose/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: emailComposer.client.id,
+          template_id: emailComposer.templateId,
+          to_email: emailComposer.toEmail,
+          to_name: emailComposer.toName,
+          subject: emailComposer.subject,
+          html: emailComposer.html,
+          text: emailComposer.text
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Erro ao enviar email.");
+        return;
+      }
+      alert("Email enviado com sucesso.");
+      setEmailComposer(null);
+      await load();
+    } finally {
+      setSendingEmail(false);
+    }
   }
 
   async function markPosted(client) {
@@ -139,6 +174,35 @@ export default function FeedbackAgendaPage() {
       )}
 
       {!loading && rows.length === 0 && <p>Nenhum registro nesta visão.</p>}
+
+      {emailComposer && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.45)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setEmailComposer(null)}>
+          <div style={{ background: "#fff", borderRadius: 18, maxWidth: 1050, width: "96vw", maxHeight: "92vh", overflow: "auto", padding: 22 }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setEmailComposer(null)} style={{ float: "right", border: 0, borderRadius: 999, padding: "8px 12px" }}>×</button>
+            <h2 style={{ color: "#1f2a60" }}>Email de lembrete da pesquisa</h2>
+            <p>Revise e personalize antes de enviar.</p>
+            <label style={{ display: "block", marginBottom: 10 }}>
+              <strong>Para</strong>
+              <input value={emailComposer.toEmail || ""} onChange={(e) => setEmailComposer({ ...emailComposer, toEmail: e.target.value })} style={{ width: "100%", padding: 10, border: "1px solid #d1d5db", borderRadius: 10 }} />
+            </label>
+            <label style={{ display: "block", marginBottom: 10 }}>
+              <strong>Assunto</strong>
+              <input value={emailComposer.subject || ""} onChange={(e) => setEmailComposer({ ...emailComposer, subject: e.target.value })} style={{ width: "100%", padding: 10, border: "1px solid #d1d5db", borderRadius: 10 }} />
+            </label>
+            <label style={{ display: "block", marginBottom: 10 }}>
+              <strong>HTML do email</strong>
+              <textarea value={emailComposer.html || ""} onChange={(e) => setEmailComposer({ ...emailComposer, html: e.target.value })} style={{ width: "100%", minHeight: 220, padding: 10, border: "1px solid #d1d5db", borderRadius: 10, fontFamily: "monospace" }} />
+            </label>
+            <h3>Pré-visualização</h3>
+            <div style={{ border: "1px solid #e5e7eb", borderRadius: 14, padding: 16, maxHeight: 320, overflow: "auto" }} dangerouslySetInnerHTML={{ __html: emailComposer.html || "" }} />
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
+              <button onClick={() => setEmailComposer(null)}>Cancelar</button>
+              <button onClick={sendEmailComposer} disabled={sendingEmail}>{sendingEmail ? "Enviando..." : "Enviar email"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }
