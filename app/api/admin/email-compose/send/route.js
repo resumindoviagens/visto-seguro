@@ -4,6 +4,34 @@ import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../../lib/auth";
 import { sendWithBrevo } from "../../../../../lib/brevoEmail";
 
+function isInitialFormTemplate(templateId) {
+  return ["formulario", "formulario_pendente", "formulario_recebido"].includes(templateId);
+}
+
+function isFeedbackTemplate(templateId) {
+  return templateId === "pesquisa_satisfacao";
+}
+
+function isPassportReturnedTemplate(templateId) {
+  return templateId === "passaporte_recebido" || templateId === "rastreio";
+}
+
+function isTemplateAllowedForClient(client, templateId) {
+  if ((client.no_form_required || !client.access_token) && isInitialFormTemplate(templateId)) {
+    return { ok: false, reason: "Modelo indisponível para cadastro de controle." };
+  }
+
+  if (isFeedbackTemplate(templateId) && !(client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive)) {
+    return { ok: false, reason: "Pesquisa de satisfação disponível somente após passaporte devolvido/processo concluído." };
+  }
+
+  if (isPassportReturnedTemplate(templateId) && !(client.stage_passport_returned || client.passport_tracking_code || client.is_completed)) {
+    return { ok: false, reason: "Modelo disponível somente após rastreio/passaporte devolvido." };
+  }
+
+  return { ok: true };
+}
+
 function htmlToText(html = "") {
   return String(html)
     .replace(/<br\s*\/?>/gi, "\n")
@@ -34,6 +62,18 @@ export async function POST(request) {
     const templateId = body.template_id || "personalizado";
 
     if (!clientId) return Response.json({ error: "Cliente obrigatório." }, { status: 400 });
+
+    const { data: client, error: clientError } = await supabaseAdmin
+      .from("clients")
+      .select("*")
+      .eq("id", clientId)
+      .maybeSingle();
+
+    if (clientError || !client) return Response.json({ error: "Cliente não encontrado." }, { status: 404 });
+
+    const allowed = isTemplateAllowedForClient(client, templateId);
+    if (!allowed.ok) return Response.json({ error: allowed.reason }, { status: 400 });
+
     if (!toEmail) return Response.json({ error: "Email de destino obrigatório." }, { status: 400 });
     if (!subject) return Response.json({ error: "Assunto obrigatório." }, { status: 400 });
     if (!html) return Response.json({ error: "Corpo do email obrigatório." }, { status: 400 });

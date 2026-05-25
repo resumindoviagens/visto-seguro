@@ -34,6 +34,34 @@ function siteOriginFromHeaders(headerStore) {
   return process.env.NEXT_PUBLIC_SITE_URL || (host ? `${protocol}://${host}` : "https://app.resumindoviagens.com.br");
 }
 
+function isInitialFormTemplate(templateId) {
+  return ["formulario", "formulario_pendente", "formulario_recebido"].includes(templateId);
+}
+
+function isFeedbackTemplate(templateId) {
+  return templateId === "pesquisa_satisfacao";
+}
+
+function isPassportReturnedTemplate(templateId) {
+  return templateId === "passaporte_recebido" || templateId === "rastreio";
+}
+
+function isTemplateAllowedForClient(client, templateId) {
+  if ((client.no_form_required || !client.access_token) && isInitialFormTemplate(templateId)) {
+    return { ok: false, reason: "Modelo indisponível para cadastro de controle." };
+  }
+
+  if (isFeedbackTemplate(templateId) && !(client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive)) {
+    return { ok: false, reason: "Pesquisa de satisfação disponível somente após passaporte devolvido/processo concluído." };
+  }
+
+  if (isPassportReturnedTemplate(templateId) && !(client.stage_passport_returned || client.passport_tracking_code || client.is_completed)) {
+    return { ok: false, reason: "Modelo disponível somente após rastreio/passaporte devolvido." };
+  }
+
+  return { ok: true };
+}
+
 async function ensureFeedbackLink(client, origin) {
   let token = client.feedback_token;
   if (!token) token = makeFeedbackToken();
@@ -70,6 +98,11 @@ export async function GET(request, context) {
 
   if (error || !client) {
     return Response.json({ error: "Cliente não encontrado." }, { status: 404 });
+  }
+
+  const allowed = isTemplateAllowedForClient(client, templateId);
+  if (!allowed.ok) {
+    return Response.json({ error: allowed.reason }, { status: 400 });
   }
 
   let processGroup = null;
