@@ -1,1 +1,1 @@
-v85 — unificação operacional dos emails e eventos
+v86 — correção build emailTemplates
