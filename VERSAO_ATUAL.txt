@@ -1,5 +1,1 @@
-<<<<<<< HEAD
 v81 — central de eventos assistida
-=======
-v79A — etapa 2A formulário inicial
->>>>>>> 1c9f61c4a97088fb54c50a0a4f8970669599514b
