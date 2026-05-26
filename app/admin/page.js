@@ -202,6 +202,15 @@ function salaryMissingAlert(client) {
   return page7Started && !isFilled(answers.salario);
 }
 
+function formatAlertDate(value) {
+  if (!value) return new Date().toLocaleDateString("pt-BR");
+  try {
+    return new Date(value).toLocaleDateString("pt-BR");
+  } catch {
+    return String(value);
+  }
+}
+
 function actionLabel(action) {
   const labels = {
     client_created: "Cliente cadastrado",
@@ -589,10 +598,16 @@ function Dashboard({ logout }) {
     }
   }
 
-  async function openEmailComposer(client) {
-    const initialTemplate = firstAvailableEmailTemplate(client);
+  async function openEmailComposer(client, forcedTemplateId = null) {
+    const initialTemplate = forcedTemplateId
+      ? EMAIL_TEMPLATES.find((template) => template.id === forcedTemplateId)
+      : firstAvailableEmailTemplate(client);
     if (!initialTemplate) {
       alert("Não há modelos de email disponíveis para esta etapa/cadastro.");
+      return;
+    }
+    if (isTemplateDisabledForClient(client, initialTemplate)) {
+      alert(templateDisabledReason(client, initialTemplate) || "Modelo indisponível para esta etapa.");
       return;
     }
 
@@ -887,25 +902,25 @@ function Dashboard({ logout }) {
       const target = info.group ? `Grupo: ${label}` : `Cliente: ${label}`;
       if (info.group && addedGroups.has(info.group.id)) return;
       if (info.group) addedGroups.add(info.group.id);
-      const base = { label: target, clientName: client.name, groupName: info.groupName };
+      const base = { label: target, clientName: client.name, groupName: info.groupName, alertDate: client.updated_at || client.created_at || new Date().toISOString() };
       const interviewDays = daysUntil(info.interview_date);
       const videoDays = daysUntil(info.video_call_date);
       const casvDays = daysUntil(info.casv_date);
-      if (interviewDays !== null && interviewDays >= 0 && interviewDays <= 7) alerts.push({ ...base, key: `interview-${info.group?.id || client.id}-${info.interview_date}`, text: `Entrevista em ${interviewDays === 0 ? "hoje" : `${interviewDays} dia(s)`}${info.consulate_city ? ` — ${info.consulate_city}` : ""}` });
-      if (casvDays !== null && casvDays >= 0 && casvDays <= 3) alerts.push({ ...base, key: `casv-${info.group?.id || client.id}-${info.casv_date}`, text: `CASV em ${casvDays === 0 ? "hoje" : `${casvDays} dia(s)`}` });
-      if (videoDays !== null && videoDays >= 0 && videoDays <= 2) alerts.push({ ...base, key: `video-${info.group?.id || client.id}-${info.video_call_date}`, text: `Videochamada em ${videoDays === 0 ? "hoje" : `${videoDays} dia(s)`}` });
+      if (interviewDays !== null && interviewDays >= 0 && interviewDays <= 7) alerts.push({ ...base, key: `interview-${info.group?.id || client.id}-${info.interview_date}`, alertDate: info.interview_date, text: `Entrevista em ${interviewDays === 0 ? "hoje" : `${interviewDays} dia(s)`}${info.consulate_city ? ` — ${info.consulate_city}` : ""}` });
+      if (casvDays !== null && casvDays >= 0 && casvDays <= 3) alerts.push({ ...base, key: `casv-${info.group?.id || client.id}-${info.casv_date}`, alertDate: info.casv_date, text: `CASV em ${casvDays === 0 ? "hoje" : `${casvDays} dia(s)`}` });
+      if (videoDays !== null && videoDays >= 0 && videoDays <= 2) alerts.push({ ...base, key: `video-${info.group?.id || client.id}-${info.video_call_date}`, alertDate: info.video_call_date, text: `Videochamada em ${videoDays === 0 ? "hoje" : `${videoDays} dia(s)`}` });
     });
     clients.forEach((client) => {
       const formStarted = client.status === "in_progress";
       const formSubmitted = client.status === "submitted";
-      if (formStarted) alerts.push({ key: `form-started-${client.id}`, label: `Cliente: ${client.name}`, text: "Formulário iniciado" });
-      if (formSubmitted) alerts.push({ key: `form-submitted-${client.id}`, label: `Cliente: ${client.name}`, text: "Formulário concluído" });
-      if (client.is_renewal && !client.client_sedex_tracking) alerts.push({ key: `renewal-sedex-${client.id}`, label: `Cliente: ${client.name}`, text: "Renovação sem rastreio Sedex informado" });
-      if (salaryMissingAlert(client)) alerts.push({ key: `salary-missing-${client.id}`, label: `Cliente: ${client.name}`, text: "Deixou informação de salário em branco" });
+      if (formStarted) alerts.push({ key: `form-started-${client.id}`, label: `Cliente: ${client.name}`, alertDate: client.updated_at || client.created_at, text: "Formulário iniciado" });
+      if (formSubmitted) alerts.push({ key: `form-submitted-${client.id}`, label: `Cliente: ${client.name}`, alertDate: client.updated_at || client.created_at, text: "Formulário concluído" });
+      if (client.is_renewal && !client.client_sedex_tracking) alerts.push({ key: `renewal-sedex-${client.id}`, label: `Cliente: ${client.name}`, alertDate: client.updated_at || client.created_at, text: "Renovação sem rastreio Sedex informado" });
+      if (salaryMissingAlert(client)) alerts.push({ key: `salary-missing-${client.id}`, label: `Cliente: ${client.name}`, alertDate: client.updated_at || client.created_at, text: "Deixou informação de salário em branco" });
       const critical = getCriticalAlerts(client);
-      if (critical.length > 0) alerts.push({ key: `critical-${client.id}-${critical.join("-")}`, label: `Cliente: ${client.name}`, text: `Respondeu Sim na pergunta ${critical.join(", ")}` });
-      if (hasSecurityYesAlert(client)) alerts.push({ key: `security-page9-${client.id}`, label: `Cliente: ${client.name}`, text: "Respondeu Sim em pergunta de segurança da página 9" });
-      if (hasObservationsAlert(client)) alerts.push({ key: `observacoes-page10-${client.id}`, label: `Cliente: ${client.name}`, text: "Preencheu observações gerais na página 10" });
+      if (critical.length > 0) alerts.push({ key: `critical-${client.id}-${critical.join("-")}`, label: `Cliente: ${client.name}`, alertDate: client.updated_at || client.created_at, text: `Respondeu Sim na pergunta ${critical.join(", ")}` });
+      if (hasSecurityYesAlert(client)) alerts.push({ key: `security-page9-${client.id}`, label: `Cliente: ${client.name}`, alertDate: client.updated_at || client.created_at, text: "Respondeu Sim em pergunta de segurança da página 9" });
+      if (hasObservationsAlert(client)) alerts.push({ key: `observacoes-page10-${client.id}`, label: `Cliente: ${client.name}`, alertDate: client.updated_at || client.created_at, text: "Preencheu observações gerais na página 10" });
     });
     return alerts.filter((item) => !dismissedAlerts.has(item.key));
   }
@@ -1515,7 +1530,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v87 — correção definitiva emailTemplates</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v88 — emails premium e alertas com data</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1732,10 +1747,10 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                     )}
 
                     <button className="btn-primary" disabled={!client.email || emailComposerLoading || availableEmailTemplates(client).length === 0} title={availableEmailTemplates(client).length === 0 ? "Nenhum modelo disponível para esta etapa/cadastro" : ""} onClick={() => openEmailComposer(client)}>Email</button>
-                    <button className="btn-light" disabled={!client.phone} onClick={() => openFeedbackWhatsApp(client)}>Convite avaliação WhatsApp</button>
 
                     {isControlClient(client) ? <button className="btn-light" disabled>Gerar PDF</button> : <a className="btn-light" href={`/admin/pdf/${client.access_token}`} target="_blank">Gerar PDF</a>}
                     {isControlClient(client) ? <button className="btn-light" disabled>PDF para preencher à mão</button> : <a className="btn-light" href={`/admin/pdf-manual/${client.access_token}`} target="_blank">PDF para preencher à mão</a>}
+                    <button className="btn-light" disabled={!client.email || emailComposerLoading} onClick={() => openEmailComposer(client, "foto_instrucoes")}>Instruções Foto</button>
                     <button className="btn-light" onClick={() => loadLogs(client)}>Ver log</button>
                     <button className="btn-light" disabled={isControlClient(client)} title={isControlClient(client) ? "Cadastro de controle não possui formulário para desbloquear" : ""} onClick={() => actionClient(client.id, "unlock")}>Desbloquear</button>
                     <button className="btn-light" disabled={isControlClient(client)} title={isControlClient(client) ? "Cadastro de controle não possui link de formulário" : ""} onClick={() => actionClient(client.id, "new_token")}>Novo link</button>
@@ -1826,12 +1841,13 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <button className="popup-close" onClick={() => setAlertsOpen(false)}>×</button>
             <h2 style={{ marginTop: 0 }}>Alertas do dia</h2>
-            <button className="btn-light" onClick={clearCurrentAlerts}>Baixar todos os alertas exibidos</button>
+            <button className="btn-primary" onClick={clearCurrentAlerts}>Baixar todos os alertas em aberto</button>
             {buildGlobalAlerts().length === 0 && <p style={{ color: "var(--muted)" }}>Nenhum alerta no momento.</p>}
             {buildGlobalAlerts().map((alert, index) => (
               <div key={alert.key || index} style={{ borderTop: "1px solid #e5e7eb", padding: "12px 0", display: "flex", justifyContent: "space-between", gap: 12 }}>
                 <div>
                   <b style={{ color: "var(--navy)" }}>{alert.label}</b><br />
+                  <small style={{ color: "var(--muted)" }}>Data do alerta: {formatAlertDate(alert.alertDate)}</small><br />
                   <span>{alert.text}</span>
                 </div>
                 <button className="btn-light" onClick={() => dismissAlert(alert.key)}>Dar baixa</button>

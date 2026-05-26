@@ -35,19 +35,45 @@ function messageFor(event){
   return `Olá, ${name}.\n\nPassando para lembrar que a validade do seu visto americano merece atenção.\n\nPlanejar a renovação com antecedência evita correria e permite avaliar com mais tranquilidade se o seu caso ainda se enquadra em um processo de renovação mais simples.\n\nA Resumindo Viagens pode acompanhar essa nova etapa, analisando seu caso, organizando as informações e orientando o melhor momento para iniciar.\n\nResumindo Viagens\nWhatsApp: ${CONTACTS.whatsappLabel}\nInstagram: ${CONTACTS.instagramLabel}\nEmail: ${CONTACTS.emailLabel}`;
 }
 
-function htmlFromText(text){
-  const body = String(text||"").split(/\n{2,}/).map(p=>`<p style="margin:0 0 14px;line-height:1.6;">${p.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br />")}</p>`).join("");
-  return `<div style="font-family:Arial,Helvetica,sans-serif;color:#1f2937;max-width:680px;margin:auto;padding:24px;">
-    <div style="background:#1f2a60;color:white;border-radius:16px;padding:22px;margin-bottom:22px;">
-      <h1 style="margin:0;font-size:22px;">Resumindo Viagens</h1>
-      <p style="margin:6px 0 0;">Assessoria especializada para vistos e documentação de viagem</p>
+function escapeHtml(value = "") {
+  return String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function headerUrl() {
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://app.resumindoviagens.com.br";
+  return `${origin.replace(/\/$/, "")}/email-headers/header-orlando-v38.png`;
+}
+
+function htmlFromText(text, heading = "Resumindo Viagens"){
+  const paragraphs = String(text || "")
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  const greeting = paragraphs[0] || "";
+  const bodyParagraphs = paragraphs.slice(1).map((p) =>
+    `<p style="margin:0 0 14px;">${escapeHtml(p).replace(/\n/g,"<br />")}</p>`
+  ).join("");
+
+  return `
+  <div style="font-family:Arial,Helvetica,sans-serif;color:#1f2937;line-height:1.62;max-width:720px;margin:0 auto;background:#f6f8fb;padding:0;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;">
+    <div style="background:#1f2a60;"><img src="${headerUrl()}" alt="Resumindo Viagens - Orlando" width="720" style="width:100%;max-width:720px;height:auto;display:block;border:0;outline:none;text-decoration:none;" /></div>
+    <div style="background:#ffffff;padding:28px;">
+      <p style="margin:0 0 4px;color:#f59e0b;font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:.4px;">Orlando</p>
+      <h2 style="color:#1f2a60;margin:0 0 20px;font-size:24px;line-height:1.25;">${escapeHtml(heading)}</h2>
+      ${greeting ? `<p style="margin:0 0 18px;font-size:18px;"><strong>${escapeHtml(greeting)}</strong></p>` : ""}
+      ${bodyParagraphs}
+      <p style="margin:22px 0;text-align:left;">
+        <a href="${CONTACTS.whatsapp}" style="background:#1f2a60;color:#ffffff;text-decoration:none;padding:13px 20px;border-radius:8px;display:inline-block;font-weight:700;">Falar com a Resumindo Viagens</a>
+      </p>
+      <div style="border-top:1px solid #e5e7eb;margin-top:26px;padding-top:18px;">
+        <p style="margin:0 0 8px;color:#374151;">Se precisar de qualquer coisa, conte comigo:</p>
+        <p style="margin:0 0 6px;">📧 <a href="${CONTACTS.email}" style="color:#1f2a60;text-decoration:underline;">${CONTACTS.emailLabel}</a></p>
+        <p style="margin:0 0 6px;">📱 <a href="${CONTACTS.whatsapp}" style="color:#1f2a60;text-decoration:underline;">WhatsApp: ${CONTACTS.whatsappLabel}</a></p>
+        <p style="margin:0 0 14px;">📸 <a href="${CONTACTS.instagram}" style="color:#1f2a60;text-decoration:underline;">Instagram: ${CONTACTS.instagramLabel}</a></p>
+        <p style="margin:18px 0 0;">Atenciosamente,<br /><strong>Resumindo Viagens</strong></p>
+      </div>
     </div>
-    ${body}
-    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
-    <p style="margin:0 0 8px;"><strong>Fale com a Resumindo Viagens:</strong></p>
-    <p style="margin:0 0 6px;">📱 <a href="${CONTACTS.whatsapp}" style="color:#1f2a60;">WhatsApp: ${CONTACTS.whatsappLabel}</a></p>
-    <p style="margin:0 0 6px;">📸 <a href="${CONTACTS.instagram}" style="color:#1f2a60;">Instagram: ${CONTACTS.instagramLabel}</a></p>
-    <p style="margin:0;">📧 <a href="${CONTACTS.email}" style="color:#1f2a60;">${CONTACTS.emailLabel}</a></p>
   </div>`;
 }
 
@@ -86,8 +112,8 @@ export default function CentralEventosPage(){
     const d=await r.json(); if(!r.ok){alert(d.error||"Erro ao baixar evento."); return;} setDismissed(c=>new Set([...c,event.key]));
   }
   function openWhatsApp(event){ const phone=cleanPhone(event.client.phone); if(!phone){alert("Cliente sem telefone cadastrado."); return;} window.open(`https://wa.me/${phone}?text=${encodeURIComponent(messageFor(event))}`,"_blank","noopener,noreferrer"); }
-  function openEmail(event){ setComposer({event,toEmail:event.client.email||"",subject:subjectFor(event),plainText:messageFor(event),html:htmlFromText(messageFor(event))}); }
-  function generatePreview(){ setComposer(c=>({...c,html:htmlFromText(c.plainText)})); }
+  function openEmail(event){ setComposer({event,toEmail:event.client.email||"",subject:subjectFor(event),plainText:messageFor(event),html:htmlFromText(messageFor(event), subjectFor(event))}); }
+  function generatePreview(){ setComposer(c=>({...c,html:htmlFromText(c.plainText, c.subject)})); }
   async function sendEmail(){
     if(!composer?.toEmail){ alert("Cliente sem email cadastrado."); return; }
     setSending(true);

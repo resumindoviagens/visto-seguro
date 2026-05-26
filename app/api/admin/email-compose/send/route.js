@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../../lib/auth";
 import { sendWithBrevo } from "../../../../../lib/brevoEmail";
+import { readFileSync } from "fs";
+import path from "path";
 
 function isInitialFormTemplate(templateId) {
   return ["formulario", "formulario_pendente", "formulario_recebido"].includes(templateId);
@@ -30,6 +32,17 @@ function isTemplateAllowedForClient(client, templateId) {
   }
 
   return { ok: true };
+}
+
+function photoAttachmentsForTemplate(templateId) {
+  if (templateId !== "foto_instrucoes") return [];
+  try {
+    const filePath = path.join(process.cwd(), "public", "foto", "infografico_foto_visto.jpg");
+    const content = readFileSync(filePath).toString("base64");
+    return [{ name: "instrucoes-foto-visto.jpg", content }];
+  } catch {
+    return [];
+  }
 }
 
 function htmlToText(html = "") {
@@ -84,7 +97,8 @@ export async function POST(request) {
       subject,
       html,
       text,
-      tags: ["resumindo-viagens", "editor-email", templateId]
+      tags: ["resumindo-viagens", "editor-email", templateId],
+      attachments: photoAttachmentsForTemplate(templateId)
     });
 
     const updates = {};
