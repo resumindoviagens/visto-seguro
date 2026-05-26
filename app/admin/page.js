@@ -87,7 +87,7 @@ function currentStepLabel(client) {
 }
 
 
-const CRITICAL_ALERT_QUESTIONS = ["3.19", "3.20", "3.21", "6.9", "6.11", "8.8"];
+const CRITICAL_ALERT_QUESTIONS = ["1.6", "3.20", "3.21", "3.22", "6.9", "6.11", "8.8"];
 
 const GROUP_CARD_COLORS = [
   "#fff1b8",
@@ -142,6 +142,7 @@ function normalizeAnswer(value) {
 function buildQuestionNumberMap() {
   // Mantém o alerta correto mesmo que o ID interno dos campos seja diferente do número exibido.
   const map = {
+    "1.6": "alterouNome",
     "3.20": "vistoCancelado",
     "3.21": "vistoNegado",
     "3.22": "pedidoImigracao",
@@ -572,9 +573,15 @@ function Dashboard({ logout }) {
   }
 
   async function openEmailComposer(client) {
+    const initialTemplate = firstAvailableEmailTemplate(client);
+    if (!initialTemplate) {
+      alert("Não há modelos de email disponíveis para esta etapa/cadastro.");
+      return;
+    }
+
     setEmailComposerLoading(true);
     try {
-      const templateId = "formulario";
+      const templateId = initialTemplate.id;
       const res = await fetch(`/api/admin/email-compose/${client.id}?template=${templateId}`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) {
@@ -585,12 +592,14 @@ function Dashboard({ logout }) {
       setEmailComposer({
         client,
         templateId,
-        templates: data.templates || [],
+        templates: (data.templates || []).filter((template) => !isTemplateDisabledForClient(client, template)),
         toEmail: data.toEmail || client.email || "",
         toName: data.toName || client.name || "",
         subject: data.subject || "",
         html: data.html || "",
-        text: data.text || ""
+        originalHtml: data.html || "",
+        text: data.text || "",
+        plainText: data.plainText || data.text || ""
       });
     } catch (err) {
       alert(err.message || "Erro ao abrir editor de email.");
@@ -601,6 +610,11 @@ function Dashboard({ logout }) {
 
   async function changeEmailComposerTemplate(templateId) {
     if (!emailComposer?.client?.id) return;
+    const selectedTemplate = EMAIL_TEMPLATES.find((template) => template.id === templateId);
+    if (selectedTemplate && isTemplateDisabledForClient(emailComposer.client, selectedTemplate)) {
+      alert(templateDisabledReason(emailComposer.client, selectedTemplate) || "Modelo indisponível para esta etapa.");
+      return;
+    }
     setEmailComposerLoading(true);
     try {
       const res = await fetch(`/api/admin/email-compose/${emailComposer.client.id}?template=${templateId}`, { cache: "no-store" });
@@ -616,11 +630,50 @@ function Dashboard({ logout }) {
         toName: data.toName || current.toName,
         subject: data.subject || "",
         html: data.html || "",
-        text: data.text || ""
+        originalHtml: data.html || "",
+        text: data.text || "",
+        plainText: data.plainText || data.text || ""
       }));
     } finally {
       setEmailComposerLoading(false);
     }
+  }
+
+
+  function escapeHtmlComposer(value = "") {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function applyPlainTextToEmailLayout(originalHtml = "", plainText = "") {
+    const safeParagraphs = String(plainText || "")
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean)
+      .map((paragraph) => `<p style="margin:0 0 14px;">${escapeHtmlComposer(paragraph).replace(/\n/g, "<br />")}</p>`)
+      .join("");
+
+    if (!originalHtml) return safeParagraphs;
+
+    const firstParagraph = originalHtml.indexOf("<p");
+    const contactsDivider = originalHtml.indexOf("<hr");
+    if (firstParagraph !== -1 && contactsDivider !== -1 && contactsDivider > firstParagraph) {
+      return originalHtml.slice(0, firstParagraph) + safeParagraphs + originalHtml.slice(contactsDivider);
+    }
+
+    return originalHtml + `<div style="padding:24px;">${safeParagraphs}</div>`;
+  }
+
+  function generateEmailPreview() {
+    setEmailComposer((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        html: applyPlainTextToEmailLayout(current.originalHtml || current.html, current.plainText || "")
+      };
+    });
   }
 
   async function sendEmailComposer() {
@@ -645,7 +698,7 @@ function Dashboard({ logout }) {
           to_name: emailComposer.toName,
           subject: emailComposer.subject,
           html: emailComposer.html,
-          text: emailComposer.text
+          text: emailComposer.plainText || emailComposer.text
         })
       });
       const data = await res.json();
@@ -1246,8 +1299,39 @@ function Dashboard({ logout }) {
     return n === 1 || n === 2 || n === 3;
   }
 
+  function isFeedbackTemplate(template) {
+    return template?.id === "pesquisa_satisfacao";
+  }
+
+  function isPassportReturnedTemplate(template) {
+    return template?.id === "passaporte_recebido" || template?.id === "rastreio";
+  }
+
   function isTemplateDisabledForClient(client, template) {
-    return isControlClient(client) && isInitialFormTemplate(template);
+    if (isControlClient(client) && isInitialFormTemplate(template)) return true;
+
+    // Pesquisa de satisfação somente depois de processo encerrado/passaporte devolvido.
+    if (isFeedbackTemplate(template) && !(client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive)) return true;
+
+    // Emails de encerramento/rastreio somente quando fizer sentido operacional.
+    if (isPassportReturnedTemplate(template) && !(client.stage_passport_returned || client.passport_tracking_code || client.is_completed)) return true;
+
+    return false;
+  }
+
+  function templateDisabledReason(client, template) {
+    if (isControlClient(client) && isInitialFormTemplate(template)) return "indisponível para cadastro de controle";
+    if (isFeedbackTemplate(template) && !(client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive)) return "disponível apenas após passaporte devolvido/processo concluído";
+    if (isPassportReturnedTemplate(template) && !(client.stage_passport_returned || client.passport_tracking_code || client.is_completed)) return "disponível apenas após rastreio/passaporte devolvido";
+    return "";
+  }
+
+  function availableEmailTemplates(client) {
+    return EMAIL_TEMPLATES.filter((template) => !isTemplateDisabledForClient(client, template));
+  }
+
+  function firstAvailableEmailTemplate(client) {
+    return availableEmailTemplates(client)[0] || null;
   }
 
   async function copyText(text, message = "Copiado.") {
@@ -1412,7 +1496,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v76 — botão email e agenda personalizável</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v79A — etapa 2A formulário inicial</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1616,7 +1700,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                       </div>
                     )}
 
-                    <button className="btn-primary" disabled={!client.email || emailComposerLoading} onClick={() => openEmailComposer(client)}>Email</button>
+                    <button className="btn-primary" disabled={!client.email || emailComposerLoading || availableEmailTemplates(client).length === 0} title={availableEmailTemplates(client).length === 0 ? "Nenhum modelo disponível para esta etapa/cadastro" : ""} onClick={() => openEmailComposer(client)}>Email</button>
                     <button className="btn-light" disabled={!client.phone} onClick={() => openFeedbackWhatsApp(client)}>Convite avaliação WhatsApp</button>
                     <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `copy-${client.id}` ? null : `copy-${client.id}`)}>Gerar modelos de email (copiar)</button>
                     {activeMenu === `copy-${client.id}` && (
@@ -1625,8 +1709,8 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                         {EMAIL_TEMPLATES.map((template) => {
                           const disabledForClient = isTemplateDisabledForClient(client, template);
                           return disabledForClient ? (
-                            <button key={template.id} className="btn-light" disabled title="Indisponível para cadastro de controle">
-                              {template.label} (indisponível)
+                            <button key={template.id} className="btn-light" disabled title={templateDisabledReason(client, template) || "Indisponível"}>
+                              {template.label} ({templateDisabledReason(client, template) || "indisponível"})
                             </button>
                           ) : (
                             <a key={template.id} className="btn-light" href={template.id === "pesquisa_satisfacao" ? `/email-feedback/${client.id}` : `/email-preview/${client.id}?template=${template.id}`} target="_blank">
@@ -1645,7 +1729,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                           const disabled = DISABLED_AUTO_EMAILS.has(template.id) || isTemplateDisabledForClient(client, template);
                           const sentAt = client.email_sent_templates?.[template.id];
                           return (
-                            <button key={template.id} className={sentAt ? "btn-success" : "btn-light"} disabled={disabled} onClick={() => sendEmail(client, template.id)} title={sentAt ? `Enviado em ${new Date(sentAt).toLocaleString("pt-BR")}` : ""}>
+                            <button key={template.id} className={sentAt ? "btn-success" : "btn-light"} disabled={disabled} onClick={() => sendEmail(client, template.id)} title={disabled ? (templateDisabledReason(client, template) || "Indisponível") : (sentAt ? `Enviado em ${new Date(sentAt).toLocaleString("pt-BR")}` : "")}>
                               {sentAt ? "✅ " : "☐ "}{template.label}{disabled ? " (não disponível)" : ""}
                             </button>
                           );
@@ -1766,7 +1850,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
           <div className="modal-card" style={{ maxWidth: 1100, width: "94vw" }} onClick={(e) => e.stopPropagation()}>
             <button className="popup-close" onClick={() => setEmailComposer(null)}>×</button>
             <h2 style={{ marginTop: 0 }}>Editor de email</h2>
-            <p style={{ color: "var(--muted)" }}>Revise, personalize e envie pelo próprio sistema. Os botões antigos continuam disponíveis por segurança.</p>
+            <p style={{ color: "var(--muted)" }}>Edite somente o texto da mensagem. Depois clique em Gerar pré-visualização para o sistema aplicar o visual do email automaticamente.</p>
 
             <div className="grid" style={{ marginTop: 12 }}>
               <label className="admin-field-label">
@@ -1789,13 +1873,17 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
 
             <div style={{ marginTop: 16 }}>
               <label className="admin-field-label">
-                <span>Corpo do email em HTML editável</span>
+                <span>Mensagem em texto simples</span>
                 <textarea
-                  value={emailComposer.html || ""}
-                  onChange={(e) => setEmailComposer({ ...emailComposer, html: e.target.value })}
-                  style={{ minHeight: 260, fontFamily: "monospace", width: "100%" }}
+                  value={emailComposer.plainText || ""}
+                  onChange={(e) => setEmailComposer({ ...emailComposer, plainText: e.target.value })}
+                  style={{ minHeight: 220, width: "100%", fontSize: 16, lineHeight: 1.5 }}
+                  placeholder="Edite aqui apenas o texto da mensagem, sem código HTML."
                 />
               </label>
+              <button className="btn-light" style={{ marginTop: 10 }} onClick={generateEmailPreview}>
+                Gerar pré-visualização
+              </button>
             </div>
 
             <h3>Pré-visualização</h3>
