@@ -1515,7 +1515,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v84 — condicionais avançadas</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v85 — unificação operacional dos emails</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1552,6 +1552,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
           <button className="btn-primary" onClick={() => setAlertsOpen(true)}>Ver alertas</button>
           <a className="btn-light" href="/admin/feedbacks" target="_blank">Feedbacks</a>
           <a className="btn-light" href="/admin/feedback-agenda" target="_blank">Agenda pesquisas</a>
+          <a className="btn-light" href="/admin/biblioteca-emails" target="_blank">Biblioteca de emails</a>
           <a className="btn-light" href="/admin/eventos" target="_blank">Central de Eventos</a>
           <button className="btn-light" onClick={() => setReportOpen(true)}>Relatórios</button>
           <a className="btn-light" href="/admin/baloes" target="_blank">Balões explicativos</a>
@@ -1732,44 +1733,9 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
 
                     <button className="btn-primary" disabled={!client.email || emailComposerLoading || availableEmailTemplates(client).length === 0} title={availableEmailTemplates(client).length === 0 ? "Nenhum modelo disponível para esta etapa/cadastro" : ""} onClick={() => openEmailComposer(client)}>Email</button>
                     <button className="btn-light" disabled={!client.phone} onClick={() => openFeedbackWhatsApp(client)}>Convite avaliação WhatsApp</button>
-                    <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `copy-${client.id}` ? null : `copy-${client.id}`)}>Gerar modelos de email (copiar)</button>
-                    {activeMenu === `copy-${client.id}` && (
-                      <div className="admin-email-options">
-                        <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
-                        {EMAIL_TEMPLATES.map((template) => {
-                          const disabledForClient = isTemplateDisabledForClient(client, template);
-                          return disabledForClient ? (
-                            <button key={template.id} className="btn-light" disabled title={templateDisabledReason(client, template) || "Indisponível"}>
-                              {template.label} ({templateDisabledReason(client, template) || "indisponível"})
-                            </button>
-                          ) : (
-                            <a key={template.id} className="btn-light" href={template.id === "pesquisa_satisfacao" ? `/email-feedback/${client.id}` : `/email-preview/${client.id}?template=${template.id}`} target="_blank">
-                              {template.label}
-                            </a>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    <button className="btn-primary" onClick={() => setActiveMenu(activeMenu === `send-${client.id}` ? null : `send-${client.id}`)}>Enviar emails automáticos</button>
-                    {activeMenu === `send-${client.id}` && (
-                      <div className="admin-email-options">
-                        <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
-                        {EMAIL_TEMPLATES.map((template) => {
-                          const disabled = DISABLED_AUTO_EMAILS.has(template.id) || isTemplateDisabledForClient(client, template);
-                          const sentAt = client.email_sent_templates?.[template.id];
-                          return (
-                            <button key={template.id} className={sentAt ? "btn-success" : "btn-light"} disabled={disabled} onClick={() => sendEmail(client, template.id)} title={disabled ? (templateDisabledReason(client, template) || "Indisponível") : (sentAt ? `Enviado em ${new Date(sentAt).toLocaleString("pt-BR")}` : "")}>
-                              {sentAt ? "✅ " : "☐ "}{template.label}{disabled ? " (não disponível)" : ""}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
 
                     {isControlClient(client) ? <button className="btn-light" disabled>Gerar PDF</button> : <a className="btn-light" href={`/admin/pdf/${client.access_token}`} target="_blank">Gerar PDF</a>}
                     {isControlClient(client) ? <button className="btn-light" disabled>PDF para preencher à mão</button> : <a className="btn-light" href={`/admin/pdf-manual/${client.access_token}`} target="_blank">PDF para preencher à mão</a>}
-                    <a className="btn-light" href={`/foto-instrucoes/${client.access_token || client.id}`} target="_blank">Instruções Foto</a>
                     <button className="btn-light" onClick={() => loadLogs(client)}>Ver log</button>
                     <button className="btn-light" disabled={isControlClient(client)} title={isControlClient(client) ? "Cadastro de controle não possui formulário para desbloquear" : ""} onClick={() => actionClient(client.id, "unlock")}>Desbloquear</button>
                     <button className="btn-light" disabled={isControlClient(client)} title={isControlClient(client) ? "Cadastro de controle não possui link de formulário" : ""} onClick={() => actionClient(client.id, "new_token")}>Novo link</button>
