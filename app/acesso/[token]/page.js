@@ -63,14 +63,81 @@ function isAnswerFilled(value) {
   return String(value).trim() !== "";
 }
 
+const PAGE2_COMPANION_FIELDS = [
+  "companheiroA_nome", "companheiroA_relacao",
+  "companheiroB_nome", "companheiroB_relacao",
+  "companheiroC_nome", "companheiroC_relacao",
+  "companheiroD_nome", "companheiroD_relacao",
+  "companheiroE_nome", "companheiroE_relacao"
+];
+
+const CONJUGE_FIELDS = [
+  "conjugeSobrenome", "conjugeNome", "conjugeNascimento", "conjugeNacionalidade",
+  "conjugeCidadeNascimento", "conjugeEstadoNascimento", "conjugePaisNascimento", "conjugeEndereco"
+];
+
+const EX_CONJUGE_FIELDS = [
+  "exConjugeQuantidade", "exConjugeSobrenome", "exConjugeNome", "exConjugeNascimento",
+  "exConjugeNacionalidade", "exConjugeCidadeNascimento", "exConjugeEstadoNascimento", "exConjugePaisNascimento",
+  "exConjugeDataCasamento", "exConjugeDataTermino", "exConjugeComoTerminou", "exConjugePaisTermino"
+];
+
+const FALECIDO_FIELDS = [
+  "falecidoSobrenome", "falecidoNome", "falecidoNascimento", "falecidoNacionalidade",
+  "falecidoCidade", "falecidoEstado", "falecidoPais"
+];
+
+function normalizeText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function disabledFieldsForAnswers(answers) {
+  const disabled = new Set();
+
+  if (normalizeText(answers.alterouNome) === "não") disabled.add("nomeAnterior");
+
+  if (normalizeText(answers.viajaComAlguem) === "não") {
+    PAGE2_COMPANION_FIELDS.forEach((fieldId) => disabled.add(fieldId));
+  }
+
+  const civil = normalizeText(answers.estadoCivil);
+  const isSolteiro = civil.includes("solteiro");
+  const isCasadoOuUniao = civil.includes("casado") || civil.includes("união estável") || civil.includes("uniao estavel") || civil.includes("união doméstica") || civil.includes("uniao domestica");
+  const isDivorciado = civil.includes("divorciado");
+  const isViuvo = civil.includes("viúvo") || civil.includes("viuvo");
+
+  if (isSolteiro) {
+    [...CONJUGE_FIELDS, ...EX_CONJUGE_FIELDS, ...FALECIDO_FIELDS].forEach((fieldId) => disabled.add(fieldId));
+  } else if (isCasadoOuUniao) {
+    [...EX_CONJUGE_FIELDS, ...FALECIDO_FIELDS].forEach((fieldId) => disabled.add(fieldId));
+  } else if (isDivorciado) {
+    [...CONJUGE_FIELDS, ...FALECIDO_FIELDS].forEach((fieldId) => disabled.add(fieldId));
+  } else if (isViuvo) {
+    [...CONJUGE_FIELDS, ...EX_CONJUGE_FIELDS].forEach((fieldId) => disabled.add(fieldId));
+  }
+
+  return disabled;
+}
+
 function isFieldAutoResolved(fieldId, answers) {
-  if (fieldId === "nomeAnterior" && String(answers.alterouNome || "").toLowerCase() === "não") return true;
-  return false;
+  return disabledFieldsForAnswers(answers).has(fieldId);
 }
 
 function isFieldDisabled(fieldId, answers) {
-  if (fieldId === "nomeAnterior" && String(answers.alterouNome || "").toLowerCase() === "não") return true;
-  return false;
+  return disabledFieldsForAnswers(answers).has(fieldId);
+}
+
+function cleanDisabledAnswers(nextAnswers) {
+  const disabled = disabledFieldsForAnswers(nextAnswers);
+  disabled.forEach((fieldId) => {
+    if (nextAnswers[fieldId]) nextAnswers[fieldId] = "";
+  });
+  return nextAnswers;
+}
+
+function questionNumberForField(fields, fieldIndex, sectionNumber) {
+  const count = fields.slice(0, fieldIndex + 1).filter((field) => field.type !== "subtitle").length;
+  return `${sectionNumber}.${count}`;
 }
 
 const MONTHS_PT = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
@@ -89,9 +156,9 @@ function formatAnswerForDisplay(value) {
 }
 
 function calculateProgress(answers) {
-  const total = sections.reduce((sum, section) => sum + section.fields.length, 0);
+  const total = sections.reduce((sum, section) => sum + section.fields.filter((field) => field.type !== "subtitle").length, 0);
   const filled = sections.reduce((sum, section) => {
-    return sum + section.fields.filter((field) => isAnswerFilled(answers[field.id]) || isFieldAutoResolved(field.id, answers)).length;
+    return sum + section.fields.filter((field) => field.type !== "subtitle" && (isAnswerFilled(answers[field.id]) || isFieldAutoResolved(field.id, answers))).length;
   }, 0);
   const percent = total > 0 ? Math.round((filled / total) * 100) : 0;
   return { total, filled, percent };
@@ -232,7 +299,7 @@ export default function ClientAccessPage() {
         <section className="card" style={{ padding:28 }}>
           {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(0)} /> : <>
             <h1 style={{ color:"var(--navy)" }}>{numberedTitle(current, section.title)}</h1>
-            <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={{ ...field, help: helpOverrides[field.id] || field.help }} questionNumber={`${current + 1}.${fieldIndex + 1}`} value={answers[field.id]} onChange={setValue} disabled={isFieldDisabled(field.id, answers)} />)}</div>
+            <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={{ ...field, help: helpOverrides[field.id] || field.help }} questionNumber={questionNumberForField(section.fields, fieldIndex, current + 1)} value={answers[field.id]} onChange={setValue} disabled={isFieldDisabled(field.id, answers)} />)}</div>
             <div className="no-print mobile-bottom-nav" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(current - 1)}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => setCurrent(current + 1)}>Próxima</button>}</div>
           </>}
         </section>
@@ -276,6 +343,7 @@ function HelpIcon({ text }) {
 }
 
 function Field({ field, questionNumber, value, onChange, disabled = false }) {
+  if (field.type === "subtitle") return <div className="field full" style={{ gridColumn:"1 / -1", marginTop: 12, padding:"12px 14px", borderRadius:12, background:"#eef2ff", color:"var(--navy)", fontWeight:900, fontSize:18 }}>{field.label}</div>;
   const baseClassName = field.full ? "field full" : (field.wide || field.type === "textarea" || field.type === "checkbox" ? "field wide" : "field");
   const highlightedClassName = HIGHLIGHTED_QUESTIONS.has(questionNumber) ? `${baseClassName} highlighted-question` : baseClassName;
   const className = disabled ? `${highlightedClassName} disabled-question` : highlightedClassName;
