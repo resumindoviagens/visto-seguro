@@ -1,1 +1,1 @@
-v81 — central de eventos assistida
+v82 — campos bloqueados em cinza

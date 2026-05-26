@@ -277,13 +277,16 @@ function HelpIcon({ text }) {
 
 function Field({ field, questionNumber, value, onChange, disabled = false }) {
   const baseClassName = field.full ? "field full" : (field.wide || field.type === "textarea" || field.type === "checkbox" ? "field wide" : "field");
-  const className = HIGHLIGHTED_QUESTIONS.has(questionNumber) ? `${baseClassName} highlighted-question` : baseClassName;
+  const highlightedClassName = HIGHLIGHTED_QUESTIONS.has(questionNumber) ? `${baseClassName} highlighted-question` : baseClassName;
+  const className = disabled ? `${highlightedClassName} disabled-question` : highlightedClassName;
+  const disabledStyle = disabled ? { background: "#f1f5f9", borderColor: "#cbd5e1", color: "#64748b", cursor: "not-allowed" } : {};
+  const disabledHint = disabled ? <div style={{ marginTop: 6, fontSize: 12, color: "#64748b", fontStyle: "italic" }}>Campo desabilitado automaticamente conforme resposta anterior.</div> : null;
   const label = <><span style={{ color:"var(--orange)", fontWeight:900 }}>{questionNumber}</span> {field.label}<HelpIcon text={field.help} /></>;
-  if (field.type === "select") return <div className={className}><label>{label}</label><select disabled={disabled} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)}><option value="">Selecione</option>{field.options.map((o) => <option key={o}>{o}</option>)}</select></div>;
-  if (field.type === "radio") return <div className={className}><label>{label}</label><div className="radio">{field.options.map((o) => <label key={o}><input type="radio" disabled={disabled} checked={value === o} onChange={() => onChange(field.id, o)} /> {o}</label>)}</div></div>;
-  if (field.type === "textarea") return <div className={className}><label>{label}</label><textarea disabled={disabled} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} /></div>;
-  if (field.type === "checkbox") return <div className={className}><label><input style={{ width:"auto" }} type="checkbox" checked={!!value} onChange={(e) => onChange(field.id, e.target.checked)} /><span style={{ color:"var(--orange)", fontWeight:900 }}>{questionNumber}</span> {field.label}<HelpIcon text={field.help} /></label></div>;
-  return <div className={className}><label>{label}</label><input type={field.type} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} /></div>;
+  if (field.type === "select") return <div className={className}><label>{label}</label><select style={disabledStyle} disabled={disabled} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)}><option value="">Selecione</option>{field.options.map((o) => <option key={o}>{o}</option>)}</select>{disabledHint}</div>;
+  if (field.type === "radio") return <div className={className} style={disabled ? { background:"#f8fafc", borderRadius:12, padding:10 } : {}}><label>{label}</label><div className="radio">{field.options.map((o) => <label key={o} style={disabled ? { color:"#94a3b8", cursor:"not-allowed" } : {}}><input type="radio" disabled={disabled} checked={value === o} onChange={() => onChange(field.id, o)} /> {o}</label>)}</div>{disabledHint}</div>;
+  if (field.type === "textarea") return <div className={className}><label>{label}</label><textarea style={disabledStyle} disabled={disabled} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} />{disabledHint}</div>;
+  if (field.type === "checkbox") return <div className={className} style={disabled ? { background:"#f8fafc", borderRadius:12, padding:10 } : {}}><label style={disabled ? { color:"#94a3b8", cursor:"not-allowed" } : {}}><input disabled={disabled} style={{ width:"auto" }} type="checkbox" checked={!!value} onChange={(e) => onChange(field.id, e.target.checked)} /><span style={{ color:"var(--orange)", fontWeight:900 }}>{questionNumber}</span> {field.label}<HelpIcon text={field.help} /></label>{disabledHint}</div>;
+  return <div className={className}><label>{label}</label><input style={disabledStyle} disabled={disabled} type={field.type} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} />{disabledHint}</div>;
 }
 
 function PDFView({ client, answers }) {
