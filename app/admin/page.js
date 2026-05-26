@@ -89,6 +89,23 @@ function currentStepLabel(client) {
 
 const CRITICAL_ALERT_QUESTIONS = ["1.6", "3.20", "3.21", "3.22", "6.9", "6.11", "8.8"];
 
+const SECURITY_ALERT_FIELDS = [
+  "paramilitar", "doencaContagiosa", "incapacidadeAmeaca", "drogas", "presoCondenado",
+  "substancias", "prostituicao", "lavagem", "traficoHumano", "espionagem", "terrorismo",
+  "genocidioTortura", "criancasSoldados", "controlePopulacional", "orgaosCoercao", "fraudeVisto",
+  "deportado", "criancaAmericana", "votouEUA", "renunciouCidadania"
+];
+
+function hasSecurityYesAlert(client) {
+  const answers = client?.answers || {};
+  return SECURITY_ALERT_FIELDS.some((fieldId) => normalizeAnswer(answers[fieldId]) === "sim");
+}
+
+function hasObservationsAlert(client) {
+  const answers = client?.answers || {};
+  return String(answers.observacoes || "").trim().length > 0;
+}
+
 const GROUP_CARD_COLORS = [
   "#fff1b8",
   "#c7f9cc",
@@ -887,6 +904,8 @@ function Dashboard({ logout }) {
       if (salaryMissingAlert(client)) alerts.push({ key: `salary-missing-${client.id}`, label: `Cliente: ${client.name}`, text: "Deixou informação de salário em branco" });
       const critical = getCriticalAlerts(client);
       if (critical.length > 0) alerts.push({ key: `critical-${client.id}-${critical.join("-")}`, label: `Cliente: ${client.name}`, text: `Respondeu Sim na pergunta ${critical.join(", ")}` });
+      if (hasSecurityYesAlert(client)) alerts.push({ key: `security-page9-${client.id}`, label: `Cliente: ${client.name}`, text: "Respondeu Sim em pergunta de segurança da página 9" });
+      if (hasObservationsAlert(client)) alerts.push({ key: `observacoes-page10-${client.id}`, label: `Cliente: ${client.name}`, text: "Preencheu observações gerais na página 10" });
     });
     return alerts.filter((item) => !dismissedAlerts.has(item.key));
   }
@@ -1496,7 +1515,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v83 — condicionais do formulário</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v84 — condicionais avançadas</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1594,6 +1613,16 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                   {salaryMissingAlert(client) && (
                     <div className="admin-date-alert warning">
                       Deixou informação de salário em branco
+                    </div>
+                  )}
+                  {hasSecurityYesAlert(client) && (
+                    <div className="admin-critical-alert">
+                      Alerta: cliente respondeu Sim em pergunta de segurança da página 9
+                    </div>
+                  )}
+                  {hasObservationsAlert(client) && (
+                    <div className="admin-date-alert warning">
+                      Alerta: cliente preencheu observações gerais na página 10
                     </div>
                   )}
                   {!client.passport_expiration_date && (

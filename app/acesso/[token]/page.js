@@ -12,7 +12,9 @@ const HIGHLIGHTED_QUESTIONS = new Set([
   "3.20", "3.21", "3.22",
   "6.3", "6.7", "6.9", "6.10", "6.11",
   "7.6",
-  "8.8", "8.9", "8.10", "8.11"
+  "8.8", "8.9", "8.10", "8.11",
+  "9.1", "9.2", "9.3", "9.4", "9.5", "9.6", "9.7", "9.8", "9.9", "9.10",
+  "9.11", "9.12", "9.13", "9.14", "9.15", "9.16", "9.17", "9.18", "9.19", "9.20", "9.21"
 ]);
 
 const PRE_INFO_ITEMS = [
@@ -71,6 +73,28 @@ const PAGE2_COMPANION_FIELDS = [
   "companheiroE_nome", "companheiroE_relacao"
 ];
 
+const PAGADOR_FIELDS = [
+  "pagadorSobrenome", "pagadorNome", "pagadorTelefone", "pagadorEmail", "pagadorRelacao", "pagadorEndereco"
+];
+
+const USA_TRAVEL_FIELDS = [
+  "viagemEUA1Data", "viagemEUA1Dias", "viagemEUA2Data", "viagemEUA2Dias",
+  "viagemEUA3Data", "viagemEUA3Dias", "viagemEUA4Data", "viagemEUA4Dias",
+  "viagemEUA5Data", "viagemEUA5Dias", "carteiraMotoristaEUA", "dadosCarteira"
+];
+
+const USA_VISA_FIELDS = [
+  "dataUltimoVisto", "numeroVisto", "mesmoTipoVisto", "digitais", "vistoIssuingPost"
+];
+
+const SOCIAL_FIELDS = [
+  "redeSocial1","usuarioRedeSocial1","redeSocial2","usuarioRedeSocial2","redeSocial3","usuarioRedeSocial3","redeSocial4","usuarioRedeSocial4",
+  "redeSocial5","usuarioRedeSocial5","redeSocial6","usuarioRedeSocial6","redeSocial7","usuarioRedeSocial7","redeSocial8","usuarioRedeSocial8"
+];
+
+const PAGE7_AFTER_ESTUDO_FIELDS = ["formacao", "outrosCursosConcluidos", "dadosOutrosCursos"];
+const PAGE7_AFTER_OUTROS_CURSOS_FIELDS = ["dadosOutrosCursos"];
+
 const CONJUGE_FIELDS = [
   "conjugeSobrenome", "conjugeNome", "conjugeNascimento", "conjugeNacionalidade",
   "conjugeCidadeNascimento", "conjugeEstadoNascimento", "conjugePaisNascimento", "conjugeEndereco"
@@ -87,8 +111,35 @@ const FALECIDO_FIELDS = [
   "falecidoCidade", "falecidoEstado", "falecidoPais"
 ];
 
+const ADDITIONAL_INFO_DEPENDENCIES = {
+  claTribo: ["nomeClaTribo"],
+  viagensOutrosPaises: ["paisesVisitados"],
+  organizacoes: ["listaOrganizacoes"],
+  treinamentoArmas: ["detalheTreinamento"],
+  serviuForcas: ["dadosForcas"]
+};
+
+const SECURITY_FIELDS = [
+  "paramilitar", "doencaContagiosa", "incapacidadeAmeaca", "drogas", "presoCondenado",
+  "substancias", "prostituicao", "lavagem", "traficoHumano", "espionagem", "terrorismo",
+  "genocidioTortura", "criancasSoldados", "controlePopulacional", "orgaosCoercao", "fraudeVisto",
+  "deportado", "criancaAmericana", "votouEUA", "renunciouCidadania"
+];
+
 function normalizeText(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+function hasAnySecurityYes(answers) {
+  return SECURITY_FIELDS.some((fieldId) => normalizeText(answers[fieldId]) === "sim");
+}
+
+function applyDefaultAnswers(rawAnswers = {}) {
+  return {
+    estudoConcluido: "Não",
+    outrosCursosConcluidos: "Não",
+    ...rawAnswers
+  };
 }
 
 function disabledFieldsForAnswers(answers) {
@@ -96,9 +147,43 @@ function disabledFieldsForAnswers(answers) {
 
   if (normalizeText(answers.alterouNome) === "não") disabled.add("nomeAnterior");
 
+  if (normalizeText(answers.pagador) === "o próprio solicitante" || normalizeText(answers.pagador) === "o proprio solicitante") {
+    PAGADOR_FIELDS.forEach((fieldId) => disabled.add(fieldId));
+  }
+
   if (normalizeText(answers.viajaComAlguem) === "não") {
     PAGE2_COMPANION_FIELDS.forEach((fieldId) => disabled.add(fieldId));
   }
+
+  if (normalizeText(answers.jaViajouEUA) === "não") {
+    USA_TRAVEL_FIELDS.forEach((fieldId) => disabled.add(fieldId));
+  }
+
+  if (normalizeText(answers.vistoEmitido) === "não") {
+    USA_VISA_FIELDS.forEach((fieldId) => disabled.add(fieldId));
+  }
+
+  if (normalizeText(answers.temRedeSocial) === "não") {
+    SOCIAL_FIELDS.forEach((fieldId) => disabled.add(fieldId));
+  }
+
+  if (normalizeText(answers.passaportePerdido) === "não") disabled.add("detalhePassaportePerdido");
+
+  if (normalizeText(answers.empregoAnterior) === "não") disabled.add("dadosEmpregoAnterior");
+
+  if (answers.salarioNaoAplica) disabled.add("salario");
+
+  if (normalizeText(answers.estudoConcluido || "Não") === "não") {
+    PAGE7_AFTER_ESTUDO_FIELDS.forEach((fieldId) => disabled.add(fieldId));
+  } else if (normalizeText(answers.outrosCursosConcluidos || "Não") === "não") {
+    PAGE7_AFTER_OUTROS_CURSOS_FIELDS.forEach((fieldId) => disabled.add(fieldId));
+  }
+
+  Object.entries(ADDITIONAL_INFO_DEPENDENCIES).forEach(([controller, targets]) => {
+    if (normalizeText(answers[controller]) !== "sim") targets.forEach((fieldId) => disabled.add(fieldId));
+  });
+
+  if (!hasAnySecurityYes(answers)) disabled.add("obsSeguranca");
 
   const civil = normalizeText(answers.estadoCivil);
   const isSolteiro = civil.includes("solteiro");
@@ -130,7 +215,10 @@ function isFieldDisabled(fieldId, answers) {
 function cleanDisabledAnswers(nextAnswers) {
   const disabled = disabledFieldsForAnswers(nextAnswers);
   disabled.forEach((fieldId) => {
-    if (nextAnswers[fieldId]) nextAnswers[fieldId] = "";
+    if (nextAnswers[fieldId]) {
+      if (fieldId === "estudoConcluido" || fieldId === "outrosCursosConcluidos") return;
+      nextAnswers[fieldId] = "";
+    }
   });
   return nextAnswers;
 }
@@ -196,7 +284,7 @@ export default function ClientAccessPage() {
     const data = await res.json();
     if (res.status === 401 && data.needs_verification) { setNeedsVerification(true); setLoading(false); return; }
     if (!res.ok) { alert(data.error || "Link inválido."); setLoading(false); return; }
-    setNeedsVerification(false); setClient(data.client); setAnswers(data.response?.answers || {}); await loadHelpTexts(); setSubmittedAt(data.response?.submitted_at || null); setLoading(false);
+    setNeedsVerification(false); setClient(data.client); setAnswers(applyDefaultAnswers(data.response?.answers || {})); await loadHelpTexts(); setSubmittedAt(data.response?.submitted_at || null); setLoading(false);
   }
 
   async function verifyIdentity() {
@@ -226,7 +314,18 @@ export default function ClientAccessPage() {
     setSaveStatus("Salvo automaticamente"); if (showAlert) alert("Informações salvas com sucesso."); return true;
   }
 
-  function setValue(fieldId, value) { const nextAnswers = { ...answers, [fieldId]: value }; setAnswers(nextAnswers); save(nextAnswers, false); }
+  function setValue(fieldId, value) { const nextAnswers = cleanDisabledAnswers({ ...answers, [fieldId]: value }); setAnswers(nextAnswers); save(nextAnswers, false); }
+
+  function canGoNextFromCurrent() {
+    if (current === 8) {
+      const missing = SECURITY_FIELDS.filter((fieldId) => !isAnswerFilled(answers[fieldId]));
+      if (missing.length > 0) {
+        alert("Antes de avançar para a página 10, responda todas as perguntas de segurança da página 9 com Sim ou Não.");
+        return false;
+      }
+    }
+    return true;
+  }
 
   async function submitForm() {
     if (!confirm("Confirmar envio? Depois disso o formulário ficará bloqueado.")) return;
@@ -299,8 +398,8 @@ export default function ClientAccessPage() {
         <section className="card" style={{ padding:28 }}>
           {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(0)} /> : <>
             <h1 style={{ color:"var(--navy)" }}>{numberedTitle(current, section.title)}</h1>
-            <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={{ ...field, help: helpOverrides[field.id] || field.help }} questionNumber={questionNumberForField(section.fields, fieldIndex, current + 1)} value={answers[field.id]} onChange={setValue} disabled={isFieldDisabled(field.id, answers)} />)}</div>
-            <div className="no-print mobile-bottom-nav" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(current - 1)}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => setCurrent(current + 1)}>Próxima</button>}</div>
+            <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={{ ...field, help: helpOverrides[field.id] || field.help }} questionNumber={questionNumberForField(section.fields, fieldIndex, current + 1)} value={answers[field.id]} onChange={setValue} disabled={isFieldDisabled(field.id, answers)} answers={answers} />)}</div>
+            <div className="no-print mobile-bottom-nav" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(current - 1)}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => { if (canGoNextFromCurrent()) setCurrent(current + 1); }}>Próxima</button>}</div>
           </>}
         </section>
       </div>
@@ -342,7 +441,7 @@ function HelpIcon({ text }) {
   return <span className="help" data-tip={message} title={message} tabIndex="0" aria-label={message} onClick={(event) => event.currentTarget.focus()}>?</span>;
 }
 
-function Field({ field, questionNumber, value, onChange, disabled = false }) {
+function Field({ field, questionNumber, value, onChange, disabled = false, answers = {} }) {
   if (field.type === "subtitle") return <div className="field full" style={{ gridColumn:"1 / -1", marginTop: 12, padding:"12px 14px", borderRadius:12, background:"#eef2ff", color:"var(--navy)", fontWeight:900, fontSize:18 }}>{field.label}</div>;
   const baseClassName = field.full ? "field full" : (field.wide || field.type === "textarea" || field.type === "checkbox" ? "field wide" : "field");
   const highlightedClassName = HIGHLIGHTED_QUESTIONS.has(questionNumber) ? `${baseClassName} highlighted-question` : baseClassName;
@@ -354,6 +453,7 @@ function Field({ field, questionNumber, value, onChange, disabled = false }) {
   if (field.type === "radio") return <div className={className} style={disabled ? { background:"#f8fafc", borderRadius:12, padding:10 } : {}}><label>{label}</label><div className="radio">{field.options.map((o) => <label key={o} style={disabled ? { color:"#94a3b8", cursor:"not-allowed" } : {}}><input type="radio" disabled={disabled} checked={value === o} onChange={() => onChange(field.id, o)} /> {o}</label>)}</div>{disabledHint}</div>;
   if (field.type === "textarea") return <div className={className}><label>{label}</label><textarea style={disabledStyle} disabled={disabled} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} />{disabledHint}</div>;
   if (field.type === "checkbox") return <div className={className} style={disabled ? { background:"#f8fafc", borderRadius:12, padding:10 } : {}}><label style={disabled ? { color:"#94a3b8", cursor:"not-allowed" } : {}}><input disabled={disabled} style={{ width:"auto" }} type="checkbox" checked={!!value} onChange={(e) => onChange(field.id, e.target.checked)} /><span style={{ color:"var(--orange)", fontWeight:900 }}>{questionNumber}</span> {field.label}<HelpIcon text={field.help} /></label>{disabledHint}</div>;
+  if (field.id === "salario") return <div className={className}><label>{label}</label><label style={{ display:"inline-flex", alignItems:"center", gap:8, margin:"0 0 8px", color:"#475569", fontWeight:700 }}><input type="checkbox" style={{ width:"auto" }} checked={!!answers.salarioNaoAplica} onChange={(e) => onChange("salarioNaoAplica", e.target.checked)} /> Não se aplica</label><input style={disabledStyle} disabled={disabled} type={field.type} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} />{disabledHint}</div>;
   return <div className={className}><label>{label}</label><input style={disabledStyle} disabled={disabled} type={field.type} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} />{disabledHint}</div>;
 }
 
