@@ -1,1 +1,1 @@
-v76 — botão email e agenda personalizável
+v81 — central de eventos assistida

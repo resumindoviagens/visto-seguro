@@ -10,10 +10,56 @@ function makeFeedbackToken() {
   return randomBytes(24).toString("hex");
 }
 
+function htmlToPlainText(html = "") {
+  return String(html)
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function siteOriginFromHeaders(headerStore) {
   const host = headerStore.get("x-forwarded-host") || headerStore.get("host");
   const protocol = headerStore.get("x-forwarded-proto") || "https";
   return process.env.NEXT_PUBLIC_SITE_URL || (host ? `${protocol}://${host}` : "https://app.resumindoviagens.com.br");
+}
+
+function isInitialFormTemplate(templateId) {
+  return ["formulario", "formulario_pendente", "formulario_recebido"].includes(templateId);
+}
+
+function isFeedbackTemplate(templateId) {
+  return templateId === "pesquisa_satisfacao";
+}
+
+function isPassportReturnedTemplate(templateId) {
+  return templateId === "passaporte_recebido" || templateId === "rastreio";
+}
+
+function isTemplateAllowedForClient(client, templateId) {
+  if ((client.no_form_required || !client.access_token) && isInitialFormTemplate(templateId)) {
+    return { ok: false, reason: "Modelo indisponível para cadastro de controle." };
+  }
+
+  if (isFeedbackTemplate(templateId) && !(client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive)) {
+    return { ok: false, reason: "Pesquisa de satisfação disponível somente após passaporte devolvido/processo concluído." };
+  }
+
+  if (isPassportReturnedTemplate(templateId) && !(client.stage_passport_returned || client.passport_tracking_code || client.is_completed)) {
+    return { ok: false, reason: "Modelo disponível somente após rastreio/passaporte devolvido." };
+  }
+
+  return { ok: true };
 }
 
 async function ensureFeedbackLink(client, origin) {
@@ -54,6 +100,11 @@ export async function GET(request, context) {
     return Response.json({ error: "Cliente não encontrado." }, { status: 404 });
   }
 
+  const allowed = isTemplateAllowedForClient(client, templateId);
+  if (!allowed.ok) {
+    return Response.json({ error: allowed.reason }, { status: 400 });
+  }
+
   let processGroup = null;
   if (client.group_process_id) {
     const { data: group } = await supabaseAdmin
@@ -89,6 +140,7 @@ export async function GET(request, context) {
     toName: client.name || "",
     subject: template.subject,
     html: template.html,
-    text: template.text
+    text: template.text,
+    plainText: template.text || htmlToPlainText(template.html)
   }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -6,8 +6,10 @@ import BrandHeader from "../../../components/BrandHeader";
 import { sections } from "../../../lib/formSchema";
 
 const HIGHLIGHTED_QUESTIONS = new Set([
+  "1.6", "1.9",
   "2.12", "2.13", "2.14", "2.15", "2.16", "2.17", "2.18",
-  "3.19", "3.20", "3.21",
+  "3.12", "3.13", "3.14", "3.15", "3.16", "3.17", "3.18",
+  "3.20", "3.21", "3.22",
   "6.3", "6.7", "6.9", "6.10", "6.11",
   "7.6",
   "8.8", "8.9", "8.10", "8.11"
@@ -61,6 +63,16 @@ function isAnswerFilled(value) {
   return String(value).trim() !== "";
 }
 
+function isFieldAutoResolved(fieldId, answers) {
+  if (fieldId === "nomeAnterior" && String(answers.alterouNome || "").toLowerCase() === "não") return true;
+  return false;
+}
+
+function isFieldDisabled(fieldId, answers) {
+  if (fieldId === "nomeAnterior" && String(answers.alterouNome || "").toLowerCase() === "não") return true;
+  return false;
+}
+
 const MONTHS_PT = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
 
 function formatAnswerForDisplay(value) {
@@ -79,7 +91,7 @@ function formatAnswerForDisplay(value) {
 function calculateProgress(answers) {
   const total = sections.reduce((sum, section) => sum + section.fields.length, 0);
   const filled = sections.reduce((sum, section) => {
-    return sum + section.fields.filter((field) => isAnswerFilled(answers[field.id])).length;
+    return sum + section.fields.filter((field) => isAnswerFilled(answers[field.id]) || isFieldAutoResolved(field.id, answers)).length;
   }, 0);
   const percent = total > 0 ? Math.round((filled / total) * 100) : 0;
   return { total, filled, percent };
@@ -220,7 +232,7 @@ export default function ClientAccessPage() {
         <section className="card" style={{ padding:28 }}>
           {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(0)} /> : <>
             <h1 style={{ color:"var(--navy)" }}>{numberedTitle(current, section.title)}</h1>
-            <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={{ ...field, help: helpOverrides[field.id] || field.help }} questionNumber={`${current + 1}.${fieldIndex + 1}`} value={answers[field.id]} onChange={setValue} />)}</div>
+            <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={{ ...field, help: helpOverrides[field.id] || field.help }} questionNumber={`${current + 1}.${fieldIndex + 1}`} value={answers[field.id]} onChange={setValue} disabled={isFieldDisabled(field.id, answers)} />)}</div>
             <div className="no-print mobile-bottom-nav" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(current - 1)}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => setCurrent(current + 1)}>Próxima</button>}</div>
           </>}
         </section>
@@ -263,13 +275,13 @@ function HelpIcon({ text }) {
   return <span className="help" data-tip={message} title={message} tabIndex="0" aria-label={message} onClick={(event) => event.currentTarget.focus()}>?</span>;
 }
 
-function Field({ field, questionNumber, value, onChange }) {
+function Field({ field, questionNumber, value, onChange, disabled = false }) {
   const baseClassName = field.full ? "field full" : (field.wide || field.type === "textarea" || field.type === "checkbox" ? "field wide" : "field");
   const className = HIGHLIGHTED_QUESTIONS.has(questionNumber) ? `${baseClassName} highlighted-question` : baseClassName;
   const label = <><span style={{ color:"var(--orange)", fontWeight:900 }}>{questionNumber}</span> {field.label}<HelpIcon text={field.help} /></>;
-  if (field.type === "select") return <div className={className}><label>{label}</label><select value={value || ""} onChange={(e) => onChange(field.id, e.target.value)}><option value="">Selecione</option>{field.options.map((o) => <option key={o}>{o}</option>)}</select></div>;
-  if (field.type === "radio") return <div className={className}><label>{label}</label><div className="radio">{field.options.map((o) => <label key={o}><input type="radio" checked={value === o} onChange={() => onChange(field.id, o)} /> {o}</label>)}</div></div>;
-  if (field.type === "textarea") return <div className={className}><label>{label}</label><textarea value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} /></div>;
+  if (field.type === "select") return <div className={className}><label>{label}</label><select disabled={disabled} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)}><option value="">Selecione</option>{field.options.map((o) => <option key={o}>{o}</option>)}</select></div>;
+  if (field.type === "radio") return <div className={className}><label>{label}</label><div className="radio">{field.options.map((o) => <label key={o}><input type="radio" disabled={disabled} checked={value === o} onChange={() => onChange(field.id, o)} /> {o}</label>)}</div></div>;
+  if (field.type === "textarea") return <div className={className}><label>{label}</label><textarea disabled={disabled} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} /></div>;
   if (field.type === "checkbox") return <div className={className}><label><input style={{ width:"auto" }} type="checkbox" checked={!!value} onChange={(e) => onChange(field.id, e.target.checked)} /><span style={{ color:"var(--orange)", fontWeight:900 }}>{questionNumber}</span> {field.label}<HelpIcon text={field.help} /></label></div>;
   return <div className={className}><label>{label}</label><input type={field.type} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} /></div>;
 }
