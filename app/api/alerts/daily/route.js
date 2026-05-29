@@ -15,6 +15,10 @@ function fmtDays(days) {
   return `em ${days} dias`;
 }
 
+function addAlert(alerts, dismissed, key, text) {
+  if (!dismissed.has(key)) alerts.push({ key, text });
+}
+
 export async function GET(request) {
   const secret = process.env.CRON_SECRET;
   const provided = request.headers.get("x-cron-secret") || new URL(request.url).searchParams.get("secret");
@@ -22,6 +26,12 @@ export async function GET(request) {
   if (secret && provided !== secret && !vercelCron) {
     return Response.json({ error: "Não autorizado." }, { status: 401 });
   }
+
+  const { data: dismissedRows } = await supabaseAdmin
+    .from("admin_alert_dismissals")
+    .select("alert_key");
+
+  const dismissed = new Set((dismissedRows || []).map((item) => item.alert_key));
 
   const { data: clients, error: clientsError } = await supabaseAdmin.from("clients").select("*");
   if (clientsError) return Response.json({ error: clientsError.message }, { status: 500 });
@@ -42,30 +52,49 @@ export async function GET(request) {
         const interview = daysUntil(group.interview_date);
         const casv = daysUntil(group.casv_date);
         const video = daysUntil(group.video_call_date);
-        if (interview !== null && interview >= 0 && interview <= 7) alerts.push(`${label} — entrevista ${fmtDays(interview)}${group.consulate_city ? ` — ${group.consulate_city}` : ""}`);
-        if (casv !== null && casv >= 0 && casv <= 3) alerts.push(`${label} — CASV ${fmtDays(casv)}`);
-        if (video !== null && video >= 0 && video <= 2) alerts.push(`${label} — videochamada ${fmtDays(video)}`);
+
+        if (interview !== null && interview >= 0 && interview <= 7) {
+          addAlert(alerts, dismissed, `interview-${group.id}-${group.interview_date}`, `${label} — entrevista ${fmtDays(interview)}${group.consulate_city ? ` — ${group.consulate_city}` : ""}`);
+        }
+        if (casv !== null && casv >= 0 && casv <= 3) {
+          addAlert(alerts, dismissed, `casv-${group.id}-${group.casv_date}`, `${label} — CASV ${fmtDays(casv)}`);
+        }
+        if (video !== null && video >= 0 && video <= 2) {
+          addAlert(alerts, dismissed, `video-${group.id}-${group.video_call_date}`, `${label} — videochamada ${fmtDays(video)}`);
+        }
       }
     } else {
       const interview = daysUntil(client.interview_date);
       const casv = daysUntil(client.casv_date);
       const video = daysUntil(client.video_call_date);
-      if (interview !== null && interview >= 0 && interview <= 7) alerts.push(`${label} — entrevista ${fmtDays(interview)}${client.consulate_city ? ` — ${client.consulate_city}` : ""}`);
-      if (casv !== null && casv >= 0 && casv <= 3) alerts.push(`${label} — CASV ${fmtDays(casv)}`);
-      if (video !== null && video >= 0 && video <= 2) alerts.push(`${label} — videochamada ${fmtDays(video)}`);
+
+      if (interview !== null && interview >= 0 && interview <= 7) {
+        addAlert(alerts, dismissed, `interview-${client.id}-${client.interview_date}`, `${label} — entrevista ${fmtDays(interview)}${client.consulate_city ? ` — ${client.consulate_city}` : ""}`);
+      }
+      if (casv !== null && casv >= 0 && casv <= 3) {
+        addAlert(alerts, dismissed, `casv-${client.id}-${client.casv_date}`, `${label} — CASV ${fmtDays(casv)}`);
+      }
+      if (video !== null && video >= 0 && video <= 2) {
+        addAlert(alerts, dismissed, `video-${client.id}-${client.video_call_date}`, `${label} — videochamada ${fmtDays(video)}`);
+      }
     }
 
-    // Alertas individuais de formulário, sempre por cliente.
-    if (client.status === "in_progress") alerts.push(`Cliente: ${client.name} — formulário iniciado`);
-    if (client.status === "submitted") alerts.push(`Cliente: ${client.name} — formulário concluído`);
-    if (client.is_renewal && !client.client_sedex_tracking) alerts.push(`Cliente: ${client.name} — renovação sem rastreio Sedex informado`);
+    if (client.status === "in_progress") {
+      addAlert(alerts, dismissed, `form-started-${client.id}`, `Cliente: ${client.name} — formulário iniciado`);
+    }
+    if (client.status === "submitted") {
+      addAlert(alerts, dismissed, `form-submitted-${client.id}`, `Cliente: ${client.name} — formulário concluído`);
+    }
+    if (client.is_renewal && !client.client_sedex_tracking) {
+      addAlert(alerts, dismissed, `renewal-sedex-${client.id}`, `Cliente: ${client.name} — renovação sem rastreio Sedex informado`);
+    }
   }
 
   if (alerts.length > 0) {
     await sendInternalAlert({
       subject: "Alertas do dia — Resumindo Viagens",
-      html: simpleHtml("Alertas do dia — Resumindo Viagens", alerts.map((item) => `• ${item}`)),
-      text: alerts.join("\n"),
+      html: simpleHtml("Alertas do dia — Resumindo Viagens", alerts.map((item) => `• ${item.text}`)),
+      text: alerts.map((item) => item.text).join("\n"),
       tags: ["resumindo-viagens", "alertas-diarios"]
     });
   }

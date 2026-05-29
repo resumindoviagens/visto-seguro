@@ -1,1 +1,1 @@
-v93 — importação contatos newsletter
+v94 — pendentes newsletter e alertas email

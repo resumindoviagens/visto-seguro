@@ -16,9 +16,9 @@ export async function GET() {
 
   const all = contacts || [];
   const active = all.filter((c) => c.status === "active" && c.aceita_newsletter !== false);
-  const optOut = all.filter((c) => c.status === "unsubscribed" || c.aceita_newsletter === false);
-  const blocked = all.filter((c) => c.status === "blocked" || c.status === "bounced");
   const pending = all.filter((c) => c.status === "pending_review");
+  const optOut = all.filter((c) => c.status === "unsubscribed");
+  const blocked = all.filter((c) => c.status === "blocked" || c.status === "bounced");
   const duplicateMerged = all.reduce((sum, c) => sum + Math.max(0, Number(c.quantidade_clientes_vinculados || 1) - 1), 0);
 
   const { data: campaigns } = await supabaseAdmin

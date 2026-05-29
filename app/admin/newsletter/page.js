@@ -102,9 +102,9 @@ export default function NewsletterPage() {
           ["Contatos", counts.total_contacts],
           ["Ativos", counts.active],
           ["Elegíveis", counts.eligible],
-          ["Descadastrados", counts.opt_out],
-          ["Bloqueados/bounce", counts.blocked],
-          ["Duplicados unidos", counts.duplicate_emails_removed]
+          ["Pendentes revisão", counts.pending_review],
+          ["Descadastrados reais", counts.opt_out],
+          ["Bloqueados/bounce", counts.blocked]
         ].map(([label, value]) => (
           <div key={label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 14 }}>
             <strong style={{ color: "#1f2a60", fontSize: 22 }}>{value ?? "-"}</strong>

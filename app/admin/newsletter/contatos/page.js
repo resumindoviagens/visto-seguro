@@ -51,6 +51,19 @@ export default function NewsletterContactsPage() {
     await load();
   }
 
+  async function approvePendingFiltered() {
+    if (!confirm("Aprovar todos os contatos pendentes dentro do filtro atual? Eles passarão para active e poderão entrar nas próximas campanhas.")) return;
+    const res = await fetch("/api/admin/newsletter/contacts/approve-pending", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ origem, categoria })
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Erro ao aprovar pendentes.");
+    alert(`${data.approved || 0} contato(s) pendente(s) aprovado(s).`);
+    await load();
+  }
+
   async function quickPatch(contact, patch) {
     const res = await fetch(`/api/admin/newsletter/contacts/${contact.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
     const data = await res.json();
@@ -188,6 +201,7 @@ export default function NewsletterContactsPage() {
           <option value="Outros">Outros</option>
         </select>
         <button onClick={load}>Filtrar</button>
+        <button onClick={approvePendingFiltered}>Aprovar pendentes filtrados</button>
         <button onClick={exportCsv}>Exportar CSV</button>
       </section>
 
