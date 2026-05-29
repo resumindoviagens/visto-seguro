@@ -3,26 +3,23 @@ export const dynamic = "force-dynamic";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../../lib/auth";
 
-function hasEmail(client) {
-  return client?.email && String(client.email).trim() !== "";
-}
-
 export async function GET() {
   const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
 
-  const { data: clients, error } = await supabaseAdmin
-    .from("clients")
-    .select("id,name,email,phone,is_completed,visa_result,newsletter_opt_out,created_at")
-    .order("created_at", { ascending: false });
+  const { data: contacts, error } = await supabaseAdmin
+    .from("newsletter_contacts")
+    .select("id,email,email_normalized,nome,status,aceita_newsletter,origem,quantidade_clientes_vinculados")
+    .order("criado_em", { ascending: false });
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
-  const all = clients || [];
-  const withEmail = all.filter(hasEmail);
-  const optOut = withEmail.filter((c) => c.newsletter_opt_out);
-  const eligible = withEmail.filter((c) => !c.newsletter_opt_out);
-  const approvedOrDone = eligible.filter((c) => c.is_completed || c.visa_result === "approved");
+  const all = contacts || [];
+  const active = all.filter((c) => c.status === "active" && c.aceita_newsletter !== false);
+  const optOut = all.filter((c) => c.status === "unsubscribed" || c.aceita_newsletter === false);
+  const blocked = all.filter((c) => c.status === "blocked" || c.status === "bounced");
+  const pending = all.filter((c) => c.status === "pending_review");
+  const duplicateMerged = all.reduce((sum, c) => sum + Math.max(0, Number(c.quantidade_clientes_vinculados || 1) - 1), 0);
 
   const { data: campaigns } = await supabaseAdmin
     .from("newsletter_campaigns")
@@ -32,12 +29,13 @@ export async function GET() {
 
   return Response.json({
     counts: {
-      total_clients: all.length,
-      with_email: withEmail.length,
-      without_email: all.length - withEmail.length,
+      total_contacts: all.length,
+      active: active.length,
+      eligible: active.length,
       opt_out: optOut.length,
-      eligible: eligible.length,
-      approved_or_done: approvedOrDone.length
+      blocked: blocked.length,
+      pending_review: pending.length,
+      duplicate_emails_removed: duplicateMerged
     },
     campaigns: campaigns || []
   }, { headers: { "Cache-Control": "no-store" } });

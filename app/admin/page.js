@@ -1530,7 +1530,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v89 — newsletter base segura</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v92 — newsletter contatos independentes</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1569,6 +1569,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
           <a className="btn-light" href="/admin/feedback-agenda" target="_blank">Agenda pesquisas</a>
           <a className="btn-light" href="/admin/biblioteca-emails" target="_blank">Biblioteca de emails</a>
           <a className="btn-light" href="/admin/newsletter" target="_blank">Newsletter</a>
+          <a className="btn-light" href="/admin/newsletter/contatos" target="_blank">Contatos Newsletter</a>
           <a className="btn-light" href="/admin/eventos" target="_blank">Central de Eventos</a>
           <button className="btn-light" onClick={() => setReportOpen(true)}>Relatórios</button>
           <a className="btn-light" href="/admin/baloes" target="_blank">Balões explicativos</a>

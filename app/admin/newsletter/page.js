@@ -74,21 +74,37 @@ export default function NewsletterPage() {
     }
   }
 
+  async function deleteDraftCampaign(id) {
+    if (!confirm("Excluir este rascunho? Campanhas enviadas não podem ser excluídas.")) return;
+    const res = await fetch(`/api/admin/newsletter/campaigns/${id}`, { method: "DELETE" });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Erro ao excluir rascunho.");
+    await load();
+  }
+
+  async function viewCampaign(id) {
+    const res = await fetch(`/api/admin/newsletter/campaigns/${id}`, { cache: "no-store" });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Erro ao abrir campanha.");
+    alert(`Campanha: ${data.campaign.subject}\nStatus: ${data.campaign.status}\nDestinatários congelados: ${(data.recipients || []).length}`);
+  }
+
   const counts = summary?.counts || {};
 
   return (
     <main style={{ maxWidth: 1180, margin: "30px auto", padding: 24, fontFamily: "Arial, Helvetica, sans-serif" }}>
       <h1 style={{ color: "#1f2a60" }}>Newsletter</h1>
-      <p>Base segura: preparar campanha, visualizar, enviar teste e criar rascunho. O envio em lotes fica para a próxima etapa.</p>
+      <p>Base segura: preparar campanha, visualizar, enviar teste e criar rascunho. Agora a base de campanhas é independente da tabela de clientes.</p>
+      <p><a href="/admin/newsletter/contatos" target="_blank">Abrir Newsletter / Contatos</a></p>
 
       <section style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, margin: "18px 0" }}>
         {[
-          ["Total", counts.total_clients],
-          ["Com email", counts.with_email],
-          ["Sem email", counts.without_email],
-          ["Descadastrados", counts.opt_out],
+          ["Contatos", counts.total_contacts],
+          ["Ativos", counts.active],
           ["Elegíveis", counts.eligible],
-          ["Concluídos/aprovados", counts.approved_or_done]
+          ["Descadastrados", counts.opt_out],
+          ["Bloqueados/bounce", counts.blocked],
+          ["Duplicados unidos", counts.duplicate_emails_removed]
         ].map(([label, value]) => (
           <div key={label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 14 }}>
             <strong style={{ color: "#1f2a60", fontSize: 22 }}>{value ?? "-"}</strong>
@@ -103,8 +119,9 @@ export default function NewsletterPage() {
           <label style={{ display: "block", marginBottom: 12 }}>
             <strong>Público</strong>
             <select value={audience} onChange={(e) => setAudience(e.target.value)} style={{ width: "100%", padding: 10, border: "1px solid #d1d5db", borderRadius: 10, marginTop: 6 }}>
-              <option value="eligible_all">Todos elegíveis para newsletter</option>
-              <option value="approved_or_done">Somente concluídos/aprovados</option>
+              <option value="eligible_all">Todos contatos ativos/elegíveis</option>
+              <option value="clientes_visto">Origem clientes do visto</option>
+              <option value="manual_csv">Manual + CSV</option>
             </select>
           </label>
           <label style={{ display: "block", marginBottom: 12 }}>
@@ -144,11 +161,11 @@ export default function NewsletterPage() {
         <h2>Campanhas recentes</h2>
         {(summary?.campaigns || []).length === 0 ? <p>Nenhuma campanha criada.</p> : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><th align="left">Assunto</th><th>Status</th><th>Público</th><th>Total</th><th>Enviados</th><th>Falhas</th><th>Criada em</th></tr></thead>
+            <thead><tr><th align="left">Assunto</th><th>Status</th><th>Público</th><th>Total</th><th>Enviados</th><th>Falhas</th><th>Criada em</th><th>Ações</th></tr></thead>
             <tbody>
               {summary.campaigns.map((c) => (
                 <tr key={c.id} style={{ borderTop: "1px solid #e5e7eb" }}>
-                  <td>{c.subject}</td><td>{c.status}</td><td>{c.audience}</td><td>{c.total_recipients}</td><td>{c.sent_count}</td><td>{c.failed_count}</td><td>{new Date(c.created_at).toLocaleString("pt-BR")}</td>
+                  <td>{c.subject}</td><td>{c.status}</td><td>{c.audience}</td><td>{c.total_recipients}</td><td>{c.sent_count}</td><td>{c.failed_count}</td><td>{new Date(c.created_at).toLocaleString("pt-BR")}</td><td><button onClick={() => viewCampaign(c.id)}>Visualizar</button>{c.status === "draft" && <button onClick={() => deleteDraftCampaign(c.id)}>Excluir rascunho</button>}</td>
                 </tr>
               ))}
             </tbody>

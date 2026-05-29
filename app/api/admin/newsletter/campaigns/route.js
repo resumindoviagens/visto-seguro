@@ -3,10 +3,6 @@ export const dynamic = "force-dynamic";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../../lib/auth";
 
-function hasEmail(client) {
-  return client?.email && String(client.email).trim() !== "";
-}
-
 export async function POST(request) {
   const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
@@ -19,17 +15,20 @@ export async function POST(request) {
   if (!subject) return Response.json({ error: "Assunto obrigatório." }, { status: 400 });
   if (!message) return Response.json({ error: "Mensagem obrigatória." }, { status: 400 });
 
-  const { data: clients, error } = await supabaseAdmin
-    .from("clients")
-    .select("id,name,email,is_completed,visa_result,newsletter_opt_out")
-    .not("email", "is", null);
+  let query = supabaseAdmin
+    .from("newsletter_contacts")
+    .select("*")
+    .eq("status", "active")
+    .eq("aceita_newsletter", true)
+    .not("email_normalized", "is", null);
 
+  if (audience === "clientes_visto") query = query.eq("origem", "clientes_visto");
+  if (audience === "manual_csv") query = query.in("origem", ["manual", "csv_import"]);
+
+  const { data: contacts, error } = await query;
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
-  let recipients = (clients || []).filter((c) => hasEmail(c) && !c.newsletter_opt_out);
-  if (audience === "approved_or_done") {
-    recipients = recipients.filter((c) => c.is_completed || c.visa_result === "approved");
-  }
+  const recipients = contacts || [];
 
   const { data: campaign, error: campaignError } = await supabaseAdmin
     .from("newsletter_campaigns")
@@ -48,14 +47,20 @@ export async function POST(request) {
   if (campaignError) return Response.json({ error: campaignError.message }, { status: 500 });
 
   if (recipients.length > 0) {
-    const rows = recipients.map((client) => ({
+    const rows = recipients.map((contact) => ({
       campaign_id: campaign.id,
-      client_id: client.id,
-      email: client.email,
-      name: client.name,
-      status: "queued"
+      newsletter_contact_id: contact.id,
+      client_id: contact.cliente_origem_id || null,
+      email: contact.email,
+      email_normalized: contact.email_normalized,
+      name: contact.nome,
+      status: "pending"
     }));
-    const { error: recError } = await supabaseAdmin.from("newsletter_recipients").insert(rows);
+
+    const { error: recError } = await supabaseAdmin
+      .from("campaign_recipients")
+      .upsert(rows, { onConflict: "campaign_id,email_normalized" });
+
     if (recError) return Response.json({ error: recError.message }, { status: 500 });
   }
 
