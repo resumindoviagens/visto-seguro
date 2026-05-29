@@ -7,11 +7,16 @@ export default function NewsletterContactsPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
   const [origem, setOrigem] = useState("all");
+  const [categoria, setCategoria] = useState("all");
+  const [importText, setImportText] = useState("");
+  const [importOrigem, setImportOrigem] = useState("csv_import");
+  const [importCategoria, setImportCategoria] = useState("Outros");
+  const [importReport, setImportReport] = useState(null);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ nome: "", email: "", telefone: "", origem: "manual", status: "active", aceita_newsletter: true, observacoes: "" });
+  const [form, setForm] = useState({ nome: "", email: "", telefone: "", origem: "manual", status: "active", aceita_newsletter: true, observacoes: "", categoria: "Cliente" });
 
   async function load() {
-    const params = new URLSearchParams({ q, status, origem });
+    const params = new URLSearchParams({ q, status, origem, categoria });
     const res = await fetch(`/api/admin/newsletter/contacts?${params.toString()}`, { cache: "no-store" });
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Erro ao carregar contatos.");
@@ -29,7 +34,8 @@ export default function NewsletterContactsPage() {
       origem: contact.origem || "manual",
       status: contact.status || "active",
       aceita_newsletter: contact.aceita_newsletter !== false,
-      observacoes: contact.observacoes || ""
+      observacoes: contact.observacoes || "",
+      categoria: contact.categoria || "Cliente"
     });
   }
 
@@ -41,7 +47,7 @@ export default function NewsletterContactsPage() {
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Erro ao salvar.");
     setEditing(null);
-    setForm({ nome: "", email: "", telefone: "", origem: "manual", status: "active", aceita_newsletter: true, observacoes: "" });
+    setForm({ nome: "", email: "", telefone: "", origem: "manual", status: "active", aceita_newsletter: true, observacoes: "", categoria: "Cliente" });
     await load();
   }
 
@@ -50,6 +56,27 @@ export default function NewsletterContactsPage() {
     const data = await res.json();
     if (!res.ok) return alert(data.error || "Erro ao atualizar.");
     await load();
+  }
+
+  async function importContacts() {
+    if (!importText.trim()) return alert("Cole o conteúdo CSV/lista de emails antes de importar.");
+    const res = await fetch("/api/admin/newsletter/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ csv: importText, origem: importOrigem, categoria: importCategoria, auto_classificar: true })
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Erro ao importar.");
+    setImportReport(data.report);
+    await load();
+  }
+
+  function handleImportFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setImportText(String(reader.result || ""));
+    reader.readAsText(file, "utf-8");
   }
 
   function exportCsv() {
@@ -80,6 +107,13 @@ export default function NewsletterContactsPage() {
             <option value="csv_import">csv_import</option>
             <option value="gmail_import">gmail_import</option>
           </select>
+          <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
+            <option value="Cliente">Cliente</option>
+            <option value="Fornecedor">Fornecedor</option>
+            <option value="Parceiro">Parceiro</option>
+            <option value="Governo">Governo</option>
+            <option value="Outros">Outros</option>
+          </select>
           <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value, aceita_newsletter: e.target.value === "active" })}>
             <option value="active">active</option>
             <option value="pending_review">pending_review</option>
@@ -99,6 +133,35 @@ export default function NewsletterContactsPage() {
         </div>
       </section>
 
+      <section style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 18, marginBottom: 18 }}>
+        <h2>Importar contatos</h2>
+        <p style={{ color: "#64748b" }}>Aceita CSV ou texto colado com colunas: nome, email, telefone, categoria, observacoes. Para Gmail/caixa de email, importe como <strong>gmail_import</strong> para entrar em revisão manual.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 180px 180px", gap: 12, marginBottom: 12 }}>
+          <input type="file" accept=".csv,.txt" onChange={handleImportFile} />
+          <select value={importOrigem} onChange={(e) => setImportOrigem(e.target.value)}>
+            <option value="csv_import">csv_import</option>
+            <option value="gmail_import">gmail_import</option>
+            <option value="manual">manual</option>
+          </select>
+          <select value={importCategoria} onChange={(e) => setImportCategoria(e.target.value)}>
+            <option value="Cliente">Cliente</option>
+            <option value="Fornecedor">Fornecedor</option>
+            <option value="Parceiro">Parceiro</option>
+            <option value="Governo">Governo</option>
+            <option value="Outros">Outros</option>
+          </select>
+        </div>
+        <textarea placeholder={"Cole aqui o CSV ou lista de contatos\nExemplo:\nnome,email,telefone,categoria,observacoes\nJoão,joao@email.com,,Cliente,importado"} value={importText} onChange={(e) => setImportText(e.target.value)} style={{ width: "100%", minHeight: 140, marginBottom: 12 }} />
+        <button onClick={importContacts}>Importar contatos</button>
+        {importReport && (
+          <div style={{ marginTop: 12, background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: 12, padding: 12 }}>
+            <strong>Relatório:</strong>
+            <p>Total linhas: {importReport.total_linhas} • Novos: {importReport.novos} • Atualizados: {importReport.atualizados} • Existentes ignorados: {importReport.existentes_ignorados} • Protegidos ignorados: {importReport.protegidos_ignorados} • Inválidos: {importReport.invalidos}</p>
+            {importReport.erros?.length > 0 && <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(importReport.erros.slice(0, 20), null, 2)}</pre>}
+          </div>
+        )}
+      </section>
+
       <section style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
         <input placeholder="Buscar nome/email" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -116,6 +179,14 @@ export default function NewsletterContactsPage() {
           <option value="csv_import">csv_import</option>
           <option value="gmail_import">gmail_import</option>
         </select>
+        <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+          <option value="all">Todas categorias</option>
+          <option value="Cliente">Cliente</option>
+          <option value="Fornecedor">Fornecedor</option>
+          <option value="Parceiro">Parceiro</option>
+          <option value="Governo">Governo</option>
+          <option value="Outros">Outros</option>
+        </select>
         <button onClick={load}>Filtrar</button>
         <button onClick={exportCsv}>Exportar CSV</button>
       </section>
@@ -124,7 +195,7 @@ export default function NewsletterContactsPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
           <thead>
             <tr>
-              <th align="left">Nome</th><th align="left">Email</th><th>Origem</th><th>Status</th><th>Aceite</th><th>Vinculados</th><th>Ações</th>
+              <th align="left">Nome</th><th align="left">Email</th><th>Categoria</th><th>Origem</th><th>Status</th><th>Aceite</th><th>Vinculados</th><th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -132,6 +203,7 @@ export default function NewsletterContactsPage() {
               <tr key={c.id} style={{ borderTop: "1px solid #e5e7eb" }}>
                 <td>{c.nome || "-"}</td>
                 <td>{c.email}</td>
+                <td align="center">{c.categoria || "-"}</td>
                 <td align="center">{c.origem}</td>
                 <td align="center">{c.status}</td>
                 <td align="center">{c.aceita_newsletter ? "Sim" : "Não"}</td>

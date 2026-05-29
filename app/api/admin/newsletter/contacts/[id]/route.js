@@ -10,7 +10,7 @@ export async function PATCH(request, { params }) {
   const id = params?.id;
   const body = await request.json();
 
-  const allowed = ["nome", "telefone", "status", "aceita_newsletter", "observacoes", "motivo_descadastro"];
+  const allowed = ["nome", "telefone", "status", "aceita_newsletter", "observacoes", "motivo_descadastro", "categoria", "origem"];
   const updates = { atualizado_em: new Date().toISOString() };
 
   for (const key of allowed) {

@@ -19,6 +19,7 @@ export async function GET(request) {
   const q = String(searchParams.get("q") || "").trim();
   const status = searchParams.get("status") || "all";
   const origem = searchParams.get("origem") || "all";
+  const categoria = searchParams.get("categoria") || "all";
 
   let query = supabaseAdmin
     .from("newsletter_contacts")
@@ -28,6 +29,7 @@ export async function GET(request) {
 
   if (status !== "all") query = query.eq("status", status);
   if (origem !== "all") query = query.eq("origem", origem);
+  if (categoria !== "all") query = query.eq("categoria", categoria);
   if (q) query = query.or(`email.ilike.%${q}%,nome.ilike.%${q}%`);
 
   const { data, error } = await query;
@@ -55,6 +57,7 @@ export async function POST(request) {
     status: body.status || "active",
     aceita_newsletter: body.aceita_newsletter ?? true,
     observacoes: body.observacoes || "",
+    categoria: body.categoria || "Cliente",
     atualizado_em: new Date().toISOString()
   };
 
