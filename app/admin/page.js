@@ -60,6 +60,29 @@ const PROCESS_STEPS = [
   ["stage_ready_to_archive", "Pronto para arquivar"]
 ];
 
+const PASSPORT_PROCESS_STEPS = [
+  ["stage_passport_docs_email_sent", "Documentos solicitados"],
+  ["stage_passport_form_filled", "Cadastro realizado"],
+  ["stage_fee_paid", "Taxa/GRU paga"],
+  ["stage_dates_scheduled", "Atendimento PF agendado"],
+  ["stage_passport_instructions_sent", "Instruções enviadas"],
+  ["stage_passport_pf_done", "Comparecimento à PF"],
+  ["stage_passport_ready", "Passaporte disponível"],
+  ["stage_passport_picked_up", "Passaporte retirado"],
+  ["stage_feedback_sent", "Pesquisa enviada"],
+  ["stage_feedback_answered", "Pesquisa respondida"],
+  ["stage_feedback_posted", "Pesquisa postada"],
+  ["stage_ready_to_archive", "Pronto para arquivar"]
+];
+
+function isPassportProcess(client) {
+  return client?.tipo_processo === "Passaporte";
+}
+
+function processStepsForClient(client) {
+  return isPassportProcess(client) ? PASSPORT_PROCESS_STEPS : PROCESS_STEPS;
+}
+
 function stepDone(client, key) {
   if (key === "status_not_started") return true;
   if (key === "status_in_progress") return ["in_progress", "submitted"].includes(client.status) || !!client.stage_ds160_completed || !!client.stage_fee_generated || !!client.stage_fee_paid || !!client.stage_dates_scheduled || !!client.stage_video_call_scheduled || !!client.stage_video_call_done || !!client.stage_interview_done || !!client.visa_result || !!client.stage_passport_returned;
@@ -69,12 +92,12 @@ function stepDone(client, key) {
 }
 
 function processStepCount(client) {
-  return PROCESS_STEPS.reduce((total, [key]) => total + (stepDone(client, key) ? 1 : 0), 0);
+  return processStepsForClient(client).reduce((total, [key]) => total + (stepDone(client, key) ? 1 : 0), 0);
 }
 
 function currentStepKey(client) {
   let current = "status_not_started";
-  for (const [key] of PROCESS_STEPS) {
+  for (const [key] of processStepsForClient(client)) {
     if (stepDone(client, key)) current = key;
   }
   return current;
@@ -82,7 +105,7 @@ function currentStepKey(client) {
 
 function currentStepLabel(client) {
   const key = currentStepKey(client);
-  const item = PROCESS_STEPS.find(([stepKey]) => stepKey === key);
+  const item = processStepsForClient(client).find(([stepKey]) => stepKey === key);
   return item?.[1] || "Não iniciado";
 }
 
@@ -804,7 +827,11 @@ function Dashboard({ logout }) {
       interview_date: group?.interview_date || client.interview_date || "",
       video_call_date: group?.video_call_date || client.video_call_date || "",
       passport_tracking_code: group?.passport_tracking_code || client.passport_tracking_code || "",
-      data_inicio_processo: group?.data_inicio_processo || client.data_inicio_processo || ""
+      data_inicio_processo: group?.data_inicio_processo || client.data_inicio_processo || "",
+      passport_pf_city: client.passport_pf_city || "",
+      passport_pf_location: client.passport_pf_location || "",
+      passport_pf_datetime: client.passport_pf_datetime || "",
+      passport_gru_paid_at: client.passport_gru_paid_at || ""
     };
   }
 
@@ -1003,6 +1030,10 @@ function Dashboard({ logout }) {
       visa_result: client.visa_result || "",
       stage_passport_returned: !!client.stage_passport_returned,
       observacoes_gerais: client.observacoes_gerais || "",
+      passport_pf_city: client.passport_pf_city || "",
+      passport_pf_location: client.passport_pf_location || "",
+      passport_pf_datetime: client.passport_pf_datetime || "",
+      passport_gru_paid_at: client.passport_gru_paid_at || "",
       grupo_familiar_master: !!client.grupo_familiar_master,
       sincronizar_com_grupo: client.sincronizar_com_grupo !== false
     });
@@ -1079,7 +1110,11 @@ function Dashboard({ logout }) {
         data_inicio_processo: fields.data_inicio_processo ?? client.data_inicio_processo ?? "",
         stage_dates_scheduled: !!((fields.casv_date ?? client.casv_date ?? "") || (fields.interview_date ?? client.interview_date ?? "")),
         client_sedex_tracking: fields.client_sedex_tracking ?? client.client_sedex_tracking ?? "",
-        is_renewal: fields.is_renewal ?? client.is_renewal ?? false
+        is_renewal: fields.is_renewal ?? client.is_renewal ?? false,
+        passport_pf_city: fields.passport_pf_city ?? client.passport_pf_city ?? "",
+        passport_pf_location: fields.passport_pf_location ?? client.passport_pf_location ?? "",
+        passport_pf_datetime: fields.passport_pf_datetime ?? client.passport_pf_datetime ?? "",
+        passport_gru_paid_at: fields.passport_gru_paid_at ?? client.passport_gru_paid_at ?? ""
       })
     });
 
@@ -1119,10 +1154,10 @@ function Dashboard({ logout }) {
   function Thermometer({ client }) {
     const count = processStepCount(client);
     return (
-      <div className="process-thermometer" title={`${count}/14 etapas concluídas`}>
-        <div className="thermo-label">Etapa: {count}/14 — {currentStepLabel(client)}</div>
+      <div className="process-thermometer" title={`${count}/${processStepsForClient(client).length} etapas concluídas`}>
+        <div className="thermo-label">Etapa: {count}/{processStepsForClient(client).length} — {currentStepLabel(client)}</div>
         <div className="thermo-bars">
-          {PROCESS_STEPS.map(([key], index) => (
+          {processStepsForClient(client).map(([key], index) => (
             <span key={key} className={index < count ? "filled" : ""}></span>
           ))}
         </div>
@@ -1145,14 +1180,21 @@ function Dashboard({ logout }) {
       stage_feedback_sent: !!client.stage_feedback_sent,
       stage_feedback_answered: !!client.stage_feedback_answered,
       stage_feedback_posted: !!client.stage_feedback_posted,
-      stage_ready_to_archive: !!client.stage_ready_to_archive
+      stage_ready_to_archive: !!client.stage_ready_to_archive,
+      stage_passport_docs_email_sent: !!client.stage_passport_docs_email_sent,
+      stage_passport_form_filled: !!client.stage_passport_form_filled,
+      stage_passport_instructions_sent: !!client.stage_passport_instructions_sent,
+      stage_passport_pf_done: !!client.stage_passport_pf_done,
+      stage_passport_ready: !!client.stage_passport_ready,
+      stage_passport_picked_up: !!client.stage_passport_picked_up
     };
 
-    const index = PROCESS_STEPS.findIndex(([key]) => key === clickedKey);
+    const steps = processStepsForClient(client);
+    const index = steps.findIndex(([key]) => key === clickedKey);
 
     if (clickedValue && index >= 0) {
       for (let i = 0; i <= index; i++) {
-        const key = PROCESS_STEPS[i][0];
+        const key = steps[i][0];
         if (key === "status_not_started") update.status = "not_started";
         else if (key === "status_in_progress") update.status = "in_progress";
         else if (key === "status_submitted") update.status = "submitted";
@@ -1334,7 +1376,15 @@ function Dashboard({ logout }) {
   }
 
   function isFeedbackTemplate(template) {
-    return template?.id === "pesquisa_satisfacao";
+    return ["pesquisa_satisfacao", "passaporte_pesquisa", "canada_pesquisa"].includes(template?.id);
+  }
+
+  function isPassportTemplate(template) {
+    return String(template?.id || "").startsWith("passaporte_");
+  }
+
+  function isCanadaTemplate(template) {
+    return String(template?.id || "").startsWith("canada_");
   }
 
   function isPassportReturnedTemplate(template) {
@@ -1342,10 +1392,12 @@ function Dashboard({ logout }) {
   }
 
   function isTemplateDisabledForClient(client, template) {
-    if (isControlClient(client) && isInitialFormTemplate(template)) return true;
+    if (isPassportTemplate(template) && client.tipo_processo !== "Passaporte") return true;
+    if (isCanadaTemplate(template) && !String(client.tipo_processo || "").toLowerCase().includes("canad")) return true;
+    if (!isPassportProcess(client) && isControlClient(client) && isInitialFormTemplate(template)) return true;
 
     // Pesquisa de satisfação somente depois de processo encerrado/passaporte devolvido.
-    if (isFeedbackTemplate(template) && !(client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive)) return true;
+    if (isFeedbackTemplate(template) && !(isPassportProcess(client) ? (client.stage_passport_picked_up || client.stage_passport_ready || client.is_completed || client.stage_ready_to_archive) : (client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive))) return true;
 
     // Emails de encerramento/rastreio somente quando fizer sentido operacional.
     if (isPassportReturnedTemplate(template) && !(client.stage_passport_returned || client.passport_tracking_code || client.is_completed)) return true;
@@ -1354,8 +1406,10 @@ function Dashboard({ logout }) {
   }
 
   function templateDisabledReason(client, template) {
-    if (isControlClient(client) && isInitialFormTemplate(template)) return "indisponível para cadastro de controle";
-    if (isFeedbackTemplate(template) && !(client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive)) return "disponível apenas após passaporte devolvido/processo concluído";
+    if (isPassportTemplate(template) && client.tipo_processo !== "Passaporte") return "disponível apenas para serviço de passaporte";
+    if (isCanadaTemplate(template) && !String(client.tipo_processo || "").toLowerCase().includes("canad")) return "disponível apenas para visto canadense";
+    if (!isPassportProcess(client) && isControlClient(client) && isInitialFormTemplate(template)) return "indisponível para cadastro de controle";
+    if (isFeedbackTemplate(template) && !(isPassportProcess(client) ? (client.stage_passport_picked_up || client.stage_passport_ready || client.is_completed || client.stage_ready_to_archive) : (client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive))) return isPassportProcess(client) ? "disponível apenas após passaporte disponível/retirado" : "disponível apenas após passaporte devolvido/processo concluído";
     if (isPassportReturnedTemplate(template) && !(client.stage_passport_returned || client.passport_tracking_code || client.is_completed)) return "disponível apenas após rastreio/passaporte devolvido";
     return "";
   }
@@ -1530,7 +1584,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v94 — pendentes newsletter e alertas email</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v95 — serviço passaporte e feedback por serviço</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1543,7 +1597,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
         <label className="admin-field-label"><span>Validade do passaporte</span><input type="date" value={form.passport_expiration_date || ""} onChange={(e) => setForm({ ...form, passport_expiration_date: e.target.value })} /></label>
           <input placeholder="Celular" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input placeholder="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <label className="admin-field-label"><span>Tipo de processo</span><select value={form.tipo_processo} onChange={(e) => setForm({ ...form, tipo_processo: e.target.value })}><option value="Primeiro visto">Primeiro visto</option><option value="Renovação">Renovação</option><option value="Passaporte">Passaporte</option><option value="Canadá">Canadá</option><option value="Outro">Outro</option></select></label>
+          <label className="admin-field-label"><span>Tipo de processo</span><select value={form.tipo_processo} onChange={(e) => setForm({ ...form, tipo_processo: e.target.value })}><option value="Primeiro visto">Primeiro visto</option><option value="Renovação">Renovação</option><option value="Passaporte">Passaporte</option><option value="Canadá">Canadá</option><option value="Outro">Outro</option></select><small>Mesmo CPF e nascimento podem ter mais de um processo: ex. Passaporte agora e Visto depois.</small></label>
           <label className="admin-field-label"><span>Grupo de processo</span><select value={form.group_process_id} onChange={(e) => setForm({ ...form, group_process_id: e.target.value })}><option value="">Sem grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.nome}</option>)}</select></label>
           <button type="button" className="btn-light" onClick={createProcessGroup}>+ Criar grupo de processo</button>
           <textarea className="wide" placeholder="Observações internas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
@@ -1705,10 +1759,22 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                         <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13 }}>Preencha ao longo do processo. Estes dados não fazem parte do cadastro inicial.</p>
 
                         <label><small>Data de início do processo</small><input type="date" defaultValue={processInfo(client).data_inicio_processo || ""} onBlur={(e) => updateProcessSchedule(client, { data_inicio_processo: e.target.value })} /></label>
-                        <label><small>Cidade do consulado</small><select defaultValue={processInfo(client).consulate_city || ""} onChange={(e) => updateProcessSchedule(client, { consulate_city: e.target.value })}><option value="">Selecionar cidade</option>{CONSULATE_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
-                        <label><small>Data CASV</small><input type="date" defaultValue={processInfo(client).casv_date || ""} onBlur={(e) => updateProcessSchedule(client, { casv_date: e.target.value })} /></label>
-                        <label><small>Data da entrevista no consulado</small><input disabled={shouldDisableRenewalField(client, "interview_date")} type="date" defaultValue={processInfo(client).interview_date || ""} onBlur={(e) => updateProcessSchedule(client, { interview_date: e.target.value })} /></label>
-                        <label><small>Data da videochamada</small><input disabled={shouldDisableRenewalField(client, "video_call_date")} type="datetime-local" defaultValue={toDatetimeLocal(processInfo(client).video_call_date)} onBlur={(e) => updateProcessSchedule(client, { video_call_date: e.target.value })} /></label>
+                        {isPassportProcess(client) && (
+                          <>
+                            <label><small>Cidade da Polícia Federal</small><input defaultValue={processInfo(client).passport_pf_city || ""} placeholder="Ex.: São Paulo" onBlur={(e) => updateProcessSchedule(client, { passport_pf_city: e.target.value })} /></label>
+                            <label><small>Local / unidade da Polícia Federal</small><input defaultValue={processInfo(client).passport_pf_location || ""} placeholder="Ex.: Shopping Eldorado / PF" onBlur={(e) => updateProcessSchedule(client, { passport_pf_location: e.target.value })} /></label>
+                            <label><small>Data e hora do atendimento na PF</small><input type="datetime-local" defaultValue={toDatetimeLocal(processInfo(client).passport_pf_datetime)} onBlur={(e) => updateProcessSchedule(client, { passport_pf_datetime: e.target.value, interview_date: e.target.value ? String(e.target.value).slice(0,10) : "" })} /></label>
+                            <label><small>Data de pagamento da GRU</small><input type="date" defaultValue={processInfo(client).passport_gru_paid_at || ""} onBlur={(e) => updateProcessSchedule(client, { passport_gru_paid_at: e.target.value, stage_fee_paid: !!e.target.value })} /></label>
+                          </>
+                        )}
+                        {!isPassportProcess(client) && (
+                          <>
+                            <label><small>Cidade do consulado</small><select defaultValue={processInfo(client).consulate_city || ""} onChange={(e) => updateProcessSchedule(client, { consulate_city: e.target.value })}><option value="">Selecionar cidade</option>{CONSULATE_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
+                            <label><small>Data CASV</small><input type="date" defaultValue={processInfo(client).casv_date || ""} onBlur={(e) => updateProcessSchedule(client, { casv_date: e.target.value })} /></label>
+                            <label><small>Data da entrevista no consulado</small><input disabled={shouldDisableRenewalField(client, "interview_date")} type="date" defaultValue={processInfo(client).interview_date || ""} onBlur={(e) => updateProcessSchedule(client, { interview_date: e.target.value })} /></label>
+                            <label><small>Data da videochamada</small><input disabled={shouldDisableRenewalField(client, "video_call_date")} type="datetime-local" defaultValue={toDatetimeLocal(processInfo(client).video_call_date)} onBlur={(e) => updateProcessSchedule(client, { video_call_date: e.target.value })} /></label>
+                          </>
+                        )}
 
                         <hr style={{ width: "100%", border: 0, borderTop: "1px solid #e5e7eb", margin: "8px 0" }} />
                         <label><small>Rastreio do passaporte enviado ao cliente</small><input defaultValue={processInfo(client).passport_tracking_code || ""} placeholder="Ex.: AA123456789BR" onBlur={(e) => updateProcessSchedule(client, { passport_tracking_code: e.target.value })} /></label>
@@ -1719,13 +1785,13 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                     )}
 
                     <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `steps-${client.id}` ? null : `steps-${client.id}`)}>Etapas do processo</button>
-                    <button className={client.visa_result === "approved" ? "btn-primary" : "btn-light"} title="Marcar/desmarcar visto aprovado rapidamente" onClick={() => updateProcessSteps(client, "visa_result", client.visa_result !== "approved", client.visa_result === "approved" ? "" : "approved")}>☑ Visto aprovado rápido</button>
+                    {!isPassportProcess(client) && <button className={client.visa_result === "approved" ? "btn-primary" : "btn-light"} title="Marcar/desmarcar visto aprovado rapidamente" onClick={() => updateProcessSteps(client, "visa_result", client.visa_result !== "approved", client.visa_result === "approved" ? "" : "approved")}>☑ Visto aprovado rápido</button>}
                     {activeMenu === `steps-${client.id}` && (
                       <div className="admin-email-options process-panel" style={{ minWidth: 420 }}>
                         <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
                         <h3 style={{ margin: "0 0 8px", color: "var(--navy)" }}>Etapas do processo</h3>
                         <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13 }}>Marque cada etapa concluída para acompanhar o andamento.</p>
-                        {PROCESS_STEPS.map(([key, label]) => {
+                        {processStepsForClient(client).map(([key, label]) => {
                           if (key === "visa_result") {
                             return (
                               <label key={key}>

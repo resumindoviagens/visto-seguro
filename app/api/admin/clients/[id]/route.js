@@ -60,6 +60,7 @@ export async function PATCH(request, context) {
     updates.is_renewal = !!body.is_renewal;
     updates.client_sedex_tracking = body.client_sedex_tracking || "";
     updates.tipo_processo = body.tipo_processo || (body.is_renewal ? "Renovação" : (body.tipo_processo || ""));
+    updates.feedback_service = updates.tipo_processo === "Passaporte" ? "passaporte" : (String(updates.tipo_processo || "").toLowerCase().includes("canad") ? "canadense" : "visto");
     updates.observacoes_gerais = body.observacoes_gerais || "";
     updates.grupo_familiar_master = !!body.grupo_familiar_master;
     updates.sincronizar_com_grupo = body.sincronizar_com_grupo !== false;
@@ -78,6 +79,10 @@ export async function PATCH(request, context) {
     // O rastreio Sedex do cliente e o checkbox de renovação ficam em Editar dados.
     if (typeof body.client_sedex_tracking !== "undefined") updates.client_sedex_tracking = body.client_sedex_tracking || "";
     if (typeof body.is_renewal !== "undefined") updates.is_renewal = !!body.is_renewal;
+    if (typeof body.passport_pf_city !== "undefined") updates.passport_pf_city = body.passport_pf_city || "";
+    if (typeof body.passport_pf_location !== "undefined") updates.passport_pf_location = body.passport_pf_location || "";
+    if (typeof body.passport_pf_datetime !== "undefined") updates.passport_pf_datetime = body.passport_pf_datetime || null;
+    if (typeof body.passport_gru_paid_at !== "undefined") updates.passport_gru_paid_at = body.passport_gru_paid_at || null;
   }
 
   if (body.action === "update_process_steps") {
@@ -94,6 +99,12 @@ export async function PATCH(request, context) {
     updates.stage_feedback_sent = !!body.stage_feedback_sent;
     updates.stage_feedback_posted = !!body.stage_feedback_posted;
     updates.stage_ready_to_archive = !!body.stage_ready_to_archive;
+    updates.stage_passport_docs_email_sent = !!body.stage_passport_docs_email_sent;
+    updates.stage_passport_form_filled = !!body.stage_passport_form_filled;
+    updates.stage_passport_instructions_sent = !!body.stage_passport_instructions_sent;
+    updates.stage_passport_pf_done = !!body.stage_passport_pf_done;
+    updates.stage_passport_ready = !!body.stage_passport_ready;
+    updates.stage_passport_picked_up = !!body.stage_passport_picked_up;
     if (typeof body.is_completed !== "undefined") updates.is_completed = !!body.is_completed;
     if ((updates.stage_passport_returned || updates.stage_ready_to_archive || body.visa_result === "denied") && !oldClient?.data_final_processo) {
       updates.data_final_processo = new Date().toISOString().slice(0, 10);

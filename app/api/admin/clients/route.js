@@ -88,6 +88,11 @@ export async function POST(request) {
     is_renewal: !!body.is_renewal,
     tipo_processo: body.tipo_processo || (body.is_renewal ? "Renovação" : "Primeiro visto"),
     observacoes_gerais: body.observacoes_gerais || body.notes || "",
+    feedback_service: body.tipo_processo === "Passaporte" ? "passaporte" : (String(body.tipo_processo || "").toLowerCase().includes("canad") ? "canadense" : "visto"),
+    passport_pf_city: body.passport_pf_city || "",
+    passport_pf_location: body.passport_pf_location || "",
+    passport_pf_datetime: body.passport_pf_datetime || null,
+    passport_gru_paid_at: body.passport_gru_paid_at || null,
     legacy_import: !!body.legacy_import,
     legacy_import_batch: body.legacy_import_batch || null
   };

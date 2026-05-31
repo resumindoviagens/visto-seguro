@@ -27,8 +27,13 @@ export async function POST(request, context) {
     return Response.json({ error: "Cliente não encontrado." }, { status: 404 });
   }
 
-  if (!client.stage_passport_returned) {
-    return Response.json({ error: "A pesquisa só fica disponível após Visto/passaporte devolvido." }, { status: 400 });
+  const isPassport = client.tipo_processo === "Passaporte" || client.feedback_service === "passaporte";
+  const canFeedback = isPassport
+    ? (client.stage_passport_picked_up || client.stage_passport_ready || client.is_completed || client.stage_ready_to_archive)
+    : (client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive);
+
+  if (!canFeedback) {
+    return Response.json({ error: isPassport ? "A pesquisa de passaporte só fica disponível após passaporte disponível/retirado." : "A pesquisa só fica disponível após Visto/passaporte devolvido." }, { status: 400 });
   }
 
   let token = client.feedback_token;
@@ -45,7 +50,8 @@ export async function POST(request, context) {
       feedback_liberado: true,
       feedback_token: token,
       feedback_token_expires_at: expires.toISOString(),
-      stage_feedback_sent: true
+      stage_feedback_sent: true,
+      feedback_service: isPassport ? "passaporte" : (String(client.tipo_processo || "").toLowerCase().includes("canad") ? "canadense" : (client.feedback_service || "visto"))
     })
     .eq("id", client.id);
 

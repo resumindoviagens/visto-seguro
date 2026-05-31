@@ -20,7 +20,13 @@ const inputStyle = {
   boxSizing: "border-box"
 };
 
-export default function FeedbackForm({ token, clientName }) {
+function serviceLabel(service) {
+  if (service === "passaporte") return "assessoria para emissão de passaporte";
+  if (service === "canadense") return "assessoria para visto canadense";
+  return "assessoria para visto";
+}
+
+export default function FeedbackForm({ token, clientName, service = "visto" }) {
   const [auth, setAuth] = useState({ cpf: "", birth_date: "" });
   const [authenticated, setAuthenticated] = useState(false);
   const [form, setForm] = useState({
@@ -121,7 +127,7 @@ export default function FeedbackForm({ token, clientName }) {
       <section style={{ maxWidth: 720, margin: "30px auto", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 22, padding: 28 }}>
         <h1 style={{ color: "#1f2a60", marginTop: 0 }}>Pesquisa de satisfação</h1>
         <p style={{ color: "#4b5563" }}>
-          Sua opinião ajuda a aprimorar nosso atendimento. A pesquisa leva menos de 1 minuto.
+          Esta avaliação se refere à {serviceLabel(service)} prestada pela Resumindo Viagens. Sua opinião ajuda a aprimorar nosso atendimento e leva menos de 1 minuto.
         </p>
 
         <form onSubmit={submitFeedback} style={{ display: "grid", gap: 14, marginTop: 22 }}>

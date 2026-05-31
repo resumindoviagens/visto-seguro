@@ -10,6 +10,14 @@ function isInitialFormTemplate(templateId) {
   return ["formulario", "formulario_pendente", "formulario_recebido"].includes(templateId);
 }
 
+function isPassportTemplate(templateId) {
+  return String(templateId || "").startsWith("passaporte_");
+}
+
+function isCanadaTemplate(templateId) {
+  return String(templateId || "").startsWith("canada_");
+}
+
 function isFeedbackTemplate(templateId) {
   return templateId === "pesquisa_satisfacao";
 }
@@ -19,6 +27,14 @@ function isPassportReturnedTemplate(templateId) {
 }
 
 function isTemplateAllowedForClient(client, templateId) {
+  if (isPassportTemplate(templateId) && client.tipo_processo !== "Passaporte") {
+    return { ok: false, reason: "Modelo disponível apenas para serviço de passaporte." };
+  }
+
+  if (isCanadaTemplate(templateId) && !String(client.tipo_processo || "").toLowerCase().includes("canad")) {
+    return { ok: false, reason: "Modelo disponível apenas para visto canadense." };
+  }
+
   if ((client.no_form_required || !client.access_token) && isInitialFormTemplate(templateId)) {
     return { ok: false, reason: "Modelo indisponível para cadastro de controle." };
   }
@@ -35,6 +51,15 @@ function isTemplateAllowedForClient(client, templateId) {
 }
 
 function photoAttachmentsForTemplate(templateId) {
+  if (templateId === "passaporte_instrucoes") {
+    try {
+      const filePath = path.join(process.cwd(), "public", "docs", "instrucoes-passaporte.docx");
+      const content = readFileSync(filePath).toString("base64");
+      return [{ name: "instrucoes-passaporte.docx", content }];
+    } catch {
+      return [];
+    }
+  }
   if (templateId !== "foto_instrucoes") return [];
   try {
     const filePath = path.join(process.cwd(), "public", "foto", "infografico_foto_visto.jpg");

@@ -23,7 +23,8 @@ async function ensureFeedbackLink(client, origin) {
         feedback_liberado: true,
         feedback_token: token,
         feedback_token_expires_at: expires.toISOString(),
-        stage_feedback_sent: true
+        stage_feedback_sent: true,
+        feedback_service: client.tipo_processo === "Passaporte" ? "passaporte" : (String(client.tipo_processo || "").toLowerCase().includes("canad") ? "canadense" : (client.feedback_service || "visto"))
       })
       .eq("id", client.id);
 
@@ -65,7 +66,7 @@ export async function POST(request) {
     const origin = siteOrigin(request);
     const formLink = client.access_token ? `${origin}/acesso/${client.access_token}` : "";
     const preparationLink = `${origin}/preparacao/${client.access_token || client.id}`;
-    const feedbackLink = template_id === "pesquisa_satisfacao" ? await ensureFeedbackLink(client, origin) : "";
+    const feedbackLink = ["pesquisa_satisfacao", "passaporte_pesquisa", "canada_pesquisa"].includes(template_id) ? await ensureFeedbackLink(client, origin) : "";
     const template = getEmailTemplate(template_id, clientWithGroup, {
       formLink,
       preparationLink,
@@ -74,9 +75,18 @@ export async function POST(request) {
       videoCallDateTime: processGroup?.video_call_date || client.video_call_date || ""
     });
 
-    const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, subject: template.subject, html: template.html, text: template.text });
+    const attachments = [];
+    if (template_id === "passaporte_instrucoes") {
+      try {
+        const { readFileSync } = await import("fs");
+        const path = await import("path");
+        const filePath = path.default.join(process.cwd(), "public", "docs", "instrucoes-passaporte.docx");
+        attachments.push({ name: "instrucoes-passaporte.docx", content: readFileSync(filePath).toString("base64") });
+      } catch {}
+    }
+    const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, subject: template.subject, html: template.html, text: template.text, attachments });
 
-    if (template_id === "pesquisa_satisfacao") {
+    if (["pesquisa_satisfacao", "passaporte_pesquisa", "canada_pesquisa"].includes(template_id)) {
       await supabaseAdmin
         .from("clients")
         .update({ stage_feedback_sent: true })

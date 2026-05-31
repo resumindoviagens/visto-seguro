@@ -10,7 +10,7 @@ export default async function FeedbackPage({ params }) {
 
   const { data: client } = await supabaseAdmin
     .from("clients")
-    .select("id, name, feedback_token, feedback_token_expires_at")
+    .select("id, name, feedback_token, feedback_token_expires_at, feedback_service, tipo_processo")
     .eq("feedback_token", token)
     .maybeSingle();
 
@@ -22,5 +22,5 @@ export default async function FeedbackPage({ params }) {
     return <main style={{ fontFamily: "Arial, Helvetica, sans-serif", padding: 30 }}>Este link de pesquisa expirou.</main>;
   }
 
-  return <FeedbackForm token={token} clientName={client.name || "cliente"} />;
+  return <FeedbackForm token={token} clientName={client.name || "cliente"} service={client.feedback_service || (client.tipo_processo === "Passaporte" ? "passaporte" : "visto")} />;
 }

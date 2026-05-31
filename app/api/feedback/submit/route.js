@@ -41,7 +41,7 @@ export async function POST(request) {
     const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "";
     const userAgent = request.headers.get("user-agent") || "";
 
-    const tipo_feedback = client.visa_result === "denied" ? "negado" : "aprovado";
+    const tipo_feedback = client.feedback_service === "passaporte" ? "passaporte" : (client.feedback_service === "canadense" ? "canadense" : (client.visa_result === "denied" ? "negado" : "aprovado"));
 
     const { error: insertError } = await supabaseAdmin.from("feedbacks").insert({
       client_id: client.id,
@@ -51,6 +51,7 @@ export async function POST(request) {
       comentario,
       autorizou_divulgacao: !!autorizou_divulgacao,
       instagram_usuario: instagram_usuario || "",
+      service: client.feedback_service || "visto",
       ip,
       user_agent: userAgent
     });
