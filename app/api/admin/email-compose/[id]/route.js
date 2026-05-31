@@ -147,7 +147,9 @@ export async function GET(request, context) {
     preparationLink,
     feedbackLink,
     rastreio: client.passport_tracking_code || processGroup?.passport_tracking_code || "",
-    videoCallDateTime: processGroup?.video_call_date || client.video_call_date || ""
+    videoCallDateTime: processGroup?.video_call_date || client.video_call_date || "",
+      origin,
+      passaporteInstrucoesUrl: `${origin}/passaporte-instrucoes`
   });
 
   return Response.json({

@@ -51,14 +51,6 @@ function isTemplateAllowedForClient(client, templateId) {
 }
 
 function photoAttachmentsForTemplate(templateId) {
-  if (templateId === "passaporte_instrucoes") {
-    try {
-      const filePath = path.join(process.cwd(), "public", "docs", "instrucoes-passaporte.docx");
-      const content = readFileSync(filePath).toString("base64");
-      return [{ name: "instrucoes-passaporte.docx", content }];
-    } catch {
-      return [];
-    }
   }
   if (templateId !== "foto_instrucoes") return [];
   try {

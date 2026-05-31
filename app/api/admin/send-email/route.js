@@ -72,18 +72,12 @@ export async function POST(request) {
       preparationLink,
       feedbackLink,
       rastreio: body.rastreio || client.passport_tracking_code || processGroup?.passport_tracking_code || "",
-      videoCallDateTime: processGroup?.video_call_date || client.video_call_date || ""
+      videoCallDateTime: processGroup?.video_call_date || client.video_call_date || "",
+      origin,
+      passaporteInstrucoesUrl: `${origin}/passaporte-instrucoes`
     });
 
     const attachments = [];
-    if (template_id === "passaporte_instrucoes") {
-      try {
-        const { readFileSync } = await import("fs");
-        const path = await import("path");
-        const filePath = path.default.join(process.cwd(), "public", "docs", "instrucoes-passaporte.docx");
-        attachments.push({ name: "instrucoes-passaporte.docx", content: readFileSync(filePath).toString("base64") });
-      } catch {}
-    }
     const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, subject: template.subject, html: template.html, text: template.text, attachments });
 
     if (["pesquisa_satisfacao", "passaporte_pesquisa", "canada_pesquisa"].includes(template_id)) {

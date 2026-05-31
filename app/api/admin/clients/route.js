@@ -63,12 +63,13 @@ export async function POST(request) {
   if (unauthorized) return unauthorized;
 
   const body = await request.json();
+  const isPassportService = body.tipo_processo === "Passaporte";
 
   if (!body.name || !body.cpf || !body.birth_date) {
     return Response.json({ error: "Nome, CPF e data de nascimento são obrigatórios." }, { status: 400 });
   }
 
-  const accessToken = body.no_form_required ? null : createAccessToken();
+  const accessToken = (body.no_form_required || isPassportService) ? null : createAccessToken();
 
   const insertData = {
     name: body.name,
@@ -84,7 +85,7 @@ export async function POST(request) {
     is_completed: false,
     family_group: body.family_group || "",
     group_process_id: body.group_process_id || null,
-    no_form_required: !!body.no_form_required,
+    no_form_required: isPassportService ? true : !!body.no_form_required,
     is_renewal: !!body.is_renewal,
     tipo_processo: body.tipo_processo || (body.is_renewal ? "Renovação" : "Primeiro visto"),
     observacoes_gerais: body.observacoes_gerais || body.notes || "",
