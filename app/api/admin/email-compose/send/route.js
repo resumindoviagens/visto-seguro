@@ -19,7 +19,7 @@ function isCanadaTemplate(templateId) {
 }
 
 function isFeedbackTemplate(templateId) {
-  return templateId === "pesquisa_satisfacao";
+  return ["pesquisa_satisfacao", "passaporte_pesquisa", "canada_pesquisa"].includes(templateId);
 }
 
 function isPassportReturnedTemplate(templateId) {
@@ -39,8 +39,8 @@ function isTemplateAllowedForClient(client, templateId) {
     return { ok: false, reason: "Modelo indisponível para cadastro de controle." };
   }
 
-  if (isFeedbackTemplate(templateId) && !(client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive)) {
-    return { ok: false, reason: "Pesquisa de satisfação disponível somente após passaporte devolvido/processo concluído." };
+  if (isFeedbackTemplate(templateId) && !(client.tipo_processo === "Passaporte" ? (client.stage_passport_picked_up || client.stage_passport_ready || client.is_completed || client.stage_ready_to_archive) : (client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive))) {
+    return { ok: false, reason: client.tipo_processo === "Passaporte" ? "Pesquisa de passaporte disponível somente após passaporte disponível/retirado." : "Pesquisa de satisfação disponível somente após passaporte devolvido/processo concluído." };
   }
 
   if (isPassportReturnedTemplate(templateId) && !(client.stage_passport_returned || client.passport_tracking_code || client.is_completed)) {
@@ -51,7 +51,6 @@ function isTemplateAllowedForClient(client, templateId) {
 }
 
 function photoAttachmentsForTemplate(templateId) {
-  }
   if (templateId !== "foto_instrucoes") return [];
   try {
     const filePath = path.join(process.cwd(), "public", "foto", "infografico_foto_visto.jpg");

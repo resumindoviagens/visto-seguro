@@ -288,7 +288,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="version">v97 consolidada</div>
+          <div className="version">v97B consolidada</div>
         </section>
 
         <section className="login">
