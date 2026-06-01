@@ -288,7 +288,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="version">v100C migração segura</div>
+          <div className="version">v100D build corrigido</div>
         </section>
 
         <section className="login">

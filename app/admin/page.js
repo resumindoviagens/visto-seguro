@@ -1297,30 +1297,19 @@ function Dashboard({ logout }) {
       return;
     }
 
-    const nomes = (preview.preview || []).map((item) => `• ${item.name || "Sem nome"} (${item.email || "sem email"})`).join("
-");
-    const ok = confirm(
-      `Registros seguros para retirar da lista Cadastro Antigo: ${preview.safeToClear || 0}
+    const nomes = (preview.preview || [])
+      .map((item) => `• ${item.name || "Sem nome"} (${item.email || "sem email"})`)
+      .join("\n");
 
-` +
-      `Critério obrigatório:
-` +
-      `- Cadastro antigo
-- Visto aprovado
-- Passaporte devolvido
-- Processo concluído
-- Pronto para arquivar
+    const mensagem =
+      `Registros seguros para retirar da lista Cadastro Antigo: ${preview.safeToClear || 0}\n\n` +
+      `Critério obrigatório:\n` +
+      `- Cadastro antigo\n- Visto aprovado\n- Passaporte devolvido\n- Processo concluído\n- Pronto para arquivar\n\n` +
+      `Nenhum cliente será apagado. Apenas sairá da lista Cadastro Antigo.\n\n` +
+      `Prévia dos primeiros registros:\n${nomes || "Nenhum"}\n\n` +
+      `Confirmar limpeza?`;
 
-` +
-      `Nenhum cliente será apagado. Apenas sairá da lista Cadastro Antigo.
-
-` +
-      `Prévia dos primeiros registros:
-${nomes || "Nenhum"}
-
-` +
-      `Confirmar limpeza?`
-    );
+    const ok = confirm(mensagem);
     if (!ok) return;
 
     const res = await fetch("/api/admin/legacy/clear-migrated", {
@@ -1692,7 +1681,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v100C — migração antiga segura</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn-light" onClick={migrateLegacyApproved}>Migrar cadastro antigo</button><button className="btn-light" onClick={clearMigratedLegacy}>Conferir e limpar migrados</button><button className="btn-light" onClick={sendLegacyFeedbackEmails}>Enviar avaliações antigas</button><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v100D — correção build migração segura</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn-light" onClick={migrateLegacyApproved}>Migrar cadastro antigo</button><button className="btn-light" onClick={clearMigratedLegacy}>Conferir e limpar migrados</button><button className="btn-light" onClick={sendLegacyFeedbackEmails}>Enviar avaliações antigas</button><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
