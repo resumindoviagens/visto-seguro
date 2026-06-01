@@ -6,6 +6,9 @@ import { randomBytes } from "crypto";
 
 
 
+function isPassportTemplate(templateId) { return String(templateId || "").startsWith("passaporte_"); }
+function isPhotoInstructionsTemplate(templateId) { return templateId === "foto_instrucoes"; }
+
 function makeFeedbackToken() {
   return randomBytes(24).toString("hex");
 }
@@ -51,6 +54,9 @@ export async function POST(request) {
     const { data: client, error } = await supabaseAdmin.from("clients").select("*").eq("id", client_id).single();
     if (error || !client) return Response.json({ error: "Cliente não encontrado." }, { status: 404 });
     if (!client.email) return Response.json({ error: "Cliente sem email cadastrado." }, { status: 400 });
+    if (client.tipo_processo === "Passaporte" && !isPassportTemplate(template_id)) {
+      return Response.json({ error: "Clientes de passaporte exibem apenas modelos de passaporte." }, { status: 400 });
+    }
 
     let processGroup = null;
     if (client.group_process_id) {

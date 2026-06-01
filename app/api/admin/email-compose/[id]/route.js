@@ -46,6 +46,10 @@ function isPassportTemplate(templateId) {
   return String(templateId || "").startsWith("passaporte_");
 }
 
+function isPhotoInstructionsTemplate(templateId) {
+  return templateId === "foto_instrucoes";
+}
+
 function isCanadaTemplate(templateId) {
   return String(templateId || "").startsWith("canada_");
 }
@@ -55,7 +59,13 @@ function isPassportReturnedTemplate(templateId) {
 }
 
 function isTemplateAllowedForClient(client, templateId) {
-  if (isPassportTemplate(templateId) && client.tipo_processo !== "Passaporte") {
+  const isPassportClient = String(client.tipo_processo || "").toLowerCase().includes("passaporte");
+
+  if (isPassportClient && !isPassportTemplate(templateId) && !isPhotoInstructionsTemplate(templateId)) {
+    return { ok: false, reason: "Clientes de passaporte exibem apenas modelos de passaporte." };
+  }
+
+  if (!isPassportClient && isPassportTemplate(templateId)) {
     return { ok: false, reason: "Modelo disponível apenas para serviço de passaporte." };
   }
 
@@ -67,8 +77,8 @@ function isTemplateAllowedForClient(client, templateId) {
     return { ok: false, reason: "Modelo indisponível para cadastro de controle." };
   }
 
-  if (isFeedbackTemplate(templateId) && !(client.tipo_processo === "Passaporte" ? (client.stage_passport_picked_up || client.stage_passport_ready || client.is_completed || client.stage_ready_to_archive) : (client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive))) {
-    return { ok: false, reason: client.tipo_processo === "Passaporte" ? "Pesquisa de passaporte disponível somente após passaporte disponível/retirado." : "Pesquisa de satisfação disponível somente após passaporte devolvido/processo concluído." };
+  if (isFeedbackTemplate(templateId) && !(isPassportClient ? (client.stage_passport_picked_up || client.stage_passport_ready || client.is_completed || client.stage_ready_to_archive) : (client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive))) {
+    return { ok: false, reason: isPassportClient ? "Pesquisa de passaporte disponível somente após passaporte disponível/retirado." : "Pesquisa de satisfação disponível somente após passaporte devolvido/processo concluído." };
   }
 
   if (isPassportReturnedTemplate(templateId) && !(client.stage_passport_returned || client.passport_tracking_code || client.is_completed)) {

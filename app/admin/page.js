@@ -76,7 +76,7 @@ const PASSPORT_PROCESS_STEPS = [
 ];
 
 function isPassportProcess(client) {
-  return client?.tipo_processo === "Passaporte";
+  return String(client?.tipo_processo || "").toLowerCase().includes("passaporte");
 }
 
 function processStepsForClient(client) {
@@ -1382,6 +1382,10 @@ function Dashboard({ logout }) {
     return String(template?.id || "").startsWith("passaporte_");
   }
 
+  function isPhotoInstructionsTemplate(template) {
+    return template?.id === "foto_instrucoes";
+  }
+
   function isCanadaTemplate(template) {
     return String(template?.id || "").startsWith("canada_");
   }
@@ -1391,12 +1395,17 @@ function Dashboard({ logout }) {
   }
 
   function isTemplateDisabledForClient(client, template) {
-    if (isPassportTemplate(template) && client.tipo_processo !== "Passaporte") return true;
-    if (isCanadaTemplate(template) && !String(client.tipo_processo || "").toLowerCase().includes("canad")) return true;
+    const passport = isPassportProcess(client);
+    const passportTemplate = isPassportTemplate(template);
+    const canadaTemplate = isCanadaTemplate(template);
+
+    if (passport && !passportTemplate && !isPhotoInstructionsTemplate(template)) return true;
+    if (!passport && passportTemplate) return true;
+    if (canadaTemplate && !String(client.tipo_processo || "").toLowerCase().includes("canad")) return true;
     if (isControlClient(client) && isInitialFormTemplate(template)) return true;
 
     // Pesquisa de satisfação somente depois de processo encerrado/passaporte devolvido.
-    if (isFeedbackTemplate(template) && !(isPassportProcess(client) ? (client.stage_passport_picked_up || client.stage_passport_ready || client.is_completed || client.stage_ready_to_archive) : (client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive))) return true;
+    if (isFeedbackTemplate(template) && !(passport ? (client.stage_passport_picked_up || client.stage_passport_ready || client.is_completed || client.stage_ready_to_archive) : (client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive))) return true;
 
     // Emails de encerramento/rastreio somente quando fizer sentido operacional.
     if (isPassportReturnedTemplate(template) && !(client.stage_passport_returned || client.passport_tracking_code || client.is_completed)) return true;
@@ -1405,10 +1414,15 @@ function Dashboard({ logout }) {
   }
 
   function templateDisabledReason(client, template) {
-    if (isPassportTemplate(template) && client.tipo_processo !== "Passaporte") return "disponível apenas para serviço de passaporte";
-    if (isCanadaTemplate(template) && !String(client.tipo_processo || "").toLowerCase().includes("canad")) return "disponível apenas para visto canadense";
+    const passport = isPassportProcess(client);
+    const passportTemplate = isPassportTemplate(template);
+    const canadaTemplate = isCanadaTemplate(template);
+
+    if (passport && !passportTemplate && !isPhotoInstructionsTemplate(template)) return "clientes de passaporte exibem apenas modelos de passaporte e instruções de foto";
+    if (!passport && passportTemplate) return "disponível apenas para serviço de passaporte";
+    if (canadaTemplate && !String(client.tipo_processo || "").toLowerCase().includes("canad")) return "disponível apenas para visto canadense";
     if (isControlClient(client) && isInitialFormTemplate(template)) return "indisponível para cadastro de controle";
-    if (isFeedbackTemplate(template) && !(isPassportProcess(client) ? (client.stage_passport_picked_up || client.stage_passport_ready || client.is_completed || client.stage_ready_to_archive) : (client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive))) return isPassportProcess(client) ? "disponível apenas após passaporte disponível/retirado" : "disponível apenas após passaporte devolvido/processo concluído";
+    if (isFeedbackTemplate(template) && !(passport ? (client.stage_passport_picked_up || client.stage_passport_ready || client.is_completed || client.stage_ready_to_archive) : (client.stage_passport_returned || client.is_completed || client.stage_ready_to_archive))) return passport ? "disponível apenas após passaporte disponível/retirado" : "disponível apenas após passaporte devolvido/processo concluído";
     if (isPassportReturnedTemplate(template) && !(client.stage_passport_returned || client.passport_tracking_code || client.is_completed)) return "disponível apenas após rastreio/passaporte devolvido";
     return "";
   }
@@ -1583,7 +1597,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v97C — email passaporte liberado</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v97F — passaporte com instruções de foto</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
