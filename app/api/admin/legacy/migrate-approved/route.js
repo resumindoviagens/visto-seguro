@@ -36,7 +36,6 @@ export async function POST() {
       stage_ready_to_archive: true,
       data_final_processo: today,
       feedback_service: "visto",
-      legacy_import: false,
       updated_at: new Date().toISOString()
     })
     .in("id", ids)

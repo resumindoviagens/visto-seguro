@@ -1285,21 +1285,55 @@ function Dashboard({ logout }) {
       alert(data.error || "Erro ao migrar cadastros antigos.");
       return;
     }
-    alert(`Cadastros antigos migrados: ${data.updated || 0}`);
+    alert(`Cadastros antigos migrados como aprovados/concluídos: ${data.updated || 0}. Eles só sairão da lista antiga após usar o botão de conferência/limpeza.`);
     await loadClients();
   }
 
   async function clearMigratedLegacy() {
-    const ok = confirm("Retirar da lista Cadastro Antigo todos os processos antigos que já foram migrados como aprovados/concluídos?");
-    if (!ok) return;
-
-    const res = await fetch("/api/admin/legacy/clear-migrated", { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) {
-      alert(data.error || "Erro ao retirar cadastros antigos migrados da lista.");
+    const previewRes = await fetch("/api/admin/legacy/clear-migrated", { method: "GET" });
+    const preview = await previewRes.json();
+    if (!previewRes.ok) {
+      alert(preview.error || "Erro ao conferir cadastros antigos migrados.");
       return;
     }
-    alert(`Retirados da lista Cadastro Antigo: ${data.updated || 0}`);
+
+    const nomes = (preview.preview || []).map((item) => `• ${item.name || "Sem nome"} (${item.email || "sem email"})`).join("
+");
+    const ok = confirm(
+      `Registros seguros para retirar da lista Cadastro Antigo: ${preview.safeToClear || 0}
+
+` +
+      `Critério obrigatório:
+` +
+      `- Cadastro antigo
+- Visto aprovado
+- Passaporte devolvido
+- Processo concluído
+- Pronto para arquivar
+
+` +
+      `Nenhum cliente será apagado. Apenas sairá da lista Cadastro Antigo.
+
+` +
+      `Prévia dos primeiros registros:
+${nomes || "Nenhum"}
+
+` +
+      `Confirmar limpeza?`
+    );
+    if (!ok) return;
+
+    const res = await fetch("/api/admin/legacy/clear-migrated", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: "LIMPAR_MIGRADOS" })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.message || data.error || "Erro ao retirar cadastros antigos migrados da lista.");
+      return;
+    }
+    alert(`Retirados da lista Cadastro Antigo: ${data.updated || 0}. Nenhum cliente foi apagado.`);
     await loadClients();
   }
 
@@ -1658,7 +1692,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v100B — limpar cadastro antigo migrado</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn-light" onClick={migrateLegacyApproved}>Migrar cadastro antigo</button><button className="btn-light" onClick={clearMigratedLegacy}>Limpar migrados da lista antiga</button><button className="btn-light" onClick={sendLegacyFeedbackEmails}>Enviar avaliações antigas</button><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v100C — migração antiga segura</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn-light" onClick={migrateLegacyApproved}>Migrar cadastro antigo</button><button className="btn-light" onClick={clearMigratedLegacy}>Conferir e limpar migrados</button><button className="btn-light" onClick={sendLegacyFeedbackEmails}>Enviar avaliações antigas</button><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
