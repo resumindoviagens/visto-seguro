@@ -1417,11 +1417,9 @@ function Dashboard({ logout }) {
         const matchesSearch = !query || haystack.includes(query) || (!!queryCpf && (client.cpf || "").includes(queryCpf));
         const matchesStatus = statusFilter === "all" || currentStepKey(client) === statusFilter;
         const matchesTab =
-          processTab === "antigo"
-            ? !!client.legacy_import
-            : processTab === "concluidos"
-              ? !!client.is_completed && !client.legacy_import
-              : !client.is_completed && !client.legacy_import;
+          processTab === "concluidos"
+            ? !!client.is_completed
+            : !client.is_completed;
         return matchesSearch && matchesStatus && matchesTab;
       })
       .sort((a, b) => {
@@ -1681,7 +1679,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v100D — correção build migração segura</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn-light" onClick={migrateLegacyApproved}>Migrar cadastro antigo</button><button className="btn-light" onClick={clearMigratedLegacy}>Conferir e limpar migrados</button><button className="btn-light" onClick={sendLegacyFeedbackEmails}>Enviar avaliações antigas</button><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v101 — controle de viagens</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1711,7 +1709,6 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
         <div className="admin-tabs" style={{ marginBottom: 16 }}>
           <button className={processTab === "andamento" ? "btn-primary" : "btn-light"} onClick={() => setProcessTab("andamento")}>Processos em andamento</button>
           <button className={processTab === "concluidos" ? "btn-primary" : "btn-light"} onClick={() => setProcessTab("concluidos")}>Processos concluídos</button>
-          <button className={processTab === "antigo" ? "btn-primary" : "btn-light"} onClick={() => setProcessTab("antigo")}>Cadastro antigo</button>
         </div>
 
         <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>

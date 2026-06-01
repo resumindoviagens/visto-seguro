@@ -288,7 +288,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="version">v100D build corrigido</div>
+          <div className="version">v101 controle viagens</div>
         </section>
 
         <section className="login">
