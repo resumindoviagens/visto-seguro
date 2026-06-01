@@ -3,11 +3,13 @@ import { requireAdmin } from "../../../../lib/auth";
 import { getEmailTemplate } from "../../../../lib/emailTemplates";
 import { sendWithBrevo } from "../../../../lib/brevoEmail";
 import { randomBytes } from "crypto";
+import { agendaAttachmentsForClient } from "../../../../lib/agendaAutomation";
 
 
 
 function isPassportTemplate(templateId) { return String(templateId || "").startsWith("passaporte_"); }
 function isPhotoInstructionsTemplate(templateId) { return templateId === "foto_instrucoes"; }
+function isAgendaTemplate(templateId) { return ["agenda_visto", "agenda_videochamada", "passaporte_agenda_pf"].includes(templateId); }
 
 function makeFeedbackToken() {
   return randomBytes(24).toString("hex");
@@ -83,8 +85,12 @@ export async function POST(request) {
       passaporteInstrucoesUrl: `${origin}/passaporte-instrucoes`
     });
 
-    const attachments = [];
+    const attachments = isAgendaTemplate(template_id) ? agendaAttachmentsForClient(clientWithGroup) : [];
     const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, subject: template.subject, html: template.html, text: template.text, attachments });
+
+    if (isAgendaTemplate(template_id)) {
+      await supabaseAdmin.from("clients").update({ agenda_email_pending_at: null }).eq("id", client_id);
+    }
 
     if (["pesquisa_satisfacao", "passaporte_pesquisa", "canada_pesquisa"].includes(template_id)) {
       await supabaseAdmin

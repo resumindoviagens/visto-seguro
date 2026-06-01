@@ -1257,6 +1257,23 @@ function Dashboard({ logout }) {
     await loadClients();
   }
 
+  async function backfillAgendaEmails() {
+    const ok = confirm("Enviar emails de agenda ICS para todos os clientes com datas futuras que ainda não receberam? Esta ação também envia ICS interno para contato@resumindoviagens.com.br.");
+    if (!ok) return;
+
+    const res = await fetch("/api/admin/agenda/backfill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sendClient: true, sendInternal: true })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao enviar agendas.");
+      return;
+    }
+    alert(`Processados: ${data.processed || 0}. Confira os logs/caixa de email.`);
+  }
+
   async function deleteClient(client) {
     const confirmation = prompt(`Para excluir definitivamente o cadastro de ${client.name}, digite EXCLUIR:`);
 
@@ -1597,7 +1614,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v98 — gestão de feedbacks</div><button className="btn-secondary" onClick={logout}>Sair</button></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v99 — agenda ICS e lembretes</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn-light" onClick={backfillAgendaEmails}>Enviar agendas futuras</button><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>

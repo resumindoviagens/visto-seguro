@@ -5,6 +5,7 @@ import { requireAdmin } from "../../../../../lib/auth";
 import { sendWithBrevo } from "../../../../../lib/brevoEmail";
 import { readFileSync } from "fs";
 import path from "path";
+import { agendaAttachmentsForClient } from "../../../../../lib/agendaAutomation";
 
 function isInitialFormTemplate(templateId) {
   return ["formulario", "formulario_pendente", "formulario_recebido"].includes(templateId);
@@ -28,6 +29,14 @@ function isFeedbackTemplate(templateId) {
 
 function isPassportReturnedTemplate(templateId) {
   return templateId === "passaporte_recebido" || templateId === "rastreio";
+}
+
+function isAgendaTemplate(templateId) {
+  return ["agenda_visto", "agenda_videochamada", "passaporte_agenda_pf"].includes(templateId);
+}
+
+function isReminderTemplate(templateId) {
+  return ["lembrete_visto", "lembrete_videochamada", "passaporte_lembrete_pf"].includes(templateId);
 }
 
 function isTemplateAllowedForClient(client, templateId) {
@@ -124,11 +133,15 @@ export async function POST(request) {
       html,
       text,
       tags: ["resumindo-viagens", "editor-email", templateId],
-      attachments: photoAttachmentsForTemplate(templateId)
+      attachments: [
+        ...photoAttachmentsForTemplate(templateId),
+        ...(isAgendaTemplate(templateId) ? agendaAttachmentsForClient(client) : [])
+      ]
     });
 
     const updates = {};
     if (templateId === "pesquisa_satisfacao") updates.stage_feedback_sent = true;
+    if (isAgendaTemplate(templateId)) updates.agenda_email_pending_at = null;
 
     if (Object.keys(updates).length > 0) {
       await supabaseAdmin.from("clients").update(updates).eq("id", clientId);

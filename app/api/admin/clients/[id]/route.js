@@ -1,8 +1,8 @@
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
-import { sendCalendarEmail } from "../../../../../lib/brevoEmail";
 import { requireAdmin } from "../../../../../lib/auth";
 import { createAccessToken } from "../../../../../lib/tokens";
 import { sendInternalAlert, simpleHtml } from "../../../../../lib/brevoEmail";
+import { sendInternalAgendaICS } from "../../../../../lib/agendaAutomation";
 
 function cleanCPF(value) {
   return (value || "").replace(/\D/g, "");
@@ -83,6 +83,14 @@ export async function PATCH(request, context) {
     if (typeof body.passport_pf_location !== "undefined") updates.passport_pf_location = body.passport_pf_location || "";
     if (typeof body.passport_pf_datetime !== "undefined") updates.passport_pf_datetime = body.passport_pf_datetime || null;
     if (typeof body.passport_gru_paid_at !== "undefined") updates.passport_gru_paid_at = body.passport_gru_paid_at || null;
+    if (
+      body.casv_date !== oldClient?.casv_date ||
+      body.interview_date !== oldClient?.interview_date ||
+      body.video_call_date !== oldClient?.video_call_date ||
+      body.passport_pf_datetime !== oldClient?.passport_pf_datetime
+    ) {
+      updates.agenda_email_pending_at = new Date().toISOString();
+    }
   }
 
   if (body.action === "update_process_steps") {
@@ -146,6 +154,18 @@ export async function PATCH(request, context) {
     }
   }
 
+  if (body.action === "update_schedule" && (updates.casv_date || updates.interview_date || updates.video_call_date || updates.passport_pf_datetime)) {
+    try {
+      await sendInternalAgendaICS(data, { mode: "auto" });
+    } catch (icsError) {
+      await supabaseAdmin.from("audit_logs").insert({
+        client_id: params.id,
+        action: "internal_ics_failed",
+        details: { error: icsError?.message || String(icsError) }
+      });
+    }
+  }
+
   return Response.json({ client: data });
 }
 
@@ -157,43 +177,5 @@ export async function DELETE(request, context) {
   const { error } = await supabaseAdmin.from("clients").delete().eq("id", params.id);
   if (error) return Response.json({ error: error.message }, { status: 500 });
   
-  try {
-    if (body.action === "update_schedule") {
-      const events = [];
-      if (body.video_call_date && body.video_call_date !== oldClient?.video_call_date) {
-        events.push({
-          subject: `Agenda — videochamada — ${updates.name || oldClient?.name}`,
-          title: `Videochamada — ${updates.name || oldClient?.name}`,
-          description: `Videochamada agendada para ${updates.name || oldClient?.name}.`,
-          location: "Zoom / WhatsApp",
-          start: body.video_call_date
-        });
-      }
-      if (body.interview_date && body.interview_date !== oldClient?.interview_date) {
-        events.push({
-          subject: `Agenda — entrevista consular — ${updates.name || oldClient?.name}`,
-          title: `Entrevista consular — ${updates.name || oldClient?.name}`,
-          description: `Entrevista consular cadastrada para ${updates.name || oldClient?.name}.`,
-          location: body.consulate_city || oldClient?.consulate_city || "",
-          start: `${body.interview_date}T09:00:00`
-        });
-      }
-      for (const event of events) await sendCalendarEmail(event);
-      if (events.length > 0) {
-        await supabaseAdmin.from("audit_logs").insert({
-          client_id: params.id,
-          action: "calendar_alert_sent",
-          details: { count: events.length }
-        });
-      }
-    }
-  } catch (calendarError) {
-    await supabaseAdmin.from("audit_logs").insert({
-      client_id: params.id,
-      action: "calendar_alert_failed",
-      details: { error: calendarError?.message || String(calendarError) }
-    });
-  }
-
 return Response.json({ ok: true });
 }
