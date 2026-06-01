@@ -1274,6 +1274,36 @@ function Dashboard({ logout }) {
     alert(`Processados: ${data.processed || 0}. Confira os logs/caixa de email.`);
   }
 
+
+  async function migrateLegacyApproved() {
+    const ok = confirm("Migrar TODOS os cadastros antigos para: visto aprovado, passaporte devolvido e processo concluído?");
+    if (!ok) return;
+
+    const res = await fetch("/api/admin/legacy/migrate-approved", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao migrar cadastros antigos.");
+      return;
+    }
+    alert(`Cadastros antigos migrados: ${data.updated || 0}`);
+    await loadClients();
+  }
+
+  async function sendLegacyFeedbackEmails() {
+    const ok = confirm("Enviar email de pesquisa de satisfação para cadastros antigos ainda sem pesquisa enviada/respondida?");
+    if (!ok) return;
+
+    const res = await fetch("/api/admin/legacy/send-feedback", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao enviar pesquisas.");
+      return;
+    }
+    alert(`Pesquisas processadas. Enviadas: ${data.sent || 0}. Falhas: ${data.failed || 0}. Ignoradas: ${data.skipped || 0}.`);
+    await loadClients();
+  }
+
+
   async function deleteClient(client) {
     const confirmation = prompt(`Para excluir definitivamente o cadastro de ${client.name}, digite EXCLUIR:`);
 
@@ -1614,7 +1644,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v99 — agenda ICS e lembretes</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn-light" onClick={backfillAgendaEmails}>Enviar agendas futuras</button><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v100A — cadastro antigo e feedback</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button className="btn-light" onClick={migrateLegacyApproved}>Migrar cadastro antigo</button><button className="btn-light" onClick={sendLegacyFeedbackEmails}>Enviar avaliações antigas</button><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
