@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { requireAdmin } from "../../../../../lib/auth";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { sendWithBrevo } from "../../../../../lib/brevoEmail";
-import { getTravelEmailTemplate } from "../../../../../lib/travelEmailTemplates";
+import { getTravelEmailTemplate, htmlFromEditableText } from "../../../../../lib/travelEmailTemplates";
 import { travelAgendaAttachments } from "../../../../../lib/travelAgenda";
 
 function uniqueRecipients(list) {
@@ -63,10 +63,11 @@ export async function POST(request) {
   if (to.length === 0) return Response.json({ error: "Nenhum destinatário conforme regra escolhida na viagem." }, { status: 400 });
 
   const baseTemplate = getTravelEmailTemplate(template_id, { name: trip.organizer_name || trip.passengers_list?.[0]?.name || "cliente" }, trip, body.options || {});
+  const editableHtml = body.bodyText ? htmlFromEditableText(body.bodyText, body.subject || baseTemplate.subject) : (body.html || baseTemplate.html);
   const template = {
     subject: body.subject || baseTemplate.subject,
-    html: body.html || baseTemplate.html,
-    text: body.text || baseTemplate.text
+    html: editableHtml,
+    text: body.bodyText || body.text || baseTemplate.text
   };
   const attachments = template_id === "travel_calendar" ? travelAgendaAttachments(trip) : [];
 

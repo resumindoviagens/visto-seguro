@@ -1,1 +1,1 @@
-v104 — viagem como centro do cadastro
+v105 — correção de fuso em viagens e editor visual de email

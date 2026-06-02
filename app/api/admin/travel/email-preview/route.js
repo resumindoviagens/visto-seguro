@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { requireAdmin } from "../../../../../lib/auth";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
-import { getTravelEmailTemplate } from "../../../../../lib/travelEmailTemplates";
+import { getTravelEmailTemplate, plainTextFromHtml } from "../../../../../lib/travelEmailTemplates";
 
 function uniqueRecipients(list) {
   const seen = new Set();
@@ -49,6 +49,7 @@ export async function GET(request) {
   return Response.json({
     subject: template.subject,
     html: template.html,
+    bodyText: plainTextFromHtml(template.html),
     text: template.text,
     to: to.map((r) => r.email),
     recipientMode: trip.email_recipient_mode || "all"

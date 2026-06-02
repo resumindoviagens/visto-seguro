@@ -29,13 +29,18 @@ const TRIP_STEPS = [
 
 function formatDateTime(value) {
   if (!value) return "-";
-  try { return new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }); } catch { return value; }
+  const raw = String(value).replace(" ", "T").slice(0, 16);
+  const [datePart, timePart = ""] = raw.split("T");
+  const [y, m, d] = datePart.split("-");
+  if (!y || !m || !d) return raw;
+  return `${d}/${m}/${y}${timePart ? `, ${timePart}` : ""}`;
 }
 
 function formatDate(value) {
   if (!value) return "-";
-  const [y, m, d] = String(value).split("T")[0].split("-");
-  return y && m && d ? `${d}/${m}/${y}` : value;
+  const raw = String(value).slice(0, 10);
+  const [y, m, d] = raw.split("-");
+  return y && m && d ? `${d}/${m}/${y}` : raw;
 }
 
 function toLocal(value) { return value ? String(value).slice(0, 16) : ""; }
@@ -338,6 +343,7 @@ export default function AdminViagensPage() {
         trip,
         templateId,
         subject: data.subject || "",
+        bodyText: data.bodyText || "",
         html: data.html || "",
         to: data.to || [],
         recipientMode: data.recipientMode || "all"
@@ -361,7 +367,7 @@ export default function AdminViagensPage() {
           trip_id: emailComposer.trip.id,
           template_id: emailComposer.templateId,
           subject: emailComposer.subject,
-          html: emailComposer.html
+          bodyText: emailComposer.bodyText
         })
       });
       const data = await res.json();
@@ -595,12 +601,26 @@ export default function AdminViagensPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div>
-                <label style={{ display: "block", fontWeight: 800, marginBottom: 6 }}>HTML editável</label>
-                <textarea style={{ ...inputStyle(), minHeight: 520, fontFamily: "monospace", fontSize: 13 }} value={emailComposer.html} onChange={(e) => setEmailComposer({ ...emailComposer, html: e.target.value })} />
+                <label style={{ display: "block", fontWeight: 800, marginBottom: 6 }}>Texto editável</label>
+                <textarea
+                  style={{ ...inputStyle(), minHeight: 520, fontFamily: "Arial, Helvetica, sans-serif", fontSize: 15, lineHeight: 1.45 }}
+                  value={emailComposer.bodyText}
+                  onChange={(e) => setEmailComposer({ ...emailComposer, bodyText: e.target.value })}
+                />
               </div>
               <div>
-                <label style={{ display: "block", fontWeight: 800, marginBottom: 6 }}>Pré-visualização</label>
-                <iframe title="Pré-visualização email" srcDoc={emailComposer.html} style={{ width: "100%", height: 520, border: "1px solid #e5e7eb", borderRadius: 14, background: "#fff" }} />
+                <label style={{ display: "block", fontWeight: 800, marginBottom: 6 }}>Pré-visualização aproximada</label>
+                <div style={{ height: 520, overflow: "auto", border: "1px solid #e5e7eb", borderRadius: 14, background: "#f4f7fb", padding: 18 }}>
+                  <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 18, overflow: "hidden", boxShadow: "0 12px 28px rgba(15,23,42,.08)" }}>
+                    <div style={{ background: "#1f2a60", color: "#fff", padding: 22 }}>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: "#ffb233", letterSpacing: .8 }}>RESUMINDO VIAGENS</div>
+                      <h2 style={{ margin: "8px 0 0", fontSize: 24 }}>{emailComposer.subject}</h2>
+                    </div>
+                    <div style={{ padding: 24, fontSize: 16, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+                      {emailComposer.bodyText}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 

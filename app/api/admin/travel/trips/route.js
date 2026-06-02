@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { requireAdmin } from "../../../../../lib/auth";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
+import { localDateTimeForDb, localDateForDb } from "../../../../../lib/travelDateUtils";
 
 function arrayServices(value) {
   if (Array.isArray(value)) return value;
@@ -29,27 +30,27 @@ function cleanPayload(body) {
     buyer_name: body.organizer_name || body.buyer_name || "",
     buyer_email: body.organizer_email || body.buyer_email || "",
     buyer_phone: body.organizer_phone || body.buyer_phone || "",
-    outbound_date: body.outbound_date || null,
+    outbound_date: localDateTimeForDb(body.outbound_date),
     outbound_airline: body.outbound_airline || "",
     outbound_flight: body.outbound_flight || "",
     booking_locator: body.booking_locator || "",
     has_return: !!body.has_return,
-    return_date: body.return_date || null,
+    return_date: localDateTimeForDb(body.return_date),
     return_airline: body.return_airline || "",
     return_flight: body.return_flight || "",
     return_booking_locator: body.return_booking_locator || "",
     hotel_name: body.hotel_name || "",
     hotel_address: body.hotel_address || "",
-    hotel_checkin: body.hotel_checkin || null,
-    hotel_checkout: body.hotel_checkout || null,
+    hotel_checkin: localDateForDb(body.hotel_checkin),
+    hotel_checkout: localDateForDb(body.hotel_checkout),
     hotel_confirmation: body.hotel_confirmation || "",
     car_company: body.car_company || "",
-    car_pickup: body.car_pickup || null,
-    car_return: body.car_return || null,
+    car_pickup: localDateTimeForDb(body.car_pickup),
+    car_return: localDateTimeForDb(body.car_return),
     car_confirmation: body.car_confirmation || "",
     insurance_company: body.insurance_company || "",
     insurance_policy: body.insurance_policy || "",
-    insurance_valid_until: body.insurance_valid_until || null,
+    insurance_valid_until: localDateForDb(body.insurance_valid_until),
     tickets_notes: body.tickets_notes || "",
     notes: body.notes || "",
     stage_created: true,
