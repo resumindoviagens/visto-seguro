@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { requireAdmin } from "../../../../../lib/auth";
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { localDateTimeForDb, localDateForDb } from "../../../../../lib/travelDateUtils";
+import { sendTravelCalendarIfNeeded } from "../../../../../lib/travelAutomation";
 
 function arrayServices(value) {
   if (Array.isArray(value)) return value;
@@ -62,6 +63,7 @@ function cleanPayload(body) {
     stage_checkin_available: !!body.stage_checkin_available,
     stage_trip_started: !!body.stage_trip_started,
     stage_trip_finished: !!body.stage_trip_finished,
+    automation_enabled: body.automation_enabled !== false,
     updated_at: new Date().toISOString()
   };
 }
@@ -141,6 +143,15 @@ export async function POST(request) {
     return Response.json({ error: passengerError.message }, { status: 500 });
   }
 
+  try {
+    await sendTravelCalendarIfNeeded(data.id);
+  } catch (calendarError) {
+    await supabaseAdmin.from("audit_logs").insert({
+      action: "travel_calendar_auto_failed",
+      details: { trip_id: data.id, error: calendarError?.message || String(calendarError) }
+    });
+  }
+
   return Response.json({ trip: data });
 }
 
@@ -173,6 +184,15 @@ export async function PATCH(request) {
     await replacePassengers(data.id, passengers);
   } catch (passengerError) {
     return Response.json({ error: passengerError.message }, { status: 500 });
+  }
+
+  try {
+    await sendTravelCalendarIfNeeded(data.id);
+  } catch (calendarError) {
+    await supabaseAdmin.from("audit_logs").insert({
+      action: "travel_calendar_auto_failed",
+      details: { trip_id: data.id, error: calendarError?.message || String(calendarError) }
+    });
   }
 
   return Response.json({ trip: data });

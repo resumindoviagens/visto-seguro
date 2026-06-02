@@ -92,6 +92,7 @@ function emptyTrip() {
     organizer_phone: "",
     organizer_is_passenger: false,
     email_recipient_mode: "all",
+    automation_enabled: true,
     outbound_date: "",
     outbound_airline: "",
     outbound_flight: "",
@@ -149,6 +150,7 @@ function tripToForm(trip) {
     organizer_phone: trip.organizer_phone || trip.buyer_phone || "",
     organizer_is_passenger: !!trip.organizer_is_passenger,
     email_recipient_mode: trip.email_recipient_mode || "all",
+    automation_enabled: trip.automation_enabled !== false,
     outbound_date: toLocal(trip.outbound_date),
     outbound_airline: trip.outbound_airline || "",
     outbound_flight: trip.outbound_flight || "",
@@ -353,6 +355,20 @@ export default function AdminViagensPage() {
     }
   }
 
+  function emailStatusLabel(trip, field) {
+    return trip[field] ? `✓ ${formatDateTime(trip[field])}` : "○ não enviado";
+  }
+
+  async function runTravelAutomationNow() {
+    const ok = confirm("Executar agora a automação de emails de viagens? Isso enviará apenas emails que estiverem dentro das janelas programadas e ainda não enviados.");
+    if (!ok) return;
+    const res = await fetch("/api/admin/travel/run-automation", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || "Erro ao executar automação.");
+    alert(`Automação processada. Viagens verificadas: ${data.processed || 0}. Emails/ações: ${(data.results || []).length}.`);
+    await load();
+  }
+
   async function sendTravelEmail() {
     if (!emailComposer) return;
     const ok = confirm(`Enviar este email para ${emailComposer.to.length || 0} destinatário(s)?`);
@@ -385,6 +401,7 @@ export default function AdminViagensPage() {
       <div style={{ background: "#1f2a60", color: "#fff", borderRadius: 24, padding: 26, marginBottom: 22 }}>
         <h1 style={{ margin: 0, fontSize: 34 }}>Administração de Viagens</h1>
         <p style={{ margin: "8px 0 0", opacity: .95 }}>A viagem agora é o centro do cadastro. Cada viagem pode ter de 1 a 9 passageiros e um organizador externo.</p>
+        <button onClick={runTravelAutomationNow} style={{ marginTop: 16, background: "#ff9800", color: "#fff", border: 0, borderRadius: 12, padding: "11px 14px", fontWeight: 900 }}>Rodar automação de viagens agora</button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 380px) 1fr", gap: 18, alignItems: "start" }}>
@@ -471,6 +488,15 @@ export default function AdminViagensPage() {
                   <label><input type="radio" name="recipients" checked={tripForm.email_recipient_mode === "passengers"} onChange={() => setTripForm({ ...tripForm, email_recipient_mode: "passengers" })} /> Todos os passageiros</label>
                   <label><input type="radio" name="recipients" checked={tripForm.email_recipient_mode === "all"} onChange={() => setTripForm({ ...tripForm, email_recipient_mode: "all" })} /> Passageiros + organizador</label>
                 </div>
+                <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#f8fafc", border: "1px solid #e5e7eb" }}>
+                  <label style={{ display: "inline-flex", gap: 8, alignItems: "center", fontWeight: 800 }}>
+                    <input type="checkbox" checked={tripForm.automation_enabled !== false} onChange={(e) => setTripForm({ ...tripForm, automation_enabled: e.target.checked })} />
+                    Enviar automaticamente os emails de viagem nas antecedências programadas
+                  </label>
+                  <div style={{ fontSize: 13, color: "#64748b", marginTop: 6 }}>
+                    Ao criar a viagem, a agenda/calendário é enviada automaticamente. Depois o cron envia check-in, dia do voo e lembretes conforme as datas.
+                  </div>
+                </div>
               </details>
 
               <div>
@@ -549,6 +575,15 @@ export default function AdminViagensPage() {
                 <h3 style={{ margin: "0 0 6px" }}>{trip.title}</h3>
                 <p style={{ margin: "0 0 8px", color: "#4b5563" }}>{trip.destination || "-"} · {trip.passenger_count || trip.passengers_list?.length || 1} passageiro(s) · {trip.services?.join(", ") || "sem serviços marcados"}</p>
                 <p><strong>Organizador:</strong> {trip.organizer_name || "-"} {trip.organizer_email && `· ${trip.organizer_email}`} · <strong>Envio:</strong> {trip.email_recipient_mode === "organizer" ? "apenas organizador" : trip.email_recipient_mode === "passengers" ? "passageiros" : "passageiros + organizador"}</p>
+                <p><strong>Automação:</strong> {trip.automation_enabled === false ? "desativada" : "ativada"}</p>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8, background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: 12, padding: 10, marginBottom: 10, fontSize: 13 }}>
+                  <div><strong>Agenda:</strong><br />{emailStatusLabel(trip, "calendar_email_sent_at")}</div>
+                  <div><strong>Oferta/checklist:</strong><br />{emailStatusLabel(trip, "offer_email_sent_at")}</div>
+                  <div><strong>Check-in ida:</strong><br />{emailStatusLabel(trip, "checkin_outbound_email_sent_at")}</div>
+                  <div><strong>Check-in volta:</strong><br />{emailStatusLabel(trip, "checkin_return_email_sent_at")}</div>
+                  <div><strong>Dia do voo ida:</strong><br />{emailStatusLabel(trip, "airport_outbound_email_sent_at")}</div>
+                  <div><strong>Dia do voo volta:</strong><br />{emailStatusLabel(trip, "airport_return_email_sent_at")}</div>
+                </div>
                 <details style={{ marginBottom: 8 }}>
                   <summary style={{ cursor: "pointer", fontWeight: 800 }}>Passageiros</summary>
                   <ol>
