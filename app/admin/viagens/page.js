@@ -200,20 +200,24 @@ export default function AdminViagensPage() {
   const [loading, setLoading] = useState(false);
   const [emailComposer, setEmailComposer] = useState(null);
   const [emailLoading, setEmailLoading] = useState(false);
+  const [dashboard, setDashboard] = useState(null);
 
   async function load() {
-    const [customersRes, tripsRes] = await Promise.all([
+    const [customersRes, tripsRes, dashboardRes] = await Promise.all([
       fetch("/api/admin/travel/customers", { cache: "no-store" }),
-      fetch("/api/admin/travel/trips", { cache: "no-store" })
+      fetch("/api/admin/travel/trips", { cache: "no-store" }),
+      fetch("/api/admin/travel/dashboard", { cache: "no-store" })
     ]);
     const customersData = await customersRes.json();
     const tripsData = await tripsRes.json();
+    const dashboardData = await dashboardRes.json();
 
     if (!customersRes.ok) return alert(customersData.error || "Erro ao carregar clientes de viagem.");
     if (!tripsRes.ok) return alert(tripsData.error || "Erro ao carregar viagens.");
 
     setCustomers(customersData.customers || []);
     setTrips(tripsData.trips || []);
+    if (dashboardRes.ok) setDashboard(dashboardData);
   }
 
   useEffect(() => { load(); }, []);
@@ -396,6 +400,29 @@ export default function AdminViagensPage() {
     }
   }
 
+  function dashboardCard(label, value, detail, tone = "#1f2a60") {
+    return (
+      <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 16, boxShadow: "0 10px 24px rgba(15,23,42,.05)" }}>
+        <div style={{ fontSize: 13, color: "#64748b", fontWeight: 800 }}>{label}</div>
+        <div style={{ fontSize: 30, color: tone, fontWeight: 950, marginTop: 4 }}>{value ?? 0}</div>
+        {detail && <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{detail}</div>}
+      </div>
+    );
+  }
+
+  function dashboardList(title, items, empty = "Nada pendente.") {
+    return (
+      <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 16 }}>
+        <strong style={{ color: "#1f2a60" }}>{title}</strong>
+        {(!items || items.length === 0) ? <p style={{ color: "#64748b", marginBottom: 0 }}>{empty}</p> : (
+          <ul style={{ marginBottom: 0, paddingLeft: 18 }}>
+            {items.map((item) => <li key={item.id || item.travel_trip_id || item.sent_at}>{item.title || item.template_id || "Registro"} {item.destination ? `— ${item.destination}` : ""}</li>)}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
   return (
     <main style={{ maxWidth: 1280, margin: "0 auto", padding: 24, fontFamily: "Arial, Helvetica, sans-serif", color: "#1f2937" }}>
       <div style={{ background: "#1f2a60", color: "#fff", borderRadius: 24, padding: 26, marginBottom: 22 }}>
@@ -403,6 +430,27 @@ export default function AdminViagensPage() {
         <p style={{ margin: "8px 0 0", opacity: .95 }}>A viagem agora é o centro do cadastro. Cada viagem pode ter de 1 a 9 passageiros e um organizador externo.</p>
         <button onClick={runTravelAutomationNow} style={{ marginTop: 16, background: "#ff9800", color: "#fff", border: 0, borderRadius: 12, padding: "11px 14px", fontWeight: 900 }}>Rodar automação de viagens agora</button>
       </div>
+
+      {dashboard && (
+        <section style={{ marginBottom: 22 }}>
+          <h2 style={{ color: "#1f2a60" }}>Dashboard de Viagens</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(155px, 1fr))", gap: 12, marginBottom: 14 }}>
+            {dashboardCard("Viagens ativas", dashboard.totals.active, `${dashboard.totals.trips} no total`)}
+            {dashboardCard("Embarque hoje", dashboard.totals.todayFlights, "Voos nas próximas 24h", "#b45309")}
+            {dashboardCard("Check-in 48h", dashboard.totals.checkinWindow, "Dentro da janela", "#ff9800")}
+            {dashboardCard("Falta localizador", dashboard.totals.missingLocator, "Risco para check-in", "#dc2626")}
+            {dashboardCard("Falta hotel", dashboard.totals.missingHotel, "Serviço marcado sem hotel", "#7c3aed")}
+            {dashboardCard("Falta seguro", dashboard.totals.missingInsurance, "Serviço marcado sem apólice", "#0f766e")}
+            {dashboardCard("Emails 24h", dashboard.totals.emailsLast24h, `${dashboard.totals.emailErrorsLast24h} erro(s)`, "#166534")}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+            {dashboardList("Embarques hoje", dashboard.lists.todayFlights)}
+            {dashboardList("Check-in na janela", dashboard.lists.checkinWindow)}
+            {dashboardList("Falta localizador", dashboard.lists.missingLocator)}
+            {dashboardList("Emails recentes", dashboard.lists.recentEmails)}
+          </div>
+        </section>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 380px) 1fr", gap: 18, alignItems: "start" }}>
         <section style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 18, padding: 18 }}>

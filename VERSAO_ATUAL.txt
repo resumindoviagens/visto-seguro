@@ -1,1 +1,1 @@
-v106 — automação de emails de viagens
+v107 — dashboard de viagens e cron automático
