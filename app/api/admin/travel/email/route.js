@@ -6,12 +6,26 @@ import { sendWithBrevo } from "../../../../../lib/brevoEmail";
 import { getTravelEmailTemplate } from "../../../../../lib/travelEmailTemplates";
 import { travelAgendaAttachments } from "../../../../../lib/travelAgenda";
 
-function recipients(customer, trip) {
-  const list = [];
-  if (customer?.email) list.push({ email: customer.email, name: customer.name });
-  if (customer?.alert_email && customer.alert_email !== customer.email) list.push({ email: customer.alert_email, name: trip.buyer_name || customer.name });
-  if (trip?.buyer_email && !list.some((item) => item.email === trip.buyer_email)) list.push({ email: trip.buyer_email, name: trip.buyer_name || customer.name });
-  return list;
+function uniqueRecipients(list) {
+  const seen = new Set();
+  return list
+    .filter((item) => item?.email && String(item.email).includes("@"))
+    .filter((item) => {
+      const email = String(item.email).trim().toLowerCase();
+      if (seen.has(email)) return false;
+      seen.add(email);
+      return true;
+    });
+}
+
+function recipients(trip) {
+  const mode = trip.email_recipient_mode || "all";
+  const passengers = (trip.travel_trip_passengers || trip.passengers_list || []).map((p) => ({ email: p.email, name: p.name }));
+  const organizer = trip.organizer_email ? [{ email: trip.organizer_email, name: trip.organizer_name || "Organizador da viagem" }] : [];
+
+  if (mode === "organizer") return uniqueRecipients(organizer);
+  if (mode === "passengers") return uniqueRecipients(passengers);
+  return uniqueRecipients([...passengers, ...organizer]);
 }
 
 function updateFieldForTemplate(templateId) {
@@ -37,17 +51,23 @@ export async function POST(request) {
 
   const { data: trip, error } = await supabaseAdmin
     .from("travel_trips")
-    .select("*, travel_customers(*)")
+    .select("*, travel_trip_passengers(*)")
     .eq("id", trip_id)
     .maybeSingle();
 
   if (error || !trip) return Response.json({ error: "Viagem não encontrada." }, { status: 404 });
 
-  const customer = trip.travel_customers;
-  const to = recipients(customer, trip);
-  if (to.length === 0) return Response.json({ error: "Nenhum email cadastrado para cliente/comprador." }, { status: 400 });
+  trip.passengers_list = (trip.travel_trip_passengers || []).sort((a, b) => (a.passenger_order || 0) - (b.passenger_order || 0));
 
-  const template = getTravelEmailTemplate(template_id, customer, trip, body.options || {});
+  const to = recipients(trip);
+  if (to.length === 0) return Response.json({ error: "Nenhum destinatário conforme regra escolhida na viagem." }, { status: 400 });
+
+  const baseTemplate = getTravelEmailTemplate(template_id, { name: trip.organizer_name || trip.passengers_list?.[0]?.name || "cliente" }, trip, body.options || {});
+  const template = {
+    subject: body.subject || baseTemplate.subject,
+    html: body.html || baseTemplate.html,
+    text: body.text || baseTemplate.text
+  };
   const attachments = template_id === "travel_calendar" ? travelAgendaAttachments(trip) : [];
 
   const results = [];
@@ -71,7 +91,7 @@ export async function POST(request) {
 
   await supabaseAdmin.from("audit_logs").insert({
     action: "travel_email_sent",
-    details: { trip_id, template_id, results }
+    details: { trip_id, template_id, recipients: results.map((r) => r.to), results }
   });
 
   return Response.json({ ok: true, sent: results.length, results });
