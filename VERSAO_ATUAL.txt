@@ -1,1 +1,1 @@
-v105 — correção de fuso em viagens e editor visual de email
+v106 — automação de emails de viagens
