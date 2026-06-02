@@ -4,6 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 
 const SERVICE_OPTIONS = ["Passagem aérea", "Hotel", "Seguro viagem", "Locação de carro", "Ingressos", "Cruzeiro", "Pacote"];
 
+const TRAVEL_EMAILS = [
+  ["travel_calendar", "Enviar agenda/calendário"],
+  ["travel_confirmation", "Confirmação da compra/reserva"],
+  ["travel_missing_services", "Oferecer seguro/hotel/carro/ingressos"],
+  ["travel_checkin_outbound", "Check-in ida 48h"],
+  ["travel_checkin_return", "Check-in volta/outro trecho 48h"],
+  ["travel_airport_outbound", "Dia do voo ida"],
+  ["travel_airport_return", "Dia do voo volta/outro trecho"],
+  ["travel_week_before", "Uma semana antes: falta algo?"]
+];
+
 const TRIP_STEPS = [
   ["stage_created", "Viagem criada"],
   ["stage_air_issued", "Passagem emitida"],
@@ -48,10 +59,12 @@ function emptyTrip(customerId = "") {
     outbound_date: "",
     outbound_airline: "",
     outbound_flight: "",
+    booking_locator: "",
     has_return: false,
     return_date: "",
     return_airline: "",
     return_flight: "",
+    return_booking_locator: "",
     hotel_name: "",
     hotel_address: "",
     hotel_checkin: "",
@@ -148,6 +161,24 @@ export default function AdminViagensPage() {
     }
   }
 
+  async function sendTravelEmail(trip, templateId) {
+    const ok = confirm(`Enviar email "${templateId}" para ${selected?.name || "cliente"}?`);
+    if (!ok) return;
+
+    const res = await fetch("/api/admin/travel/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trip_id: trip.id, template_id: templateId })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Erro ao enviar email da viagem.");
+      return;
+    }
+    alert(`Email enviado para ${data.sent || 0} destinatário(s).`);
+    await load();
+  }
+
   function toggleService(service) {
     const current = tripForm.services || [];
     const next = current.includes(service) ? current.filter((item) => item !== service) : [...current, service];
@@ -241,10 +272,11 @@ export default function AdminViagensPage() {
                 </div>
 
                 <h3>Passagem aérea</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
                   <label>Ida<input type="datetime-local" value={tripForm.outbound_date} onChange={(e) => setTripForm({ ...tripForm, outbound_date: e.target.value })} /></label>
                   <input placeholder="Cia aérea ida" value={tripForm.outbound_airline} onChange={(e) => setTripForm({ ...tripForm, outbound_airline: e.target.value })} />
                   <input placeholder="Voo ida" value={tripForm.outbound_flight} onChange={(e) => setTripForm({ ...tripForm, outbound_flight: e.target.value })} />
+                  <input placeholder="Localizador da reserva" value={tripForm.booking_locator} onChange={(e) => setTripForm({ ...tripForm, booking_locator: e.target.value })} />
                 </div>
 
                 <label style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
@@ -253,10 +285,11 @@ export default function AdminViagensPage() {
                 </label>
 
                 {tripForm.has_return && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
                     <label>Volta / outro trecho<input type="datetime-local" value={tripForm.return_date} onChange={(e) => setTripForm({ ...tripForm, return_date: e.target.value })} /></label>
                     <input placeholder="Cia aérea volta" value={tripForm.return_airline} onChange={(e) => setTripForm({ ...tripForm, return_airline: e.target.value })} />
                     <input placeholder="Voo volta" value={tripForm.return_flight} onChange={(e) => setTripForm({ ...tripForm, return_flight: e.target.value })} />
+                    <input placeholder="Localizador volta/outro trecho" value={tripForm.return_booking_locator} onChange={(e) => setTripForm({ ...tripForm, return_booking_locator: e.target.value })} />
                   </div>
                 )}
 
@@ -305,9 +338,17 @@ export default function AdminViagensPage() {
               <article key={trip.id} style={{ border: "1px solid #e5e7eb", borderRadius: 16, padding: 16, marginBottom: 12 }}>
                 <h3 style={{ margin: "0 0 6px" }}>{trip.title}</h3>
                 <p style={{ margin: "0 0 8px", color: "#4b5563" }}>{trip.destination || "-"} · {trip.services?.join(", ") || "sem serviços marcados"}</p>
-                <p><strong>Ida:</strong> {formatDateTime(trip.outbound_date)} {trip.outbound_airline && `· ${trip.outbound_airline}`} {trip.outbound_flight && `· ${trip.outbound_flight}`}</p>
-                {trip.has_return && <p><strong>Volta/outro trecho:</strong> {formatDateTime(trip.return_date)} {trip.return_airline && `· ${trip.return_airline}`} {trip.return_flight && `· ${trip.return_flight}`}</p>}
+                <p><strong>Ida:</strong> {formatDateTime(trip.outbound_date)} {trip.outbound_airline && `· ${trip.outbound_airline}`} {trip.outbound_flight && `· ${trip.outbound_flight}`} {trip.booking_locator && `· Localizador ${trip.booking_locator}`}</p>
+                {trip.has_return && <p><strong>Volta/outro trecho:</strong> {formatDateTime(trip.return_date)} {trip.return_airline && `· ${trip.return_airline}`} {trip.return_flight && `· ${trip.return_flight}`} {trip.return_booking_locator && `· Localizador ${trip.return_booking_locator}`}</p>}
                 {trip.hotel_name && <p><strong>Hotel:</strong> {trip.hotel_name} · {formatDate(trip.hotel_checkin)} a {formatDate(trip.hotel_checkout)}</p>}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12, marginBottom: 10 }}>
+                  {TRAVEL_EMAILS.map(([id, label]) => (
+                    <button key={id} onClick={() => sendTravelEmail(trip, id)} style={{ border: "1px solid #d1d5db", background: "#fff", borderRadius: 10, padding: "8px 10px", fontWeight: 700 }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
                 <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 10 }}>
                   {TRIP_STEPS.map(([key, label]) => (
                     <span key={key} style={{ padding: "6px 9px", borderRadius: 999, background: trip[key] ? "#dcfce7" : "#f1f5f9", color: trip[key] ? "#166534" : "#475569", fontSize: 12, fontWeight: 800 }}>
