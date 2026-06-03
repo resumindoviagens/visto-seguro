@@ -54,6 +54,7 @@ function passengerFromCustomer(customer, order) {
   return {
     travel_customer_id: customer?.id || "",
     passenger_order: order,
+    reservation_name: customer?.name || "",
     name: customer?.name || "",
     email: customer?.email || "",
     phone: customer?.phone || "",
@@ -66,6 +67,7 @@ function blankPassenger(order) {
   return {
     travel_customer_id: "",
     passenger_order: order,
+    reservation_name: "",
     name: "",
     email: "",
     phone: "",
@@ -138,6 +140,7 @@ function tripToForm(trip) {
     passengers_list: makePassengers(count, passengers.map((p, index) => ({
       travel_customer_id: p.travel_customer_id || "",
       passenger_order: index + 1,
+      reservation_name: p.reservation_name || p.name || "",
       name: p.name || "",
       email: p.email || "",
       phone: p.phone || "",
@@ -259,10 +262,35 @@ export default function AdminViagensPage() {
     }
   }
 
+  function passengerCustomerStatus(passenger) {
+    if (passenger.travel_customer_id) return "✓ Cliente vinculado";
+    const missing = [];
+    if (!String(passenger.name || "").trim()) missing.push("nome");
+    if (!String(passenger.cpf || "").replace(/\D/g, "")) missing.push("CPF");
+    if (!passenger.birth_date) missing.push("data de nascimento");
+    if (missing.length === 0) return "✓ Será criado como cliente ao salvar";
+    return `⚠ Passageiro temporário — falta ${missing.join(", ")} para virar cliente`;
+  }
+
+  function confirmMissingCustomerInfo(validPassengers) {
+    const missing = validPassengers
+      .map((p, index) => ({ index: index + 1, status: passengerCustomerStatus(p) }))
+      .filter((item) => item.status.includes("temporário"));
+
+    if (missing.length === 0) return true;
+
+    const text = missing.map((item) => `Passageiro ${item.index}: ${item.status}`).join("\n");
+    return confirm(
+      `Alguns passageiros ficarão apenas vinculados a esta viagem e NÃO virarão cadastro de cliente agora:\n\n${text}\n\n` +
+      `Para virar cliente automaticamente, informe nome, CPF e data de nascimento.\n\nDeseja salvar assim mesmo?`
+    );
+  }
+
   async function saveTrip() {
     if (!tripForm.title) return alert("Informe o título da viagem.");
     const validPassengers = tripForm.passengers_list.filter((p) => p.name || p.travel_customer_id);
     if (validPassengers.length === 0) return alert("Informe ao menos um passageiro.");
+    if (!confirmMissingCustomerInfo(validPassengers)) return;
 
     setLoading(true);
     try {
@@ -511,8 +539,12 @@ export default function AdminViagensPage() {
                           <option key={customer.id} value={customer.id}>{customer.name} — {customer.email || "sem email"}</option>
                         ))}
                       </select>
-                      <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 8 }}>
-                        <input style={inputStyle()} placeholder="Nome" value={passenger.name || ""} onChange={(e) => updatePassenger(index, { name: e.target.value, travel_customer_id: "" })} />
+                      <div style={{ fontSize: 13, color: passengerCustomerStatus(passenger).startsWith("✓") ? "#166534" : "#b45309", fontWeight: 800, marginBottom: 8 }}>
+                        {passengerCustomerStatus(passenger)}
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.2fr 1fr", gap: 8 }}>
+                        <input style={inputStyle()} placeholder="Nome completo do cliente" value={passenger.name || ""} onChange={(e) => updatePassenger(index, { name: e.target.value, travel_customer_id: "" })} />
+                        <input style={inputStyle()} placeholder="Nome como consta na reserva" value={passenger.reservation_name || ""} onChange={(e) => updatePassenger(index, { reservation_name: e.target.value })} />
                         <input style={inputStyle()} placeholder="Email" value={passenger.email || ""} onChange={(e) => updatePassenger(index, { email: e.target.value })} />
                         <input style={inputStyle()} placeholder="Telefone" value={passenger.phone || ""} onChange={(e) => updatePassenger(index, { phone: e.target.value })} />
                         <input style={inputStyle()} placeholder="CPF" value={passenger.cpf || ""} onChange={(e) => updatePassenger(index, { cpf: e.target.value })} />
@@ -635,7 +667,7 @@ export default function AdminViagensPage() {
                 <details style={{ marginBottom: 8 }}>
                   <summary style={{ cursor: "pointer", fontWeight: 800 }}>Passageiros</summary>
                   <ol>
-                    {(trip.passengers_list || []).map((p) => <li key={p.id || p.passenger_order}>{p.name} {p.email && `— ${p.email}`}</li>)}
+                    {(trip.passengers_list || []).map((p) => <li key={p.id || p.passenger_order}>{p.name} {p.reservation_name && p.reservation_name !== p.name ? `(reserva: ${p.reservation_name})` : ""} {p.email && `— ${p.email}`} {p.customer_link_status === "created" ? " — cliente criado" : p.customer_link_status === "temporary" ? " — temporário" : ""}</li>)}
                   </ol>
                 </details>
                 <p><strong>Ida:</strong> {formatDateTime(trip.outbound_date)} {trip.outbound_airline && `· ${trip.outbound_airline}`} {trip.outbound_flight && `· ${trip.outbound_flight}`} {trip.booking_locator && `· Localizador ${trip.booking_locator}`}</p>

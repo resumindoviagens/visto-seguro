@@ -15,6 +15,56 @@ function cleanCPF(value) {
   return String(value || "").replace(/\D/g, "");
 }
 
+
+function missingFieldsForCustomer(passenger) {
+  const missing = [];
+  if (!String(passenger.name || "").trim()) missing.push("nome");
+  if (!cleanCPF(passenger.cpf)) missing.push("cpf");
+  if (!passenger.birth_date) missing.push("data_nascimento");
+  return missing;
+}
+
+async function findOrCreateTravelCustomer(passenger) {
+  if (passenger.travel_customer_id) {
+    return { customerId: passenger.travel_customer_id, status: "linked", missing: [] };
+  }
+
+  const missing = missingFieldsForCustomer(passenger);
+  if (missing.length > 0) {
+    return { customerId: null, status: "temporary", missing };
+  }
+
+  const cpf = cleanCPF(passenger.cpf);
+
+  const { data: existingByCpf, error: cpfError } = await supabaseAdmin
+    .from("travel_customers")
+    .select("id")
+    .eq("cpf", cpf)
+    .limit(1);
+
+  if (cpfError) throw cpfError;
+  if ((existingByCpf || []).length > 0) {
+    return { customerId: existingByCpf[0].id, status: "linked", missing: [] };
+  }
+
+  const { data: created, error: createError } = await supabaseAdmin
+    .from("travel_customers")
+    .insert({
+      name: passenger.name,
+      email: passenger.email || "",
+      phone: passenger.phone || "",
+      cpf,
+      birth_date: passenger.birth_date,
+      notes: "Criado automaticamente a partir de passageiro cadastrado em viagem.",
+      updated_at: new Date().toISOString()
+    })
+    .select("id")
+    .single();
+
+  if (createError) throw createError;
+  return { customerId: created.id, status: "created", missing: [] };
+}
+
 function cleanPayload(body) {
   return {
     title: body.title,
@@ -68,16 +118,23 @@ function cleanPayload(body) {
   };
 }
 
-function cleanPassenger(passenger, index, tripId) {
+async function cleanPassenger(passenger, index, tripId) {
+  const link = await findOrCreateTravelCustomer(passenger);
+  const missing = link.missing || [];
+  const reservationName = passenger.reservation_name || passenger.name || `Passageiro ${index + 1}`;
+
   return {
     travel_trip_id: tripId,
-    travel_customer_id: passenger.travel_customer_id || null,
+    travel_customer_id: link.customerId,
     passenger_order: Number(passenger.passenger_order || index + 1),
-    name: passenger.name || `Passageiro ${index + 1}`,
+    name: passenger.name || reservationName,
+    reservation_name: reservationName,
     email: passenger.email || "",
     phone: passenger.phone || "",
     cpf: cleanCPF(passenger.cpf),
     birth_date: passenger.birth_date || null,
+    customer_link_status: link.status,
+    missing_customer_fields: missing,
     is_primary: index === 0,
     updated_at: new Date().toISOString()
   };
@@ -85,9 +142,8 @@ function cleanPassenger(passenger, index, tripId) {
 
 async function replacePassengers(tripId, passengers = []) {
   await supabaseAdmin.from("travel_trip_passengers").delete().eq("travel_trip_id", tripId);
-  const clean = passengers
-    .filter((p) => p && (p.name || p.travel_customer_id))
-    .map((p, index) => cleanPassenger(p, index, tripId));
+  const filtered = passengers.filter((p) => p && (p.name || p.reservation_name || p.travel_customer_id));
+  const clean = await Promise.all(filtered.map((p, index) => cleanPassenger(p, index, tripId)));
 
   if (clean.length > 0) {
     const { error } = await supabaseAdmin.from("travel_trip_passengers").insert(clean);
@@ -139,6 +195,17 @@ export async function POST(request) {
 
   try {
     await replacePassengers(data.id, passengers);
+    const { data: firstPassenger } = await supabaseAdmin
+      .from("travel_trip_passengers")
+      .select("travel_customer_id")
+      .eq("travel_trip_id", data.id)
+      .not("travel_customer_id", "is", null)
+      .order("passenger_order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (firstPassenger?.travel_customer_id) {
+      await supabaseAdmin.from("travel_trips").update({ travel_customer_id: firstPassenger.travel_customer_id }).eq("id", data.id);
+    }
   } catch (passengerError) {
     return Response.json({ error: passengerError.message }, { status: 500 });
   }
@@ -182,6 +249,17 @@ export async function PATCH(request) {
 
   try {
     await replacePassengers(data.id, passengers);
+    const { data: firstPassenger } = await supabaseAdmin
+      .from("travel_trip_passengers")
+      .select("travel_customer_id")
+      .eq("travel_trip_id", data.id)
+      .not("travel_customer_id", "is", null)
+      .order("passenger_order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (firstPassenger?.travel_customer_id) {
+      await supabaseAdmin.from("travel_trips").update({ travel_customer_id: firstPassenger.travel_customer_id }).eq("id", data.id);
+    }
   } catch (passengerError) {
     return Response.json({ error: passengerError.message }, { status: 500 });
   }

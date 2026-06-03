@@ -235,7 +235,7 @@ function Field({ field, questionNumber, value, onChange }) {
   const label = <><span style={{ color:"var(--orange)", fontWeight:900 }}>{questionNumber}</span> {field.label}<HelpIcon text={field.help} /></>;
   if (field.type === "select") return <div className={className}><label>{label}</label><select value={value || ""} onChange={(e) => onChange(field.id, e.target.value)}><option value="">Selecione</option>{field.options.map((o) => <option key={o}>{o}</option>)}</select></div>;
   if (field.type === "radio") return <div className={className}><label>{label}</label><div className="radio">{field.options.map((o) => <label key={o}><input type="radio" checked={value === o} onChange={() => onChange(field.id, o)} /> {o}</label>)}</div></div>;
-  if (field.type === "textarea") return <div className={className}><label>{label}</label><textarea value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} /></div>;
+  if (field.type === "textarea") return <div className={className}><label>{label}</label><textarea rows={field.rows || undefined} style={field.rows ? { minHeight: field.rows * 24 } : undefined} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} /></div>;
   if (field.type === "checkbox") return <div className={className}><label><input style={{ width:"auto" }} type="checkbox" checked={!!value} onChange={(e) => onChange(field.id, e.target.checked)} /><span style={{ color:"var(--orange)", fontWeight:900 }}>{questionNumber}</span> {field.label}<HelpIcon text={field.help} /></label></div>;
   return <div className={className}><label>{label}</label><input type={field.type} value={value || ""} onChange={(e) => onChange(field.id, e.target.value)} /></div>;
 }
