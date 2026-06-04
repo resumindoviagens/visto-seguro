@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { hasClientAccess } from "../../../../../lib/clientAuth";
+import { extractDocumentData } from "../../../../../lib/documentExtraction";
 
 const BUCKET = "resumindo-docs";
 
@@ -101,7 +102,8 @@ export async function POST(request, context) {
 
   if (uploadError) return Response.json({ error: uploadError.message }, { status: 500 });
 
-  const extracted = basicExtractionPlaceholder(documentType);
+  const extraction = await extractDocumentData({ documentType, buffer, mimeType: file.type || "" });
+  const extracted = extraction.data || {};
 
   const { data: saved, error: insertError } = await supabaseAdmin
     .from("client_documents")
@@ -113,7 +115,7 @@ export async function POST(request, context) {
       mime_type: file.type || "",
       size_bytes: file.size,
       extracted_data: extracted,
-      extraction_status: "no_ocr"
+      extraction_status: extraction.status || "pending"
     })
     .select("*")
     .single();
@@ -130,6 +132,7 @@ export async function POST(request, context) {
     ok: true,
     document: saved,
     extracted_data: extracted,
-    message: "Documento anexado. A leitura automática/OCR será ativada na próxima etapa; por enquanto o cliente pode seguir para as perguntas normalmente."
+    extraction_status: extraction.status || "pending",
+    message: extraction.status === "extracted" ? "Documento anexado e dados extraídos para conferência." : "Documento anexado. Não foi possível extrair dados automaticamente agora; você pode seguir normalmente."
   });
 }

@@ -269,6 +269,7 @@ export default function ClientAccessPage() {
   const [helpOverrides, setHelpOverrides] = useState({});
   const [documents, setDocuments] = useState([]);
   const [uploadingDoc, setUploadingDoc] = useState("");
+  const [pendingExtraction, setPendingExtraction] = useState(null);
 
   useEffect(() => { if (token) load(); loadHelpTexts(); }, [token]);
 
@@ -311,6 +312,9 @@ export default function ClientAccessPage() {
         return;
       }
       setDocuments((previous) => [data.document, ...previous.filter((item) => item.id !== data.document.id)]);
+      if (data.extracted_data && Object.values(data.extracted_data).some(Boolean)) {
+        setPendingExtraction({ documentType, data: data.extracted_data, fileName: data.document?.file_name || file.name });
+      }
       alert(data.message || "Documento anexado com sucesso.");
     } catch {
       alert("Não foi possível anexar o documento.");
@@ -357,6 +361,22 @@ export default function ClientAccessPage() {
       }
     }
     return true;
+  }
+
+  function applyExtractedData(extracted = {}) {
+    const allowed = [
+      "tipoPassaporte", "numeroPassaporte", "paisEmissor", "cidadeEmissao", "estadoEmissao", "dataEmissao", "dataVencimento",
+      "vistoEmitido", "dataUltimoVisto", "numeroVisto", "vistoIssuingPost"
+    ];
+
+    const next = { ...answers };
+    for (const key of allowed) {
+      if (extracted[key]) next[key] = extracted[key];
+    }
+    setAnswers(next);
+    save(next, false);
+    setPendingExtraction(null);
+    alert("Dados aplicados ao formulário. Revise as informações antes do envio definitivo.");
   }
 
   async function submitForm() {
@@ -429,7 +449,7 @@ export default function ClientAccessPage() {
           {sections.map((item, index) => <button key={item.title} onClick={() => setCurrent(index)} className={(index === current ? "btn-primary" : "btn-light") + " section-nav-button"}>{numberedTitle(index, item.title)}</button>)}
         </aside>
         <section className="card" style={{ padding:28 }}>
-          {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(-2)} /> : current === -2 ? <DocumentUploadPage documents={documents} uploadingDoc={uploadingDoc} onUpload={uploadDocument} onContinue={() => setCurrent(0)} onBack={() => setCurrent(-1)} /> : <>
+          {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(-2)} /> : current === -2 ? <DocumentUploadPage documents={documents} uploadingDoc={uploadingDoc} pendingExtraction={pendingExtraction} onApplyExtraction={applyExtractedData} onDismissExtraction={() => setPendingExtraction(null)} onUpload={uploadDocument} onContinue={() => setCurrent(0)} onBack={() => setCurrent(-1)} /> : <>
             <h1 style={{ color:"var(--navy)" }}>{numberedTitle(current, section.title)}</h1>
             <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={{ ...field, help: helpOverrides[field.id] || field.help }} questionNumber={questionNumberForField(section.fields, fieldIndex, current + 1)} value={answers[field.id]} onChange={setValue} disabled={isFieldDisabled(field.id, answers)} answers={answers} />)}</div>
             <div className="no-print mobile-bottom-nav" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(current === 0 ? -2 : current - 1)}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => { if (canGoNextFromCurrent()) setCurrent(current + 1); }}>Próxima</button>}</div>
@@ -440,7 +460,7 @@ export default function ClientAccessPage() {
   );
 }
 
-function DocumentUploadPage({ documents, uploadingDoc, onUpload, onContinue, onBack }) {
+function DocumentUploadPage({ documents, uploadingDoc, pendingExtraction, onApplyExtraction, onDismissExtraction, onUpload, onContinue, onBack }) {
   const passportDocs = documents.filter((doc) => doc.document_type === "passport");
   const visaDocs = documents.filter((doc) => doc.document_type === "previous_visa");
 
@@ -498,8 +518,26 @@ function DocumentUploadPage({ documents, uploadingDoc, onUpload, onContinue, onB
       />
     </div>
     <div style={{ marginTop:18, padding:14, borderRadius:14, background:"#fff7ed", border:"1px solid #fed7aa", color:"#9a3412", lineHeight:1.55 }}>
-      <strong>Próxima etapa:</strong> a leitura automática/OCR será ativada em versão posterior. Nesta versão, os documentos já ficam armazenados com segurança e vinculados ao seu formulário.
+      <strong>Leitura assistida:</strong> quando possível, o sistema tentará extrair dados de imagens do passaporte ou visto e mostrará uma sugestão para conferência antes de aplicar no formulário.
     </div>
+    {pendingExtraction && (
+      <div style={{ marginTop:18, padding:16, borderRadius:16, background:"#eef2ff", border:"1px solid #c7d2fe" }}>
+        <h2 style={{ marginTop:0, color:"var(--navy)" }}>Dados encontrados para conferência</h2>
+        <p style={{ color:"var(--muted)" }}>Arquivo: <strong>{pendingExtraction.fileName}</strong></p>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))", gap:10 }}>
+          {Object.entries(pendingExtraction.data).filter(([, value]) => !!value).map(([key, value]) => (
+            <div key={key} style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:12, padding:10 }}>
+              <strong>{key}</strong><br />{String(value)}
+            </div>
+          ))}
+        </div>
+        <p style={{ color:"#b45309", fontWeight:800 }}>Revise os dados após aplicar. OCR pode confundir letras, números e datas.</p>
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          <button className="btn-primary" onClick={() => onApplyExtraction(pendingExtraction.data)}>Aplicar ao formulário</button>
+          <button className="btn-light" onClick={onDismissExtraction}>Não aplicar agora</button>
+        </div>
+      </div>
+    )}
     <div className="no-print" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22 }}>
       <button className="btn-light" onClick={onBack}>Voltar</button>
       <button className="btn-primary" onClick={onContinue}>Continuar para as perguntas</button>
