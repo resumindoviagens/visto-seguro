@@ -267,6 +267,8 @@ export default function ClientAccessPage() {
   const [verifying, setVerifying] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
   const [helpOverrides, setHelpOverrides] = useState({});
+  const [documents, setDocuments] = useState([]);
+  const [uploadingDoc, setUploadingDoc] = useState("");
 
   useEffect(() => { if (token) load(); loadHelpTexts(); }, [token]);
 
@@ -284,7 +286,37 @@ export default function ClientAccessPage() {
     const data = await res.json();
     if (res.status === 401 && data.needs_verification) { setNeedsVerification(true); setLoading(false); return; }
     if (!res.ok) { alert(data.error || "Link inválido."); setLoading(false); return; }
-    setNeedsVerification(false); setClient(data.client); setAnswers(applyDefaultAnswers(data.response?.answers || {})); await loadHelpTexts(); setSubmittedAt(data.response?.submitted_at || null); setLoading(false);
+    setNeedsVerification(false); setClient(data.client); setAnswers(applyDefaultAnswers(data.response?.answers || {})); await loadHelpTexts(); setSubmittedAt(data.response?.submitted_at || null); await loadDocuments(); setLoading(false);
+  }
+
+  async function loadDocuments() {
+    try {
+      const res = await fetch(`/api/client/${token}/documents`, { method:"GET", cache:"no-store" });
+      const data = await res.json();
+      if (res.ok) setDocuments(data.documents || []);
+    } catch {}
+  }
+
+  async function uploadDocument(documentType, file) {
+    if (!file) return;
+    setUploadingDoc(documentType);
+    try {
+      const form = new FormData();
+      form.append("document_type", documentType);
+      form.append("file", file);
+      const res = await fetch(`/api/client/${token}/documents`, { method:"POST", body: form });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Erro ao anexar documento.");
+        return;
+      }
+      setDocuments((previous) => [data.document, ...previous.filter((item) => item.id !== data.document.id)]);
+      alert(data.message || "Documento anexado com sucesso.");
+    } catch {
+      alert("Não foi possível anexar o documento.");
+    } finally {
+      setUploadingDoc("");
+    }
   }
 
   async function verifyIdentity() {
@@ -392,19 +424,87 @@ export default function ClientAccessPage() {
 
       <div className="form-layout" style={{ display:"grid", gridTemplateColumns:"280px 1fr", gap:24 }}>
         <aside className="card no-print" style={{ padding:14 }}>
-          <button onClick={() => setCurrent(-1)} className={(current === -1 ? "btn-primary" : "btn-light") + " section-nav-button"}>Informações prévias</button>
+          <button onClick={() => setCurrent(-1)} className={(current === -1 ? "btn-primary" : "btn-light") + " section-nav-button"}>1. Informações prévias</button>
+          <button onClick={() => setCurrent(-2)} className={(current === -2 ? "btn-primary" : "btn-light") + " section-nav-button"}>2. Upload de documentos</button>
           {sections.map((item, index) => <button key={item.title} onClick={() => setCurrent(index)} className={(index === current ? "btn-primary" : "btn-light") + " section-nav-button"}>{numberedTitle(index, item.title)}</button>)}
         </aside>
         <section className="card" style={{ padding:28 }}>
-          {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(0)} /> : <>
+          {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(-2)} /> : current === -2 ? <DocumentUploadPage documents={documents} uploadingDoc={uploadingDoc} onUpload={uploadDocument} onContinue={() => setCurrent(0)} onBack={() => setCurrent(-1)} /> : <>
             <h1 style={{ color:"var(--navy)" }}>{numberedTitle(current, section.title)}</h1>
             <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={{ ...field, help: helpOverrides[field.id] || field.help }} questionNumber={questionNumberForField(section.fields, fieldIndex, current + 1)} value={answers[field.id]} onChange={setValue} disabled={isFieldDisabled(field.id, answers)} answers={answers} />)}</div>
-            <div className="no-print mobile-bottom-nav" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(current - 1)}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => { if (canGoNextFromCurrent()) setCurrent(current + 1); }}>Próxima</button>}</div>
+            <div className="no-print mobile-bottom-nav" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(current === 0 ? -2 : current - 1)}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => { if (canGoNextFromCurrent()) setCurrent(current + 1); }}>Próxima</button>}</div>
           </>}
         </section>
       </div>
     </main>
   );
+}
+
+function DocumentUploadPage({ documents, uploadingDoc, onUpload, onContinue, onBack }) {
+  const passportDocs = documents.filter((doc) => doc.document_type === "passport");
+  const visaDocs = documents.filter((doc) => doc.document_type === "previous_visa");
+
+  function DocBox({ type, title, description, docs }) {
+    const accept = "image/*,.pdf";
+    return (
+      <div style={{ border:"1px solid var(--border)", borderRadius:18, padding:18, background:"#fff" }}>
+        <h2 style={{ color:"var(--navy)", marginTop:0 }}>{title}</h2>
+        <p style={{ color:"var(--muted)", lineHeight:1.55 }}>{description}</p>
+        <input
+          type="file"
+          accept={accept}
+          capture="environment"
+          disabled={!!uploadingDoc}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onUpload(type, file);
+            event.target.value = "";
+          }}
+        />
+        <div style={{ marginTop:10, fontSize:13, color:"var(--muted)" }}>
+          Aceita foto, imagem ou PDF. Este envio é opcional.
+        </div>
+        {uploadingDoc === type && <p style={{ color:"var(--orange)", fontWeight:800 }}>Enviando documento...</p>}
+        {docs.length > 0 && (
+          <div style={{ marginTop:14, background:"#f8fafc", border:"1px solid #e5e7eb", borderRadius:12, padding:12 }}>
+            <strong>Documento(s) anexado(s):</strong>
+            <ul style={{ marginBottom:0 }}>
+              {docs.map((doc) => <li key={doc.id}>{doc.file_name} — {doc.extraction_status === "no_ocr" ? "anexado para conferência" : doc.extraction_status}</li>)}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return <div>
+    <h1 style={{ color:"var(--navy)", marginBottom:8 }}>Upload opcional de documentos</h1>
+    <p style={{ color:"var(--muted)", lineHeight:1.6 }}>
+      Esta etapa é opcional. Se preferir, você pode seguir para as perguntas sem anexar nada. 
+      Caso anexe passaporte e/ou visto anterior, a Resumindo Viagens poderá conferir os dados com mais segurança.
+    </p>
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:18, marginTop:18 }}>
+      <DocBox
+        type="passport"
+        title="Passaporte"
+        description="Anexe uma foto ou PDF da página de identificação do passaporte."
+        docs={passportDocs}
+      />
+      <DocBox
+        type="previous_visa"
+        title="Visto anterior"
+        description="Se possuir visto anterior, anexe uma foto ou PDF para conferência."
+        docs={visaDocs}
+      />
+    </div>
+    <div style={{ marginTop:18, padding:14, borderRadius:14, background:"#fff7ed", border:"1px solid #fed7aa", color:"#9a3412", lineHeight:1.55 }}>
+      <strong>Próxima etapa:</strong> a leitura automática/OCR será ativada em versão posterior. Nesta versão, os documentos já ficam armazenados com segurança e vinculados ao seu formulário.
+    </div>
+    <div className="no-print" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22 }}>
+      <button className="btn-light" onClick={onBack}>Voltar</button>
+      <button className="btn-primary" onClick={onContinue}>Continuar para as perguntas</button>
+    </div>
+  </div>;
 }
 
 function PreInfoPage({ client, onContinue }) {

@@ -26,15 +26,54 @@ function missingFieldsForCustomer(passenger) {
 
 async function findOrCreateTravelCustomer(passenger) {
   if (passenger.travel_customer_id) {
-    return { customerId: passenger.travel_customer_id, status: "linked", missing: [] };
+    const { data: tc } = await supabaseAdmin
+      .from("travel_customers")
+      .select("id, person_id")
+      .eq("id", passenger.travel_customer_id)
+      .maybeSingle();
+    return { customerId: passenger.travel_customer_id, personId: tc?.person_id || passenger.person_id || null, status: "linked", missing: [] };
   }
 
   const missing = missingFieldsForCustomer(passenger);
   if (missing.length > 0) {
-    return { customerId: null, status: "temporary", missing };
+    return { customerId: null, personId: null, status: "temporary", missing };
   }
 
   const cpf = cleanCPF(passenger.cpf);
+  let personId = passenger.person_id || null;
+
+  if (!personId) {
+    const { data: existingPeople, error: peopleError } = await supabaseAdmin
+      .from("people")
+      .select("id")
+      .eq("cpf", cpf)
+      .eq("birth_date", passenger.birth_date)
+      .limit(1);
+
+    if (peopleError) throw peopleError;
+
+    if ((existingPeople || []).length > 0) {
+      personId = existingPeople[0].id;
+    } else {
+      const { data: createdPerson, error: createPersonError } = await supabaseAdmin
+        .from("people")
+        .insert({
+          name: passenger.name,
+          reservation_name: passenger.reservation_name || passenger.name,
+          email: passenger.email || "",
+          phone: passenger.phone || "",
+          cpf,
+          birth_date: passenger.birth_date,
+          notes: "Criado automaticamente a partir de passageiro cadastrado em viagem.",
+          updated_at: new Date().toISOString()
+        })
+        .select("id")
+        .single();
+
+      if (createPersonError) throw createPersonError;
+      personId = createdPerson.id;
+    }
+  }
 
   const { data: existingByCpf, error: cpfError } = await supabaseAdmin
     .from("travel_customers")
@@ -44,12 +83,14 @@ async function findOrCreateTravelCustomer(passenger) {
 
   if (cpfError) throw cpfError;
   if ((existingByCpf || []).length > 0) {
-    return { customerId: existingByCpf[0].id, status: "linked", missing: [] };
+    await supabaseAdmin.from("travel_customers").update({ person_id: personId }).eq("id", existingByCpf[0].id);
+    return { customerId: existingByCpf[0].id, personId, status: "linked", missing: [] };
   }
 
   const { data: created, error: createError } = await supabaseAdmin
     .from("travel_customers")
     .insert({
+      person_id: personId,
       name: passenger.name,
       email: passenger.email || "",
       phone: passenger.phone || "",
@@ -62,7 +103,7 @@ async function findOrCreateTravelCustomer(passenger) {
     .single();
 
   if (createError) throw createError;
-  return { customerId: created.id, status: "created", missing: [] };
+  return { customerId: created.id, personId, status: "created", missing: [] };
 }
 
 function cleanPayload(body) {
@@ -126,6 +167,7 @@ async function cleanPassenger(passenger, index, tripId) {
   return {
     travel_trip_id: tripId,
     travel_customer_id: link.customerId,
+    person_id: link.personId || null,
     passenger_order: Number(passenger.passenger_order || index + 1),
     name: passenger.name || reservationName,
     reservation_name: reservationName,

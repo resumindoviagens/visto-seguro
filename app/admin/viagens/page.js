@@ -454,7 +454,7 @@ export default function AdminViagensPage() {
   return (
     <main style={{ maxWidth: 1280, margin: "0 auto", padding: 24, fontFamily: "Arial, Helvetica, sans-serif", color: "#1f2937" }}>
       <div style={{ background: "#1f2a60", color: "#fff", borderRadius: 24, padding: 26, marginBottom: 22 }}>
-        <h1 style={{ margin: 0, fontSize: 34 }}>Administração de Viagens</h1>
+        <h1 style={{ margin: 0, fontSize: 34 }}>Administração de Viagens</h1><a href="/admin/clientes" target="_blank" style={{ display:"inline-block", marginTop:12, background:"#ff9800", color:"#fff", textDecoration:"none", borderRadius:12, padding:"10px 14px", fontWeight:900 }}>Abrir Clientes</a>
         <p style={{ margin: "8px 0 0", opacity: .95 }}>A viagem agora é o centro do cadastro. Cada viagem pode ter de 1 a 9 passageiros e um organizador externo.</p>
         <button onClick={runTravelAutomationNow} style={{ marginTop: 16, background: "#ff9800", color: "#fff", border: 0, borderRadius: 12, padding: "11px 14px", fontWeight: 900 }}>Rodar automação de viagens agora</button>
       </div>
