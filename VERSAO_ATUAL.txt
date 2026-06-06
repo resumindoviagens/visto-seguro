@@ -1,1 +1,1 @@
-v112 — leitura assistida de documentos no formulário
+v112A — diagnóstico detalhado da leitura assistida/OCR

@@ -288,7 +288,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="version">v112 OCR docs</div>
+          <div className="version">v112A diagnóstico</div>
         </section>
 
         <section className="login">

@@ -115,7 +115,11 @@ export async function POST(request, context) {
       mime_type: file.type || "",
       size_bytes: file.size,
       extracted_data: extracted,
-      extraction_status: extraction.status || "pending"
+      extraction_status: extraction.status || "pending",
+      extraction_error: extraction.error || "",
+      extraction_raw: extraction.raw || "",
+      extraction_model: extraction.model || "",
+      extraction_attempted_at: new Date().toISOString()
     })
     .select("*")
     .single();
@@ -125,7 +129,7 @@ export async function POST(request, context) {
   await supabaseAdmin.from("audit_logs").insert({
     client_id: client.id,
     action: "client_uploaded_document",
-    details: { document_type: documentType, file_name: file.name, file_path: path }
+    details: { document_type: documentType, file_name: file.name, file_path: path, extraction_status: extraction.status, extraction_error: extraction.error || "" }
   });
 
   return Response.json({
@@ -133,6 +137,7 @@ export async function POST(request, context) {
     document: saved,
     extracted_data: extracted,
     extraction_status: extraction.status || "pending",
-    message: extraction.status === "extracted" ? "Documento anexado e dados extraídos para conferência." : "Documento anexado. Não foi possível extrair dados automaticamente agora; você pode seguir normalmente."
+    extraction_error: extraction.error || "",
+    message: extraction.status === "extracted" ? "Documento anexado e dados extraídos para conferência." : `Documento anexado. Não foi possível extrair dados automaticamente agora (${extraction.status || "sem status"}). Você pode seguir normalmente.`
   });
 }
