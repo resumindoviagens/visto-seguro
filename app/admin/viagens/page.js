@@ -192,6 +192,76 @@ function inputStyle() {
   return { padding: 11, borderRadius: 11, border: "1px solid #d1d5db", width: "100%", boxSizing: "border-box" };
 }
 
+function parseCsvLine(line) {
+  const result = [];
+  let current = "";
+  let insideQuotes = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+    if (char === '"' && insideQuotes && next === '"') {
+      current += '"';
+      i += 1;
+    } else if (char === '"') {
+      insideQuotes = !insideQuotes;
+    } else if (char === "," && !insideQuotes) {
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function parseImportText(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return [];
+  if (raw.startsWith("[") || raw.startsWith("{")) {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  }
+  const lines = raw.split(/\r?\n/).filter(Boolean);
+  const headers = parseCsvLine(lines[0]).map((h) => h.trim());
+  return lines.slice(1).map((line) => {
+    const values = parseCsvLine(line);
+    const row = {};
+    headers.forEach((header, index) => { row[header] = values[index] || ""; });
+    return row;
+  });
+}
+
+function firstNonEmpty(rows, keys) {
+  for (const key of keys) {
+    for (const row of rows) {
+      const value = row[key];
+      if (value !== undefined && String(value).trim()) return String(value).trim();
+    }
+  }
+  return "";
+}
+
+function normalizeImportDateTime(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(raw)) return raw.slice(0, 16);
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(raw)) return raw.replace(" ", "T").slice(0, 16);
+  const br = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}T${br[4]}:${br[5]}`;
+  return raw;
+}
+
+function normalizeImportDate(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+  const br = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  return raw;
+}
+
+
 export default function AdminViagensPage() {
   const [customers, setCustomers] = useState([]);
   const [trips, setTrips] = useState([]);
@@ -284,6 +354,68 @@ export default function AdminViagensPage() {
       `Alguns passageiros ficarão apenas vinculados a esta viagem e NÃO virarão cadastro de cliente agora:\n\n${text}\n\n` +
       `Para virar cliente automaticamente, informe nome, CPF e data de nascimento.\n\nDeseja salvar assim mesmo?`
     );
+  }
+
+  async function importExtractedTripFile(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const rows = parseImportText(text);
+      if (!rows.length) return alert("Arquivo sem dados para importar.");
+
+      const passengerRows = rows.filter((row) => firstNonEmpty([row], ["passenger_name", "name", "nome", "reservation_name", "nome_reserva"]));
+      const passengers = passengerRows.slice(0, 9).map((row, index) => ({
+        travel_customer_id: "",
+        passenger_order: index + 1,
+        name: firstNonEmpty([row], ["passenger_name", "name", "nome", "nome_completo"]),
+        reservation_name: firstNonEmpty([row], ["reservation_name", "nome_reserva", "passenger_name", "name", "nome"]),
+        email: firstNonEmpty([row], ["email", "passenger_email"]),
+        phone: firstNonEmpty([row], ["phone", "telefone"]),
+        cpf: firstNonEmpty([row], ["cpf"]),
+        birth_date: normalizeImportDate(firstNonEmpty([row], ["birth_date", "data_nascimento"]))
+      }));
+
+      const services = [];
+      if (firstNonEmpty(rows, ["airline", "flight_number", "locator"])) services.push("Passagem aérea");
+      if (firstNonEmpty(rows, ["hotel_name"])) services.push("Hotel");
+      if (firstNonEmpty(rows, ["insurance_company", "insurance_policy"])) services.push("Seguro viagem");
+      if (firstNonEmpty(rows, ["car_company"])) services.push("Locação de carro");
+      if (firstNonEmpty(rows, ["tickets_notes", "ticket_name"])) services.push("Ingressos");
+
+      const imported = {
+        ...tripForm,
+        title: firstNonEmpty(rows, ["trip_name", "title", "nome_viagem"]) || tripForm.title,
+        destination: firstNonEmpty(rows, ["destination", "destino"]) || tripForm.destination,
+        passenger_count: Math.max(1, passengers.length || Number(tripForm.passenger_count || 1)),
+        passengers_list: passengers.length ? makePassengers(passengers.length, passengers) : tripForm.passengers_list,
+        services: Array.from(new Set([...(tripForm.services || []), ...services])),
+        organizer_name: firstNonEmpty(rows, ["organizer_name", "responsavel_nome"]) || tripForm.organizer_name,
+        organizer_email: firstNonEmpty(rows, ["organizer_email", "responsavel_email"]) || tripForm.organizer_email,
+        organizer_phone: firstNonEmpty(rows, ["organizer_phone", "responsavel_telefone"]) || tripForm.organizer_phone,
+        outbound_airline: firstNonEmpty(rows, ["airline", "outbound_airline", "cia_aerea"]) || tripForm.outbound_airline,
+        outbound_flight: firstNonEmpty(rows, ["flight_number", "outbound_flight", "voo"]) || tripForm.outbound_flight,
+        booking_locator: firstNonEmpty(rows, ["locator", "booking_locator", "localizador"]) || tripForm.booking_locator,
+        outbound_date: normalizeImportDateTime(firstNonEmpty(rows, ["departure_datetime", "outbound_date", "data_partida"])) || tripForm.outbound_date,
+        return_airline: firstNonEmpty(rows, ["return_airline", "cia_aerea_volta"]) || tripForm.return_airline,
+        return_flight: firstNonEmpty(rows, ["return_flight", "voo_volta"]) || tripForm.return_flight,
+        return_booking_locator: firstNonEmpty(rows, ["return_locator", "return_booking_locator", "localizador_volta"]) || tripForm.return_booking_locator,
+        return_date: normalizeImportDateTime(firstNonEmpty(rows, ["return_datetime", "data_volta"])) || tripForm.return_date,
+        has_return: !!(normalizeImportDateTime(firstNonEmpty(rows, ["return_datetime", "data_volta"])) || tripForm.has_return),
+        hotel_name: firstNonEmpty(rows, ["hotel_name", "hotel"]) || tripForm.hotel_name,
+        hotel_address: firstNonEmpty(rows, ["hotel_address", "endereco_hotel"]) || tripForm.hotel_address,
+        hotel_checkin: normalizeImportDate(firstNonEmpty(rows, ["hotel_checkin", "checkin_hotel"])) || tripForm.hotel_checkin,
+        hotel_checkout: normalizeImportDate(firstNonEmpty(rows, ["hotel_checkout", "checkout_hotel"])) || tripForm.hotel_checkout,
+        hotel_confirmation: firstNonEmpty(rows, ["hotel_confirmation", "confirmacao_hotel"]) || tripForm.hotel_confirmation,
+        insurance_company: firstNonEmpty(rows, ["insurance_company", "seguradora"]) || tripForm.insurance_company,
+        insurance_policy: firstNonEmpty(rows, ["insurance_policy", "apolice"]) || tripForm.insurance_policy,
+        tickets_notes: firstNonEmpty(rows, ["tickets_notes", "notes", "observacoes"]) || tripForm.tickets_notes
+      };
+
+      setTripForm(imported);
+      alert(`Dados importados para conferência. Passageiros encontrados: ${passengers.length || 0}. Revise antes de salvar.`);
+    } catch (error) {
+      alert(`Não foi possível importar o arquivo: ${error?.message || "erro desconhecido"}`);
+    }
   }
 
   async function saveTrip() {
@@ -513,6 +645,21 @@ export default function AdminViagensPage() {
         <section style={{ display: "grid", gap: 18 }}>
           <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 18, padding: 18 }}>
             <h2 style={{ color: "#1f2a60", marginTop: 0 }}>{editingTripId ? "Editar viagem" : "Criar viagem"}</h2>
+            <div style={{ background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, marginBottom: 12 }}>
+              <strong style={{ color: "#1f2a60" }}>Importar dados extraídos pelo ChatGPT</strong>
+              <p style={{ color: "#64748b", margin: "6px 0 10px" }}>
+                Anexe aqui o CSV/JSON gerado pelo ChatGPT a partir de bilhetes, vouchers de hotel, seguro ou ingressos. Os dados entram no formulário para conferência antes de salvar.
+              </p>
+              <input
+                type="file"
+                accept=".csv,.txt,.json"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) importExtractedTripFile(file);
+                  event.target.value = "";
+                }}
+              />
+            </div>
             <div style={{ display: "grid", gap: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 180px", gap: 10 }}>
                 <input style={inputStyle()} placeholder="Título da viagem. Ex.: Orlando Julho 2027" value={tripForm.title} onChange={(e) => setTripForm({ ...tripForm, title: e.target.value })} />

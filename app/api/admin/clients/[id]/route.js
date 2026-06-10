@@ -2,7 +2,6 @@ import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../../lib/auth";
 import { createAccessToken } from "../../../../../lib/tokens";
 import { sendInternalAlert, simpleHtml } from "../../../../../lib/brevoEmail";
-import { sendInternalAgendaICS } from "../../../../../lib/agendaAutomation";
 
 function cleanCPF(value) {
   return (value || "").replace(/\D/g, "");
@@ -154,16 +153,15 @@ export async function PATCH(request, context) {
     }
   }
 
-  if (body.action === "update_schedule" && (updates.casv_date || updates.interview_date || updates.video_call_date || updates.passport_pf_datetime)) {
-    try {
-      await sendInternalAgendaICS(data, { mode: "auto" });
-    } catch (icsError) {
-      await supabaseAdmin.from("audit_logs").insert({
-        client_id: params.id,
-        action: "internal_ics_failed",
-        details: { error: icsError?.message || String(icsError) }
-      });
-    }
+  if (body.action === "update_schedule" && updates.casv_date && updates.casv_date !== oldClient?.casv_date) {
+    await supabaseAdmin.from("audit_logs").insert({
+      client_id: params.id,
+      action: "casv_video_planning_scheduled_for_daily_cron",
+      details: {
+        casv_date: updates.casv_date,
+        message: "O compromisso interno de marcar videochamada será enviado no cron diário, 20 dias antes do CASV."
+      }
+    });
   }
 
   return Response.json({ client: data });

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { sendInternalAlert, simpleHtml } from "../../../../lib/brevoEmail";
+import { sendCasvVideoPlanningICS } from "../../../../lib/agendaAutomation";
 
 function daysUntil(dateValue) {
   if (!dateValue) return null;
@@ -41,10 +42,27 @@ export async function GET(request) {
 
   const alerts = [];
   const usedGroups = new Set();
+  const agendaResults = [];
 
   for (const client of clients || []) {
     const group = client.group_process_id ? groupsById[client.group_process_id] : null;
     const label = group ? `Grupo de processo: ${group.nome}` : `Cliente: ${client.name}`;
+
+    // Agenda interna para marcar videochamada 20 dias antes do CASV.
+    // Enviada no mesmo horário do alerta diário, nunca imediatamente ao salvar datas.
+    if (client.casv_date && !client.group_process_id) {
+      try {
+        const result = await sendCasvVideoPlanningICS(client, { mode: "daily_alert_cron" });
+        if (result?.sent) agendaResults.push({ client_id: client.id, name: client.name, type: "casv_video_planning", result });
+      } catch (error) {
+        agendaResults.push({ client_id: client.id, name: client.name, type: "casv_video_planning", error: error?.message || String(error) });
+      }
+
+      const casvForVideo = daysUntil(client.casv_date);
+      if (casvForVideo !== null && casvForVideo >= 0 && casvForVideo <= 20 && !client.video_call_date) {
+        addAlert(alerts, dismissed, `marcar-videochamada-${client.id}-${client.casv_date}`, `${label} — MARCAR DATA VIDEOCHAMADA com cliente — CASV ${fmtDays(casvForVideo)}`);
+      }
+    }
 
     if (group) {
       if (!usedGroups.has(group.id)) {
@@ -61,6 +79,9 @@ export async function GET(request) {
         }
         if (video !== null && video >= 0 && video <= 2) {
           addAlert(alerts, dismissed, `video-${group.id}-${group.video_call_date}`, `${label} — videochamada ${fmtDays(video)}`);
+        }
+        if (casv !== null && casv >= 0 && casv <= 20 && !group.video_call_date) {
+          addAlert(alerts, dismissed, `marcar-videochamada-grupo-${group.id}-${group.casv_date}`, `${label} — MARCAR DATA VIDEOCHAMADA com cliente — CASV ${fmtDays(casv)}`);
         }
       }
     } else {
@@ -99,5 +120,5 @@ export async function GET(request) {
     });
   }
 
-  return Response.json({ ok: true, alerts });
+  return Response.json({ ok: true, alerts, agendaResults });
 }

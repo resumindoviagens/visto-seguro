@@ -731,6 +731,17 @@ function Dashboard({ logout }) {
     });
   }
 
+  async function handleTempEmailAttachments(files) {
+    const selected = Array.from(files || []).slice(0, 5);
+    const attachments = await Promise.all(selected.map((file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ name: file.name, content: String(reader.result || "").split(",").pop() });
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    })));
+    setEmailComposer((current) => current ? { ...current, tempAttachments: attachments } : current);
+  }
+
   async function sendEmailComposer() {
     if (!emailComposer?.client?.id) return;
     if (!emailComposer.toEmail) {
@@ -753,7 +764,8 @@ function Dashboard({ logout }) {
           to_name: emailComposer.toName,
           subject: emailComposer.subject,
           html: emailComposer.html,
-          text: emailComposer.plainText || emailComposer.text
+          text: emailComposer.plainText || emailComposer.text,
+          temp_attachments: emailComposer.tempAttachments || []
         })
       });
       const data = await res.json();
@@ -935,6 +947,7 @@ function Dashboard({ logout }) {
       const casvDays = daysUntil(info.casv_date);
       if (interviewDays !== null && interviewDays >= 0 && interviewDays <= 7) alerts.push({ ...base, key: `interview-${info.group?.id || client.id}-${info.interview_date}`, alertDate: info.interview_date, text: `Entrevista em ${interviewDays === 0 ? "hoje" : `${interviewDays} dia(s)`}${info.consulate_city ? ` — ${info.consulate_city}` : ""}` });
       if (casvDays !== null && casvDays >= 0 && casvDays <= 3) alerts.push({ ...base, key: `casv-${info.group?.id || client.id}-${info.casv_date}`, alertDate: info.casv_date, text: `CASV em ${casvDays === 0 ? "hoje" : `${casvDays} dia(s)`}` });
+      if (casvDays !== null && casvDays >= 0 && casvDays <= 20 && !info.video_call_date) alerts.push({ ...base, key: `marcar-videochamada-${info.group?.id || client.id}-${info.casv_date}`, alertDate: info.casv_date, text: `MARCAR DATA VIDEOCHAMADA com cliente — CASV em ${casvDays === 0 ? "hoje" : `${casvDays} dia(s)`}` });
       if (videoDays !== null && videoDays >= 0 && videoDays <= 2) alerts.push({ ...base, key: `video-${info.group?.id || client.id}-${info.video_call_date}`, alertDate: info.video_call_date, text: `Videochamada em ${videoDays === 0 ? "hoje" : `${videoDays} dia(s)`}` });
     });
     clients.forEach((client) => {
@@ -1679,7 +1692,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v112A — diagnóstico OCR</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v114 — V113 + CASV/videochamada 20 dias</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -2058,6 +2071,19 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
               <button className="btn-light" style={{ marginTop: 10 }} onClick={generateEmailPreview}>
                 Gerar pré-visualização
               </button>
+            </div>
+
+            <div style={{ marginTop: 16, padding: 14, border: "1px solid #e5e7eb", borderRadius: 14, background: "#f8fafc" }}>
+              <strong style={{ color: "var(--navy)" }}>Anexos temporários para o email 05/agendamento</strong>
+              <p style={{ color: "var(--muted)", margin: "6px 0 10px" }}>
+                Use para anexar CONFIRMATION, APPLICATION e AGENDAMENTO. Os arquivos são enviados junto com este email e não ficam salvos permanentemente no sistema.
+              </p>
+              <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => handleTempEmailAttachments(event.target.files)} />
+              {(emailComposer.tempAttachments || []).length > 0 && (
+                <ul style={{ marginBottom: 0 }}>
+                  {(emailComposer.tempAttachments || []).map((item) => <li key={item.name}>{item.name}</li>)}
+                </ul>
+              )}
             </div>
 
             <h3>Pré-visualização</h3>
