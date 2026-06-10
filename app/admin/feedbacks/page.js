@@ -58,12 +58,19 @@ export default function AdminFeedbacksPage() {
 
       {visible.map((item) => {
         const canGenerate = item.autorizou_divulgacao !== false;
+        const comentario = item.comentario || item.depoimento || "";
+        const isLong = comentario.length > 170;
         return (
           <section key={item.id} style={{ border: "1px solid #e5e7eb", borderRadius: 18, padding: 18, marginBottom: 14, background: "#fff", boxShadow: "0 12px 30px rgba(15,23,42,.06)" }}>
             <h3 style={{ margin: "0 0 10px", color: "#111827", fontSize: 22 }}>{item.client?.name || item.client_name || "Cliente"}</h3>
             <p style={{ margin: "8px 0" }}><strong>Nota:</strong> {item.nota_nps ?? item.nota ?? "-"}/10</p>
             <p style={{ margin: "8px 0" }}><strong>Ponto forte:</strong> {item.ponto_forte || "-"}</p>
-            <p style={{ margin: "8px 0 14px" }}><strong>Comentário:</strong> {item.comentario || item.depoimento || "-"}</p>
+            <p style={{ margin: "8px 0 14px" }}><strong>Comentário:</strong> {comentario || "-"}</p>
+            {isLong && (
+              <p style={{ color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", padding: 10, borderRadius: 12, margin: "8px 0 14px" }}>
+                Depoimento longo detectado. Use “Texto longo” para tentar aproveitar o comentário integral na arte.
+              </p>
+            )}
 
             {!canGenerate && (
               <p style={{ color: "#92400e", background: "#fffbeb", border: "1px solid #fde68a", padding: 10, borderRadius: 12 }}>
@@ -103,6 +110,24 @@ export default function AdminFeedbacksPage() {
               >
                 Gerar story
               </a>
+
+              {isLong && (
+                <a
+                  href={`/admin/feedbacks/${item.id}/card?story=1&full=1`}
+                  target="_blank"
+                  style={{
+                    background: "#0f766e",
+                    color: "#fff",
+                    borderRadius: 12,
+                    padding: "11px 15px",
+                    fontWeight: 900,
+                    textDecoration: "none",
+                    display: "inline-block"
+                  }}
+                >
+                  Texto longo
+                </a>
+              )}
 
               {item.client?.stage_feedback_posted ? (
                 <span style={{ color: "#166534", fontWeight: 700 }}>Postado</span>

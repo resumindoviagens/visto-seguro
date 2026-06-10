@@ -81,7 +81,7 @@ function photoAttachmentsForTemplate(templateId) {
 }
 
 function isEmail5Template(templateId) {
-  return ["agendamento_confirmado", "agenda_visto", "email_05", "05_agendamento_confirmado"].includes(templateId);
+  return ["instrucoes", "agendamento_confirmado", "agenda_visto", "email_05", "05_agendamento_confirmado"].includes(templateId);
 }
 
 function sanitizeTempAttachments(value) {
@@ -89,10 +89,14 @@ function sanitizeTempAttachments(value) {
   return value
     .filter((item) => item && item.name && item.content)
     .slice(0, 5)
-    .map((item) => ({
-      name: String(item.name).slice(0, 140),
-      content: String(item.content).includes(",") ? String(item.content).split(",").pop() : String(item.content)
-    }));
+    .map((item) => {
+      const content = String(item.content).includes(",") ? String(item.content).split(",").pop() : String(item.content);
+      return {
+        name: String(item.name).slice(0, 140),
+        content
+      };
+    })
+    .filter((item) => item.content && item.content.length > 20);
 }
 
 function htmlToText(html = "") {
@@ -152,7 +156,7 @@ export async function POST(request) {
       attachments: [
         ...photoAttachmentsForTemplate(templateId),
         ...(isAgendaTemplate(templateId) ? agendaAttachmentsForClient(client) : []),
-        ...(isEmail5Template(templateId) || isAgendaTemplate(templateId) ? tempAttachments : [])
+        ...tempAttachments
       ]
     });
 
@@ -167,7 +171,7 @@ export async function POST(request) {
     await supabaseAdmin.from("audit_logs").insert({
       client_id: clientId,
       action: "email_editor_sent",
-      details: { template_id: templateId, to: toEmail, temp_attachments: tempAttachments.map((item) => item.name), messageId: result?.messageId || result?.messageIds || null }
+      details: { template_id: templateId, to: toEmail, temp_attachment_count: tempAttachments.length, temp_attachments: tempAttachments.map((item) => item.name), messageId: result?.messageId || result?.messageIds || null }
     });
 
     return Response.json({ ok: true, result });

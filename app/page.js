@@ -288,7 +288,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="version">v114 CASV/video</div>
+          <div className="version">v114B feedback</div>
         </section>
 
         <section className="login">

@@ -1,1 +1,1 @@
-v114 — V113 + agenda/alerta para marcar videochamada 20 dias antes do CASV
+v114B — correção de anexos + feedback longo com fonte adaptativa

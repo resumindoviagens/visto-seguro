@@ -9,6 +9,23 @@ function fitText(text, max = 190) {
   return text.length > max ? text.slice(0, max - 1).trim() + "…" : text;
 }
 
+function commentStyle(text = "", story = false) {
+  const length = String(text || "").length;
+  if (story) {
+    if (length > 520) return { fontSize: 15, lineHeight: 1.11, boxPadding: 18, commentMax: 760, long: true };
+    if (length > 400) return { fontSize: 16, lineHeight: 1.12, boxPadding: 18, commentMax: 620, long: true };
+    if (length > 280) return { fontSize: 17, lineHeight: 1.14, boxPadding: 20, commentMax: 520, long: true };
+    if (length > 200) return { fontSize: 19, lineHeight: 1.14, boxPadding: 22, commentMax: 420, long: true };
+    return { fontSize: 23, lineHeight: 1.16, boxPadding: 25, commentMax: 260, long: false };
+  }
+
+  if (length > 420) return { fontSize: 13, lineHeight: 1.1, boxPadding: 16, commentMax: 560, long: true };
+  if (length > 320) return { fontSize: 14, lineHeight: 1.1, boxPadding: 16, commentMax: 460, long: true };
+  if (length > 240) return { fontSize: 15, lineHeight: 1.12, boxPadding: 17, commentMax: 380, long: true };
+  if (length > 170) return { fontSize: 17, lineHeight: 1.13, boxPadding: 18, commentMax: 300, long: true };
+  return { fontSize: 21, lineHeight: 1.16, boxPadding: 22, commentMax: 220, long: false };
+}
+
 function backgroundById(feedback) {
   if (feedback?.background_index) {
     const n = Math.max(1, Math.min(30, Number(feedback.background_index)));
@@ -25,6 +42,7 @@ export default async function FeedbackCardPage({ params, searchParams }) {
   const resolvedParams = await params;
   const resolvedSearch = await searchParams;
   const story = resolvedSearch?.story === "1";
+  const full = resolvedSearch?.full === "1";
 
   const { data: f } = await supabaseAdmin
     .from("feedbacks")
@@ -37,8 +55,10 @@ export default async function FeedbackCardPage({ params, searchParams }) {
   }
 
   const primeiroNome = (f.clients?.name || "Cliente").split(" ")[0];
-  const comentario = fitText(f.comentario, story ? 210 : 180);
-  const pontoForte = fitText(f.ponto_forte || "", 55);
+  const comentarioOriginal = f.comentario || "";
+  const style = commentStyle(comentarioOriginal, story || full);
+  const comentario = full ? fitText(comentarioOriginal, style.commentMax) : fitText(comentarioOriginal, style.commentMax);
+  const pontoForte = fitText(f.ponto_forte || "", style.long ? 42 : 55);
   const bg = backgroundById(f);
   const service = f.service === "passaporte" ? "Assessoria para Passaporte" : f.service === "canadense" ? "Assessoria para Visto Canadense" : "Assessoria para Visto Americano";
 
@@ -46,13 +66,14 @@ export default async function FeedbackCardPage({ params, searchParams }) {
     <main style={{ minHeight: "100vh", background: "#dfe6f1", padding: "10px 8px 40px", fontFamily: "Arial, Helvetica, sans-serif" }}>
       <div style={{ maxWidth: 460, margin: "0 auto 10px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 13 }}>
         <strong>Postagem pronta</strong>
-        <a href={`?story=${story ? "0" : "1"}`} style={{ background: "#1f2a60", color: "#fff", borderRadius: 10, padding: "9px 12px", textDecoration: "none", fontWeight: 800 }}>{story ? "Ver feed" : "Ver story"}</a>
+        <a href={`?story=${story ? "0" : "1"}${full ? "&full=1" : ""}`} style={{ background: "#1f2a60", color: "#fff", borderRadius: 10, padding: "9px 12px", textDecoration: "none", fontWeight: 800 }}>{story ? "Ver feed" : "Ver story"}</a>
+        <a href={`?story=${story ? "1" : "0"}&full=${full ? "0" : "1"}`} style={{ background: full ? "#0f766e" : "#64748b", color: "#fff", borderRadius: 10, padding: "9px 12px", textDecoration: "none", fontWeight: 800 }}>{full ? "Modo normal" : "Texto longo"}</a>
         <TrocarImagemButton feedbackId={f.id} />
         <a href="/admin/feedbacks" style={{ marginLeft: "auto", color: "#1f2a60", fontWeight: 700 }}>Voltar</a>
       </div>
 
       <div style={{
-        maxWidth: story ? 390 : 420,
+        maxWidth: story || full ? 390 : 420,
         width: "100%",
         margin: "0 auto",
         borderRadius: 20,
@@ -63,10 +84,10 @@ export default async function FeedbackCardPage({ params, searchParams }) {
         <div
           id="postagem-feedback"
           style={{
-            aspectRatio: story ? "9 / 16" : "4 / 5",
+            aspectRatio: story || full ? "9 / 16" : "4 / 5",
             width: "100%",
             color: "#fff",
-            padding: story ? "30px 24px" : "27px 24px",
+            padding: story || full ? "30px 24px" : "27px 24px",
             boxSizing: "border-box",
             display: "flex",
             flexDirection: "column",
@@ -93,32 +114,32 @@ export default async function FeedbackCardPage({ params, searchParams }) {
               background: "rgba(5,18,44,.69)",
               border: "1px solid rgba(255,255,255,.24)",
               borderRadius: 24,
-              padding: story ? 25 : 22,
+              padding: style.boxPadding,
               boxShadow: "0 20px 50px rgba(0,0,0,.35)"
             }}
           >
             <div style={{ fontSize: story ? 40 : 34, color: "#ffb233", lineHeight: .75 }}>“</div>
 
-            <div style={{ fontSize: story ? 23 : 21, lineHeight: 1.16, fontWeight: 850 }}>
+            <div style={{ fontSize: style.fontSize, lineHeight: style.lineHeight, fontWeight: 850 }}>
               {comentario}
             </div>
 
             {pontoForte && (
               <div style={{
-                marginTop: 16,
+                marginTop: style.long ? 12 : 16,
                 display: "inline-block",
                 background: "rgba(255,178,51,.18)",
                 border: "1px solid rgba(255,178,51,.45)",
                 borderRadius: 999,
-                padding: "8px 11px",
-                fontSize: story ? 13 : 12,
+                padding: style.long ? "6px 9px" : "8px 11px",
+                fontSize: style.long ? 11 : (story ? 13 : 12),
                 fontWeight: 800
               }}>
                 Ponto forte: {pontoForte}
               </div>
             )}
 
-            <div style={{ marginTop: 17, fontSize: story ? 15 : 14 }}>
+            <div style={{ marginTop: style.long ? 12 : 17, fontSize: style.long ? 12 : (story ? 15 : 14) }}>
               — {primeiroNome}, cliente Resumindo Viagens
             </div>
           </div>
@@ -136,7 +157,7 @@ export default async function FeedbackCardPage({ params, searchParams }) {
       </div>
 
       <p style={{ maxWidth: 430, margin: "10px auto 0", color: "#475569", fontSize: 13, textAlign: "center" }}>
-        No celular, a arte já cabe na tela. Tire print desta área ou use a opção Story/Feed.
+        No celular, a arte já cabe na tela. Para depoimento longo, use “Texto longo” e/ou Story.
       </p>
     </main>
   );

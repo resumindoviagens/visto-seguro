@@ -1692,7 +1692,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v114 — V113 + CASV/videochamada 20 dias</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v114B — anexos + feedback longo</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -2074,9 +2074,9 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
             </div>
 
             <div style={{ marginTop: 16, padding: 14, border: "1px solid #e5e7eb", borderRadius: 14, background: "#f8fafc" }}>
-              <strong style={{ color: "var(--navy)" }}>Anexos temporários para o email 05/agendamento</strong>
+              <strong style={{ color: "var(--navy)" }}>Anexos temporários para este email</strong>
               <p style={{ color: "var(--muted)", margin: "6px 0 10px" }}>
-                Use para anexar CONFIRMATION, APPLICATION e AGENDAMENTO. Os arquivos são enviados junto com este email e não ficam salvos permanentemente no sistema.
+                Use para anexar CONFIRMATION, APPLICATION, AGENDAMENTO ou outros PDFs/imagens. Os arquivos são enviados junto com este email e não ficam salvos permanentemente no sistema.
               </p>
               <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => handleTempEmailAttachments(event.target.files)} />
               {(emailComposer.tempAttachments || []).length > 0 && (
