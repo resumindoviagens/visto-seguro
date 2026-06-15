@@ -288,7 +288,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="version">v114B feedback</div>
+          <div className="version">v114C video agenda</div>
         </section>
 
         <section className="login">

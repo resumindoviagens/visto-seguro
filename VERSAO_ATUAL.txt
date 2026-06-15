@@ -1,1 +1,1 @@
-v114B — correção de anexos + feedback longo com fonte adaptativa
+v114C — email de videochamada agendada com anexo .ics
