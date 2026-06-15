@@ -422,11 +422,11 @@ export default function ClientAccessPage() {
   const section = current >= 0 ? sections[current] : null;
   const progress = calculateProgress(answers);
   return (
-    <main className="client-form-premium" style={{ maxWidth: 1200, margin:"0 auto", padding:24 }}>
+    <main className="client-form-premium" style={{ maxWidth: 1200, margin:"0 auto", padding:"24px 24px 110px" }}>
       <div className="card premium-header-card" style={{ padding:22, marginBottom:22 }}><BrandHeader clientName={client?.name} /></div>
       <div className="no-print" style={{ display:"flex", justifyContent:"space-between", gap:16, alignItems:"center", marginBottom:20 }}>
         <div><small>{saveStatus}</small></div>
-        <div style={{ display:"flex", gap:10 }}><button className="btn-light" onClick={() => save(answers, true)}>Salvar e continuar depois</button><button className="btn-primary" onClick={submitForm}>Enviar definitivamente (encerra preenchimento)</button></div>
+        <div className="top-action-buttons" style={{ display:"flex", gap:10, flexWrap:"wrap" }}><button className="btn-light" onClick={() => save(answers, true)}>Salvar e continuar depois</button><button className="btn-primary" onClick={submitForm}>Enviar definitivamente (encerra preenchimento)</button></div>
       </div>
 
       <div className="progress-card no-print" aria-label={`Progresso do preenchimento: ${progress.percent}%`}>
@@ -452,7 +452,14 @@ export default function ClientAccessPage() {
           {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(-2)} /> : current === -2 ? <DocumentUploadPage documents={documents} uploadingDoc={uploadingDoc} pendingExtraction={pendingExtraction} onApplyExtraction={applyExtractedData} onDismissExtraction={() => setPendingExtraction(null)} onUpload={uploadDocument} onContinue={() => setCurrent(0)} onBack={() => setCurrent(-1)} /> : <>
             <h1 style={{ color:"var(--navy)" }}>{numberedTitle(current, section.title)}</h1>
             <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={{ ...field, help: helpOverrides[field.id] || field.help }} questionNumber={questionNumberForField(section.fields, fieldIndex, current + 1)} value={answers[field.id]} onChange={setValue} disabled={isFieldDisabled(field.id, answers)} answers={answers} />)}</div>
-            <div className="no-print mobile-bottom-nav" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22 }}><button className="btn-light" onClick={() => setCurrent(current === 0 ? -2 : current - 1)}>Voltar</button>{current < sections.length - 1 && <button className="btn-dark" onClick={() => { if (canGoNextFromCurrent()) setCurrent(current + 1); }}>Próxima</button>}</div>
+            <div className="no-print mobile-bottom-nav" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22, position:"sticky", bottom:0, zIndex:20, background:"rgba(255,255,255,.96)", padding:"12px 0", borderTop:"1px solid #e5e7eb" }}>
+              <button className="btn-light" onClick={() => setCurrent(current === 0 ? -2 : current - 1)}>Voltar</button>
+              {current < sections.length - 1 ? (
+                <button className="btn-dark" onClick={() => { if (canGoNextFromCurrent()) setCurrent(current + 1); }}>Próxima</button>
+              ) : (
+                <button className="btn-primary" onClick={submitForm}>Enviar definitivamente</button>
+              )}
+            </div>
           </>}
         </section>
       </div>

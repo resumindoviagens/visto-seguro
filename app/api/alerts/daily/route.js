@@ -16,6 +16,10 @@ function fmtDays(days) {
   return `em ${days} dias`;
 }
 
+function isPassportProcess(client) {
+  return String(client?.tipo_processo || "").toLowerCase().includes("passaporte");
+}
+
 function addAlert(alerts, dismissed, key, text) {
   if (!dismissed.has(key)) alerts.push({ key, text });
 }
@@ -103,7 +107,7 @@ export async function GET(request) {
     if (client.status === "in_progress") {
       addAlert(alerts, dismissed, `form-started-${client.id}`, `Cliente: ${client.name} — formulário iniciado`);
     }
-    if (client.status === "submitted") {
+    if (client.status === "submitted" && !isPassportProcess(client)) {
       addAlert(alerts, dismissed, `form-submitted-${client.id}`, `Cliente: ${client.name} — formulário concluído`);
     }
     if (client.is_renewal && !client.client_sedex_tracking) {

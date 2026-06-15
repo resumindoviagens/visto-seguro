@@ -24,10 +24,24 @@ const SYNC_FIELDS = [
   "passport_tracking_code",
   "data_inicio_processo",
 
+  // Processo de passaporte
+  "passport_pf_city",
+  "passport_pf_location",
+  "passport_pf_datetime",
+  "passport_gru_paid_at",
+  "client_sedex_tracking",
+  "stage_passport_docs_email_sent",
+  "stage_passport_form_filled",
+  "stage_passport_instructions_sent",
+  "stage_passport_pf_done",
+  "stage_passport_ready",
+  "stage_passport_picked_up",
+
   // Dados operacionais internos do processo
   "data_final_processo",
   "observacoes_gerais",
-  "tipo_processo"
+  "tipo_processo",
+  "feedback_service"
 ];
 
 function pickSyncData(client) {

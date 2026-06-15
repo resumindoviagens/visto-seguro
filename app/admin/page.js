@@ -884,6 +884,13 @@ function Dashboard({ logout }) {
       return;
     }
 
+    if (isPassportProcess(client) && client.group_process_id && client.grupo_familiar_master) {
+      await updateClientSchedule(client, fields);
+      await syncFamilyGroup(client, true);
+      await loadClients();
+      return;
+    }
+
     if (client.group_process_id && client.grupo_familiar_master) {
       const res = await fetch(`/api/admin/process-groups/${client.group_process_id}`, {
         method: "PATCH",
@@ -954,7 +961,7 @@ function Dashboard({ logout }) {
       const formStarted = client.status === "in_progress";
       const formSubmitted = client.status === "submitted";
       if (formStarted) alerts.push({ key: `form-started-${client.id}`, label: `Cliente: ${client.name}`, alertDate: client.updated_at || client.created_at, text: "Formulário iniciado" });
-      if (formSubmitted) alerts.push({ key: `form-submitted-${client.id}`, label: `Cliente: ${client.name}`, alertDate: client.updated_at || client.created_at, text: "Formulário concluído" });
+      if (formSubmitted && !isPassportProcess(client)) alerts.push({ key: `form-submitted-${client.id}`, label: `Cliente: ${client.name}`, alertDate: client.updated_at || client.created_at, text: "Formulário concluído" });
       if (client.is_renewal && !client.client_sedex_tracking) alerts.push({ key: `renewal-sedex-${client.id}`, label: `Cliente: ${client.name}`, alertDate: client.updated_at || client.created_at, text: "Renovação sem rastreio Sedex informado" });
       if (salaryMissingAlert(client)) alerts.push({ key: `salary-missing-${client.id}`, label: `Cliente: ${client.name}`, alertDate: client.updated_at || client.created_at, text: "Deixou informação de salário em branco" });
       const critical = getCriticalAlerts(client);
@@ -1135,6 +1142,9 @@ function Dashboard({ logout }) {
     if (!res.ok) {
       alert(data.error || "Erro ao salvar datas. Confira se as colunas novas foram criadas no Supabase.");
       return;
+    }
+    if (client.grupo_familiar_master && client.group_process_id) {
+      await syncFamilyGroup(client, true);
     }
     await loadClients();
 
@@ -1692,7 +1702,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v114C — videochamada com agenda</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v115 — correções passaporte</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1769,13 +1779,26 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                   <small>Nascimento: {formatDateBR(client.birth_date)}</small><br />
                   <small>Celular: {client.phone || "-"}</small><br />
                   <small>E-mail: {client.email || "-"}</small><br />
-                  <small><b>Consulado:</b> {processInfo(client).consulate_city || "-"}</small><br />
-                  <small>CASV: {formatDateBR(processInfo(client).casv_date) || "-"}</small><br />
-                  <small>Entrevista: {formatDateBR(processInfo(client).interview_date) || "-"}</small><br />
-                  <small>Videochamada: {formatDateTimeBR(processInfo(client).video_call_date) || "-"}</small><br />
-                  <small>Grupo de processo: {processInfo(client).groupName || "-"}</small><br />
-                  {client.grupo_familiar_master && <><small style={{ color: "#166534", fontWeight: 700 }}>Contato principal</small><br /></>}
-                  <small><b>Rastreio passaporte:</b> {processInfo(client).passport_tracking_code || "-"}</small>
+                  {isPassportProcess(client) ? (
+                    <>
+                      <small><b>Cidade do agendamento:</b> {processInfo(client).passport_pf_city || "-"}</small><br />
+                      <small><b>Local do agendamento:</b> {processInfo(client).passport_pf_location || "-"}</small><br />
+                      <small><b>Data agendamento passaporte:</b> {formatDateTimeBR(processInfo(client).passport_pf_datetime) || "-"}</small><br />
+                      <small>Grupo de processo: {processInfo(client).groupName || "-"}</small><br />
+                      {client.grupo_familiar_master && <><small style={{ color: "#166534", fontWeight: 700 }}>Contato principal</small><br /></>}
+                      <small><b>Rastreio passaporte:</b> {processInfo(client).passport_tracking_code || "-"}</small>
+                    </>
+                  ) : (
+                    <>
+                      <small><b>Consulado:</b> {processInfo(client).consulate_city || "-"}</small><br />
+                      <small>CASV: {formatDateBR(processInfo(client).casv_date) || "-"}</small><br />
+                      <small>Entrevista: {formatDateBR(processInfo(client).interview_date) || "-"}</small><br />
+                      <small>Videochamada: {formatDateTimeBR(processInfo(client).video_call_date) || "-"}</small><br />
+                      <small>Grupo de processo: {processInfo(client).groupName || "-"}</small><br />
+                      {client.grupo_familiar_master && <><small style={{ color: "#166534", fontWeight: 700 }}>Contato principal</small><br /></>}
+                      <small><b>Rastreio passaporte:</b> {processInfo(client).passport_tracking_code || "-"}</small>
+                    </>
+                  )}
                   <Thermometer client={client} />
                   {client.client_sedex_tracking && <><br /><small>Sedex cliente: {client.client_sedex_tracking}</small></>}
                   {client.is_renewal && <div className="admin-renewal-alert">Renovação sem entrevista</div>}
