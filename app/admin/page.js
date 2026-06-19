@@ -76,7 +76,8 @@ const PASSPORT_PROCESS_STEPS = [
 ];
 
 function isPassportProcess(client) {
-  return String(client?.tipo_processo || "").toLowerCase().includes("passaporte");
+  const value = String(client?.tipo_processo || client?.feedback_service || "").toLowerCase();
+  return value.includes("passaporte") || value.includes("passport");
 }
 
 function processStepsForClient(client) {
@@ -1161,6 +1162,15 @@ function Dashboard({ logout }) {
   function scheduleAlerts(client) {
     const alerts = [];
     const info = processInfo(client);
+
+    if (isPassportProcess(client)) {
+      const pfDate = info.passport_pf_datetime ? String(info.passport_pf_datetime).slice(0, 10) : "";
+      const pfDays = daysUntil(pfDate);
+      if (pfDays !== null && pfDays >= 0 && pfDays <= 2) alerts.push({ level: "danger", text: `Agendamento passaporte em ${pfDays === 0 ? "hoje" : `${pfDays} dia(s)`}${info.passport_pf_city ? ` — ${info.passport_pf_city}` : ""}` });
+      else if (pfDays !== null && pfDays > 2 && pfDays <= 7) alerts.push({ level: "warning", text: `Agendamento passaporte em ${pfDays} dias${info.passport_pf_city ? ` — ${info.passport_pf_city}` : ""}` });
+      return alerts;
+    }
+
     const interviewDays = daysUntil(info.interview_date);
     const videoDays = daysUntil(info.video_call_date);
     const casvDays = daysUntil(info.casv_date);
@@ -1461,6 +1471,199 @@ function Dashboard({ logout }) {
       });
   }, [clients, groups, search, statusFilter, processTab, sortBy]);
 
+  const pendingClients = useMemo(() => clients.filter((client) => !client.is_completed), [clients]);
+
+  function dateOnly(value) {
+    if (!value) return "";
+    return String(value).slice(0, 10);
+  }
+
+  function daysFromToday(dateValue) {
+    if (!dateValue) return null;
+    const raw = dateOnly(dateValue);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(`${raw}T00:00:00`);
+    if (!Number.isFinite(target.getTime())) return null;
+    return Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+  }
+
+  function ageInDays(value) {
+    if (!value) return null;
+    const time = new Date(value).getTime();
+    if (!Number.isFinite(time)) return null;
+    return Math.max(0, Math.floor((Date.now() - time) / (1000 * 60 * 60 * 24)));
+  }
+
+  function actionSeverityStyle(severity) {
+    if (severity === "critical") return { background:"#fee2e2", color:"#991b1b", border:"1px solid #fecaca" };
+    if (severity === "warning") return { background:"#fef3c7", color:"#92400e", border:"1px solid #fde68a" };
+    if (severity === "info") return { background:"#dbeafe", color:"#1e3a8a", border:"1px solid #bfdbfe" };
+    return { background:"#dcfce7", color:"#166534", border:"1px solid #bbf7d0" };
+  }
+
+  function formatActionDays(days) {
+    if (days === null || typeof days === "undefined") return "";
+    if (days < 0) return `${Math.abs(days)} dia(s) em atraso`;
+    if (days === 0) return "hoje";
+    if (days === 1) return "amanhã";
+    return `em ${days} dia(s)`;
+  }
+
+  function nextActionForClient(client) {
+    const info = processInfo(client);
+    const passport = isPassportProcess(client);
+
+    if (passport) {
+      const pfDays = daysFromToday(info.passport_pf_datetime);
+      if (pfDays !== null && pfDays < 0 && !client.stage_passport_ready && !client.stage_passport_picked_up) {
+        return { severity:"critical", category:"Passaportes pendentes", text:`Verificar passaporte após atendimento PF (${formatActionDays(pfDays)})`, date: dateOnly(info.passport_pf_datetime), sort: 10 + pfDays };
+      }
+      if (!info.passport_pf_datetime && !client.stage_dates_scheduled) {
+        return { severity:"warning", category:"Agendamento PF", text:"Agendar atendimento da Polícia Federal", date:"", sort: 35 };
+      }
+      if (pfDays !== null && pfDays >= 0 && pfDays <= 7 && !client.stage_passport_instructions_sent) {
+        return { severity:"warning", category:"Próximos 7 dias", text:`Enviar/confirmar instruções da PF (${formatActionDays(pfDays)})`, date: dateOnly(info.passport_pf_datetime), sort: 30 + pfDays };
+      }
+      if (pfDays !== null && pfDays >= 0 && pfDays <= 7) {
+        return { severity:"info", category:"Próximos 7 dias", text:`Atendimento PF ${formatActionDays(pfDays)}`, date: dateOnly(info.passport_pf_datetime), sort: 50 + pfDays };
+      }
+      if (!client.stage_passport_docs_email_sent) return { severity:"warning", category:"Aguardando ação interna", text:"Solicitar documentos do passaporte", date:"", sort: 60 };
+      return { severity:"ok", category:"Sem ação imediata", text:"Acompanhar processo de passaporte", date:"", sort: 90 };
+    }
+
+    if (client.status === "not_started") {
+      const days = ageInDays(client.created_at);
+      return { severity: days >= 3 ? "warning" : "info", category:"Aguardando cliente", text: days >= 3 ? `Cobrar início do formulário (${days} dia(s) sem iniciar)` : "Aguardar início do formulário", date:"", sort: days >= 3 ? 25 : 80 };
+    }
+
+    if (client.status === "in_progress") {
+      const days = ageInDays(client.updated_at || client.created_at);
+      return { severity: days >= 3 ? "warning" : "info", category:"Aguardando cliente", text: days >= 3 ? `Cobrar conclusão do formulário (${days} dia(s) desde atualização)` : "Aguardar conclusão do formulário", date:"", sort: days >= 3 ? 24 : 79 };
+    }
+
+    if (client.status === "submitted" && !client.stage_ds160_completed) {
+      return { severity:"warning", category:"Ação interna", text:"Preencher DS-160 no consulado", date:"", sort: 28 };
+    }
+
+    if (!client.stage_fee_paid && client.stage_fee_generated) {
+      return { severity:"warning", category:"Aguardando cliente", text:"Cobrar pagamento da taxa consular", date:"", sort: 32 };
+    }
+
+    const videoDays = daysFromToday(info.video_call_date);
+    if (info.video_call_date && !client.stage_video_call_done && videoDays !== null && videoDays < 0) {
+      return { severity:"critical", category:"Videochamadas pendentes", text:`Videochamada pendente (${formatActionDays(videoDays)})`, date: dateOnly(info.video_call_date), sort: 12 + videoDays };
+    }
+    if (info.video_call_date && !client.stage_video_call_done && videoDays !== null && videoDays <= 7) {
+      return { severity:"warning", category:"Videochamadas pendentes", text:`Realizar videochamada ${formatActionDays(videoDays)}`, date: dateOnly(info.video_call_date), sort: 22 + Math.max(videoDays, 0) };
+    }
+
+    const interviewDays = daysFromToday(info.interview_date);
+    if (info.interview_date && !info.video_call_date && interviewDays !== null && interviewDays <= 20 && interviewDays >= 0) {
+      return { severity:"warning", category:"Videochamadas a marcar", text:`Marcar videochamada antes da entrevista (${formatActionDays(interviewDays)})`, date: dateOnly(info.interview_date), sort: 26 + interviewDays };
+    }
+    if (interviewDays !== null && interviewDays >= 0 && interviewDays <= 7) {
+      return { severity:"info", category:"Entrevistas próximas", text:`Entrevista ${formatActionDays(interviewDays)}`, date: dateOnly(info.interview_date), sort: 45 + interviewDays };
+    }
+
+    const casvDays = daysFromToday(info.casv_date);
+    if (casvDays !== null && casvDays >= 0 && casvDays <= 3) {
+      return { severity:"info", category:"Próximos 7 dias", text:`CASV ${formatActionDays(casvDays)}`, date: dateOnly(info.casv_date), sort: 48 + casvDays };
+    }
+
+    if (client.stage_passport_returned && !client.stage_feedback_sent) {
+      return { severity:"warning", category:"Ação interna", text:"Enviar pesquisa de satisfação", date:"", sort: 36 };
+    }
+
+    return { severity:"ok", category:"Sem ação imediata", text:"Acompanhar andamento", date:"", sort: 95 };
+  }
+
+  function actionRows() {
+    return pendingClients
+      .map((client) => ({ client, action: nextActionForClient(client) }))
+      .filter((item) => item.action.severity !== "ok")
+      .sort((a, b) => a.action.sort - b.action.sort || (a.client.name || "").localeCompare(b.client.name || "", "pt-BR"));
+  }
+
+  function actionGroups() {
+    const groups = {
+      "Passaportes pendentes": [],
+      "Videochamadas pendentes": [],
+      "Videochamadas a marcar": [],
+      "Aguardando cliente": [],
+      "Ação interna": [],
+      "Próximos 7 dias": [],
+      "Entrevistas próximas": [],
+      "Agendamento PF": [],
+      "Aguardando ação interna": []
+    };
+    for (const item of actionRows()) {
+      const key = groups[item.action.category] ? item.action.category : "Ação interna";
+      groups[key].push(item);
+    }
+    return groups;
+  }
+
+  function focusClient(client) {
+    setProcessTab("andamento");
+    setSearch(client.name || client.cpf || "");
+    setStatusFilter("all");
+  }
+
+  function OperationalActionCenter() {
+    if (processTab !== "andamento") return null;
+    const rows = actionRows();
+    const grouped = actionGroups();
+    const critical = rows.filter((item) => item.action.severity === "critical").length;
+    const warning = rows.filter((item) => item.action.severity === "warning").length;
+    const info = rows.filter((item) => item.action.severity === "info").length;
+    const order = ["Passaportes pendentes", "Videochamadas pendentes", "Videochamadas a marcar", "Aguardando cliente", "Ação interna", "Agendamento PF", "Aguardando ação interna", "Próximos 7 dias", "Entrevistas próximas"];
+
+    return (
+      <div className="card" style={{ padding:22, marginBottom:22, border:"2px solid #e5e7eb" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:14, flexWrap:"wrap" }}>
+          <div>
+            <h2 style={{ margin:"0 0 6px", color:"var(--navy)" }}>Centro de Ações</h2>
+            <p style={{ margin:"0 0 12px", color:"var(--muted)" }}>Visão operacional apenas dos processos pendentes. Mostra o que exige ação agora, sem envolver processos concluídos.</p>
+          </div>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            <span style={{ ...actionSeverityStyle("critical"), borderRadius:999, padding:"8px 12px", fontWeight:900 }}>🔴 {critical} críticas</span>
+            <span style={{ ...actionSeverityStyle("warning"), borderRadius:999, padding:"8px 12px", fontWeight:900 }}>🟡 {warning} atenção</span>
+            <span style={{ ...actionSeverityStyle("info"), borderRadius:999, padding:"8px 12px", fontWeight:900 }}>🔵 {info} próximas</span>
+          </div>
+        </div>
+
+        {rows.length === 0 ? (
+          <div style={{ background:"#dcfce7", color:"#166534", border:"1px solid #bbf7d0", borderRadius:14, padding:14, fontWeight:800 }}>
+            Nenhuma pendência operacional relevante nos processos em andamento.
+          </div>
+        ) : (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))", gap:12 }}>
+            {order.filter((category) => grouped[category]?.length).map((category) => (
+              <div key={category} style={{ border:"1px solid #e5e7eb", borderRadius:16, background:"#fff", overflow:"hidden" }}>
+                <div style={{ background:"#f8fafc", padding:"12px 14px", borderBottom:"1px solid #e5e7eb", fontWeight:900, color:"var(--navy)" }}>
+                  {category} ({grouped[category].length})
+                </div>
+                <div style={{ padding:12, display:"grid", gap:10 }}>
+                  {grouped[category].slice(0, 8).map(({ client, action }) => (
+                    <div key={`${category}-${client.id}`} style={{ ...actionSeverityStyle(action.severity), borderRadius:12, padding:10 }}>
+                      <div style={{ fontWeight:900 }}>{client.name}</div>
+                      <div style={{ fontSize:13, marginTop:3 }}>{action.text}</div>
+                      {processInfo(client).groupName && <div style={{ fontSize:12, marginTop:3 }}>Grupo: {processInfo(client).groupName}</div>}
+                      {action.date && <div style={{ fontSize:12, marginTop:3 }}>Data: {formatDateBR(action.date)}</div>}
+                      <button className="btn-light" style={{ marginTop:8, padding:"7px 10px" }} onClick={() => focusClient(client)}>Ver cliente</button>
+                    </div>
+                  ))}
+                  {grouped[category].length > 8 && <small style={{ color:"var(--muted)" }}>+ {grouped[category].length - 8} item(ns) nesta categoria.</small>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function clientLink(client) {
     if (client.no_form_required || !client.access_token) return "";
     return `${origin}/acesso/${client.access_token}`;
@@ -1644,10 +1847,10 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
         status: automaticProcessStatus(client),
         etapa: currentStepLabel(client),
         inicio: formatDateBR(client.data_inicio_processo || client.created_at?.slice(0, 10)) || "",
-        casv: formatDateBR(info.casv_date) || "",
-        entrevista: formatDateBR(info.interview_date) || "",
-        video: formatDateBR(info.video_call_date) || "",
-        consulado: info.consulate_city || "",
+        casv: isPassportProcess(client) ? (info.passport_pf_city || "") : (formatDateBR(info.casv_date) || ""),
+        entrevista: isPassportProcess(client) ? (formatDateTimeBR(info.passport_pf_datetime) || "") : (formatDateBR(info.interview_date) || ""),
+        video: isPassportProcess(client) ? "" : (formatDateBR(info.video_call_date) || ""),
+        consulado: isPassportProcess(client) ? (info.passport_pf_location || "") : (info.consulate_city || ""),
         rastreio: info.passport_tracking_code || "",
         dias: processDurationDays(client),
         progresso: `${processStepCount(client)}/7`,
@@ -1675,7 +1878,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
 
   function exportReportCsv() {
     const headers = [
-      "NOME", "CPF", "GRUPO DE PROCESSO", "TIPO", "STATUS ATUAL", "ETAPA ATUAL", "DATA INÍCIO", "DATA CASV", "DATA ENTREVISTA", "DATA VIDEOCHAMADA", "CIDADE CONSULADO", "RASTREIO PASSAPORTE", "DIAS DE PROCESSO", "PROGRESSO", "RESULTADO", "OBSERVAÇÕES",
+      "NOME", "CPF", "GRUPO DE PROCESSO", "TIPO", "STATUS ATUAL", "ETAPA ATUAL", "DATA INÍCIO", "DATA CASV / CIDADE PF", "DATA ENTREVISTA / AGENDAMENTO PASSAPORTE", "DATA VIDEOCHAMADA", "CONSULADO / LOCAL PF", "RASTREIO PASSAPORTE", "DIAS DE PROCESSO", "PROGRESSO", "RESULTADO", "OBSERVAÇÕES",
       "COM ENTREVISTA?", "PGTO SERVIÇO", "ENVIO DE DOCS", "PASSAPORTE VÁLIDO EMITIDO", "DATA VALIDADE PASSAPORTE", "DS160 PREENCHIDO", "TAXA PAGA", "ENTREVISTA / ENTREGA PASSAPORTES AGENDADA", "ENTREGA / VISITA CASV AGENDADO", "CHAMADA DE VÍDEO", "ENTREVISTA REALIZADA", "APROVADO", "MODO RETIRADA OU CORREIOS", "SERVIÇO RETIRADA PAGO?", "ENVIO / RETIRADA PASSAPORTES", "ENTREGA DEFINITIVA", "VALIDADE VISTO", "VISTO CANADENSE OFERECIDO", "VISTO CANADENSE CONTRATADO E PAGO", "VISTO CANADENSE EMITIDO", "VALIDADE VISTO CANADENSE"
     ];
     const rows = filteredClients.map((client) => {
@@ -1702,7 +1905,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v115 — correções passaporte</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v116 — centro de ações</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -1733,6 +1936,8 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
           <button className={processTab === "andamento" ? "btn-primary" : "btn-light"} onClick={() => setProcessTab("andamento")}>Processos em andamento</button>
           <button className={processTab === "concluidos" ? "btn-primary" : "btn-light"} onClick={() => setProcessTab("concluidos")}>Processos concluídos</button>
         </div>
+
+        <OperationalActionCenter />
 
         <div style={{ display: "flex", gap: 12, marginBottom: 18, flexWrap: "wrap" }}>
           <button className="btn-primary" onClick={() => setAlertsOpen(true)}>Ver alertas</button>
@@ -1848,6 +2053,11 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                   <span className="status-pill" style={{ background: client.status === "submitted" ? "#dcfce7" : "#fff7e8", color: client.status === "submitted" ? "#166534" : "#92400e" }}>
                     {currentStepLabel(client)} {client.is_locked ? "🔒" : ""}
                   </span>
+                  {processTab === "andamento" && (
+                    <div style={{ ...actionSeverityStyle(nextActionForClient(client).severity), marginTop:8, borderRadius:12, padding:"8px 10px", fontSize:12, fontWeight:800 }}>
+                      Próxima ação: {nextActionForClient(client).text}
+                    </div>
+                  )}
                 </td>
 
                 <td>
@@ -2020,7 +2230,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
             <button className="btn-primary" onClick={exportReportCsv} style={{ margin: "12px 0" }}>Exportar relatório CSV/Excel</button>
             <div style={{ overflowX: "auto", maxHeight: "65vh" }}>
               <table width="100%" cellPadding="8" style={{ borderCollapse: "collapse", fontSize: 13 }}>
-                <thead><tr style={{ background: "#f1f5f9" }}><th align="left">Nome</th><th align="left">Grupo</th><th align="left">Tipo</th><th align="left">Etapa</th><th align="left">Etapa</th><th align="left">Início</th><th align="left">CASV</th><th align="left">Entrevista</th><th align="left">Progresso</th><th align="left">Dias</th></tr></thead>
+                <thead><tr style={{ background: "#f1f5f9" }}><th align="left">Nome</th><th align="left">Grupo</th><th align="left">Tipo</th><th align="left">Status</th><th align="left">Etapa</th><th align="left">Início</th><th align="left">CASV / Cidade PF</th><th align="left">Entrevista / Agendamento passaporte</th><th align="left">Progresso</th><th align="left">Dias</th></tr></thead>
                 <tbody>
                   {reportRows().map((row, index) => (
                     <tr key={`${row.cpf}-${index}`} style={{ borderTop: "1px solid #e5e7eb" }}>
