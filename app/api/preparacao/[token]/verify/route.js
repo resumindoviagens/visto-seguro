@@ -42,14 +42,31 @@ export async function POST(request, context) {
     return Response.json({ error: "Informe CPF e data de nascimento." }, { status: 400 });
   }
 
-  const { data: client, error } = await supabaseAdmin
+  let { data: client, error } = await supabaseAdmin
     .from("clients")
     .select("id, name, cpf, birth_date, email, phone, access_token")
     .or(`access_token.eq.${token},id.eq.${token}`)
     .maybeSingle();
 
+  // Fallback seguro: se o link antigo/token não existir mais, valida pelo CPF + nascimento.
+  // Isso evita “link expirado” em links de preparação enviados antes de troca/regeneração de token.
   if (error || !client) {
-    return Response.json({ error: "Link inválido ou expirado." }, { status: 404 });
+    const { data: candidates, error: fallbackError } = await supabaseAdmin
+      .from("clients")
+      .select("id, name, cpf, birth_date, email, phone, access_token")
+      .eq("cpf", cpf)
+      .eq("birth_date", birthDate)
+      .limit(2);
+
+    if (fallbackError || !candidates || candidates.length === 0) {
+      return Response.json({ error: "Link inválido ou expirado." }, { status: 404 });
+    }
+
+    if (candidates.length > 1) {
+      return Response.json({ error: "Encontramos mais de um processo com estes dados. Solicite novo link à Resumindo Viagens." }, { status: 409 });
+    }
+
+    client = candidates[0];
   }
 
   const storedCPF = cleanCPF(client.cpf);

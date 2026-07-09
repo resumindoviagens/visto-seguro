@@ -73,7 +73,7 @@ export async function POST(request) {
     const clientWithGroup = { ...client, process_group: processGroup };
     const origin = siteOrigin(request);
     const formLink = client.access_token ? `${origin}/acesso/${client.access_token}` : "";
-    const preparationLink = `${origin}/preparacao/${client.access_token || client.id}`;
+    const preparationLink = `${origin}/preparacao/${client.id}`;
     const feedbackLink = ["pesquisa_satisfacao", "passaporte_pesquisa", "canada_pesquisa"].includes(template_id) ? await ensureFeedbackLink(client, origin) : "";
     const template = getEmailTemplate(template_id, clientWithGroup, {
       formLink,

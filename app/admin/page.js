@@ -563,6 +563,9 @@ function Dashboard({ logout }) {
   const [sortBy, setSortBy] = useState("created_desc");
   const [emailComposer, setEmailComposer] = useState(null);
   const [emailComposerLoading, setEmailComposerLoading] = useState(false);
+  const [operationClient, setOperationClient] = useState(null);
+  const [operationGroupForm, setOperationGroupForm] = useState({});
+  const [operationMembers, setOperationMembers] = useState([]);
   const [form, setForm] = useState({
     name: "",
     cpf: "",
@@ -844,7 +847,15 @@ function Dashboard({ logout }) {
       passport_pf_city: client.passport_pf_city || "",
       passport_pf_location: client.passport_pf_location || "",
       passport_pf_datetime: client.passport_pf_datetime || "",
-      passport_gru_paid_at: client.passport_gru_paid_at || ""
+      passport_gru_paid_at: client.passport_gru_paid_at || "",
+      ds160_travel_date: group?.ds160_travel_date || "",
+      ds160_trip_duration_days: group?.ds160_trip_duration_days || "",
+      ds160_destination_city: group?.ds160_destination_city || "",
+      ds160_selected_hotel_name: group?.ds160_selected_hotel_name || "",
+      ds160_selected_hotel_address: group?.ds160_selected_hotel_address || "",
+      ds160_selected_hotel_phone: group?.ds160_selected_hotel_phone || "",
+      ds160_common_notes: group?.ds160_common_notes || "",
+      ds160_common_security_answers: group?.ds160_common_security_answers || ""
     };
   }
 
@@ -938,6 +949,101 @@ function Dashboard({ logout }) {
     }
 
     await updateClientSchedule(client, fields);
+  }
+
+  function operationMembersFor(client) {
+    if (!client?.group_process_id) return [client];
+    return clients
+      .filter((item) => item.group_process_id === client.group_process_id)
+      .sort((a, b) => (a.name || "").localeCompare(b.name || "", "pt-BR"));
+  }
+
+  function openOperationPanel(client) {
+    const info = processInfo(client);
+    setOperationClient(client);
+    setOperationGroupForm({
+      consulate_city: info.consulate_city || "",
+      ds160_travel_date: info.ds160_travel_date || "",
+      ds160_trip_duration_days: info.ds160_trip_duration_days || "",
+      ds160_destination_city: info.ds160_destination_city || "",
+      ds160_selected_hotel_name: info.ds160_selected_hotel_name || "",
+      ds160_selected_hotel_address: info.ds160_selected_hotel_address || "",
+      ds160_selected_hotel_phone: info.ds160_selected_hotel_phone || "",
+      ds160_common_notes: info.ds160_common_notes || "",
+      ds160_common_security_answers: info.ds160_common_security_answers || ""
+    });
+    setOperationMembers(operationMembersFor(client).map((item) => ({
+      id: item.id,
+      name: item.name || "",
+      ds160_number: item.ds160_number || "",
+      passport_display_name: item.passport_display_name || "",
+      passport_surname: item.passport_surname || "",
+      ds160_individual_notes: item.ds160_individual_notes || ""
+    })));
+  }
+
+  async function saveOperationPanel() {
+    if (!operationClient) return;
+
+    const groupId = operationClient.group_process_id;
+    if (groupId) {
+      const res = await fetch(`/api/admin/process-groups/${groupId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...operationGroupForm,
+          nome: processInfo(operationClient).groupName || operationClient.family_group || operationClient.name || "Grupo",
+          consulate_city: operationGroupForm.consulate_city || processInfo(operationClient).consulate_city || "",
+          casv_date: processInfo(operationClient).casv_date || "",
+          interview_date: processInfo(operationClient).interview_date || "",
+          video_call_date: processInfo(operationClient).video_call_date || "",
+          passport_tracking_code: processInfo(operationClient).passport_tracking_code || "",
+          data_inicio_processo: processInfo(operationClient).data_inicio_processo || ""
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Erro ao salvar dados comuns da ficha rápida.");
+        return;
+      }
+    }
+
+    for (const member of operationMembers) {
+      const res = await fetch(`/api/admin/clients/${member.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_operation",
+          ds160_number: member.ds160_number || "",
+          passport_display_name: member.passport_display_name || "",
+          passport_surname: member.passport_surname || "",
+          ds160_individual_notes: member.ds160_individual_notes || ""
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || `Erro ao salvar ficha de ${member.name}.`);
+        return;
+      }
+    }
+
+    alert("Ficha rápida DS-160 salva.");
+    setOperationClient(null);
+    await loadGroups();
+    await loadClients();
+  }
+
+  function ds160Summary(client) {
+    const members = operationMembersFor(client);
+    const total = members.length;
+    const filled = members.filter((item) => item.ds160_number).length;
+    const info = processInfo(client);
+    const hotel = info.ds160_selected_hotel_name ? "Hotel definido" : "Hotel pendente";
+    return `${filled}/${total} DS-160 • ${hotel}`;
+  }
+
+  function preparationLinkFor(client) {
+    return `${origin}/preparacao/${client.id}`;
   }
 
   function buildGlobalAlerts() {
@@ -1412,7 +1518,7 @@ function Dashboard({ logout }) {
     const messages = {
       formulario: `Olá, ${client.name}! Tudo bem? Aqui é da Resumindo Viagens. Segue seu link seguro para preenchimento do formulário de visto americano: ${link}`,
       pendente: `Olá, ${client.name}! Passando para lembrar que seu formulário da Resumindo Viagens ainda está pendente. Você pode continuar pelo mesmo link: ${link}`,
-      videochamada: `Olá, ${client.name}! Segue o link das orientações para preparação da videochamada: ${link.replace("/acesso/", "/preparacao/")}`
+      videochamada: `Olá, ${client.name}! Segue o link das orientações para preparação da videochamada: ${origin}/preparacao/${client.id}`
     };
 
     const text = encodeURIComponent(messages[templateId] || messages.formulario);
@@ -1543,7 +1649,8 @@ function Dashboard({ logout }) {
     }
 
     if (client.status === "submitted" && !client.stage_ds160_completed) {
-      return { severity:"warning", category:"Ação interna", text:"Preencher DS-160 no consulado", date:"", sort: 28 };
+      const missingDs160 = !client.ds160_number;
+      return { severity:"warning", category:"Ação interna", text: missingDs160 ? "Preencher DS-160 e salvar número na Ficha Rápida" : "Preencher DS-160 no consulado", date:"", sort: 28 };
     }
 
     if (!client.stage_fee_paid && client.stage_fee_generated) {
@@ -1905,7 +2012,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v116 — centro de ações</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v117 — operação DS-160 e link estável</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -2004,6 +2111,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                       <small><b>Rastreio passaporte:</b> {processInfo(client).passport_tracking_code || "-"}</small>
                     </>
                   )}
+                  {!isPassportProcess(client) && <><br /><small><b>Ficha DS-160:</b> {ds160Summary(client)}</small><br /><small><b>Link preparação:</b> <button className="btn-light" style={{ padding:"4px 8px", fontSize:11 }} onClick={() => copyText(preparationLinkFor(client), "Link de preparação copiado.")}>Copiar</button></small></>}
                   <Thermometer client={client} />
                   {client.client_sedex_tracking && <><br /><small>Sedex cliente: {client.client_sedex_tracking}</small></>}
                   {client.is_renewal && <div className="admin-renewal-alert">Renovação sem entrevista</div>}
@@ -2092,6 +2200,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                     )}
 
                     <button className="btn-light" onClick={() => setActiveMenu(activeMenu === `process-${client.id}` ? null : `process-${client.id}`)}>Processo, datas e rastreios</button>
+                    {!isPassportProcess(client) && <button className="btn-light" onClick={() => openOperationPanel(client)}>🗂 Operação / DS-160</button>}
                     {activeMenu === `process-${client.id}` && (
                       <div className="admin-email-options process-panel" style={{ minWidth: 380 }}>
                         <button className="popup-close" onClick={() => setActiveMenu(null)}>×</button>
@@ -2213,6 +2322,72 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
 
 
 
+
+
+      {operationClient && (
+        <div className="modal-backdrop" onClick={() => setOperationClient(null)}>
+          <div className="modal-card" style={{ maxWidth: 1120, width: "96vw" }} onClick={(e) => e.stopPropagation()}>
+            <button className="popup-close" onClick={() => setOperationClient(null)}>×</button>
+            <h2 style={{ marginTop:0 }}>🗂 Ficha Rápida DS-160 / Operação</h2>
+            <p style={{ color:"var(--muted)" }}>
+              Área interna da Resumindo Viagens para substituir as fichas rápidas em Word. Os dados comuns valem para o grupo/família; os dados individuais ficam em cada solicitante.
+            </p>
+
+            <div className="admin-email-options" style={{ marginTop:14 }}>
+              <h3 style={{ margin:"0 0 10px", color:"var(--navy)" }}>Dados comuns do grupo/família</h3>
+              {!operationClient.group_process_id && (
+                <div className="admin-date-alert warning">Cliente sem grupo familiar. Os dados comuns serão apenas referência visual nesta tela; para compartilhar dados entre familiares, vincule a um grupo de processo.</div>
+              )}
+              <div className="grid">
+                <label><small>Consulado escolhido</small><select value={operationGroupForm.consulate_city || ""} onChange={(e) => setOperationGroupForm({ ...operationGroupForm, consulate_city: e.target.value })}><option value="">Selecionar cidade</option>{CONSULATE_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
+                <label><small>Data prevista de ida</small><input type="date" value={operationGroupForm.ds160_travel_date || ""} onChange={(e) => setOperationGroupForm({ ...operationGroupForm, ds160_travel_date: e.target.value })} /></label>
+                <label><small>Quantidade de dias</small><input type="number" min="1" value={operationGroupForm.ds160_trip_duration_days || ""} onChange={(e) => setOperationGroupForm({ ...operationGroupForm, ds160_trip_duration_days: e.target.value })} /></label>
+                <label><small>Cidade/destino principal</small><input value={operationGroupForm.ds160_destination_city || ""} onChange={(e) => setOperationGroupForm({ ...operationGroupForm, ds160_destination_city: e.target.value })} placeholder="Ex.: Orlando, Nova York..." /></label>
+                <label><small>Hotel escolhido</small><input value={operationGroupForm.ds160_selected_hotel_name || ""} onChange={(e) => setOperationGroupForm({ ...operationGroupForm, ds160_selected_hotel_name: e.target.value })} /></label>
+                <label><small>Telefone do hotel</small><input value={operationGroupForm.ds160_selected_hotel_phone || ""} onChange={(e) => setOperationGroupForm({ ...operationGroupForm, ds160_selected_hotel_phone: e.target.value })} /></label>
+                <label className="wide"><small>Endereço do hotel</small><input value={operationGroupForm.ds160_selected_hotel_address || ""} onChange={(e) => setOperationGroupForm({ ...operationGroupForm, ds160_selected_hotel_address: e.target.value })} /></label>
+                <label className="wide"><small>Observações gerais DS-160</small><textarea value={operationGroupForm.ds160_common_notes || ""} onChange={(e) => setOperationGroupForm({ ...operationGroupForm, ds160_common_notes: e.target.value })} placeholder="Ex.: todos viajam juntos; hotel usado no DS-160; observações de preenchimento..." /></label>
+                <label className="wide"><small>Perguntas/respostas comuns</small><textarea value={operationGroupForm.ds160_common_security_answers || ""} onChange={(e) => setOperationGroupForm({ ...operationGroupForm, ds160_common_security_answers: e.target.value })} placeholder="Ex.: pergunta de recuperação, respostas comuns, anotações de acesso..." /></label>
+              </div>
+            </div>
+
+            <div className="admin-email-options" style={{ marginTop:14 }}>
+              <h3 style={{ margin:"0 0 10px", color:"var(--navy)" }}>Dados individuais</h3>
+              <div style={{ overflowX:"auto" }}>
+                <table width="100%" cellPadding="8" style={{ borderCollapse:"collapse", fontSize:13 }}>
+                  <thead>
+                    <tr style={{ background:"#f8fafc" }}>
+                      <th align="left">Solicitante</th>
+                      <th align="left">Nome no passaporte</th>
+                      <th align="left">Sobrenome DS-160</th>
+                      <th align="left">Número DS-160</th>
+                      <th align="left">Obs. individual</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {operationMembers.map((member, index) => (
+                      <tr key={member.id} style={{ borderTop:"1px solid #e5e7eb" }}>
+                        <td style={{ minWidth:180, fontWeight:800 }}>{member.name}</td>
+                        <td><input value={member.passport_display_name || ""} onChange={(e) => setOperationMembers((list) => list.map((item, i) => i === index ? { ...item, passport_display_name: e.target.value } : item))} placeholder="Ex.: SILVA / JOAO" /></td>
+                        <td><input value={member.passport_surname || ""} onChange={(e) => setOperationMembers((list) => list.map((item, i) => i === index ? { ...item, passport_surname: e.target.value } : item))} placeholder="Sobrenome usado no CEAC" /></td>
+                        <td><input value={member.ds160_number || ""} onChange={(e) => setOperationMembers((list) => list.map((item, i) => i === index ? { ...item, ds160_number: e.target.value.toUpperCase() } : item))} placeholder="AA00..." /></td>
+                        <td><input value={member.ds160_individual_notes || ""} onChange={(e) => setOperationMembers((list) => list.map((item, i) => i === index ? { ...item, ds160_individual_notes: e.target.value } : item))} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginTop:16 }}>
+              <button className="btn-primary" onClick={saveOperationPanel}>Salvar ficha rápida</button>
+              <button className="btn-light" onClick={() => copyText(preparationLinkFor(operationClient), "Link de preparação copiado.")}>Copiar link de preparação</button>
+              <a className="btn-light" href="https://ceac.state.gov/genniv/" target="_blank">Abrir CEAC</a>
+              <button className="btn-light" onClick={() => setOperationClient(null)}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {reportOpen && (
         <div className="modal-backdrop" onClick={() => setReportOpen(false)}>

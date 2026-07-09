@@ -144,6 +144,13 @@ export async function PATCH(request, context) {
     }
   }
 
+  if (body.action === "update_operation") {
+    updates.ds160_number = body.ds160_number || "";
+    updates.passport_display_name = body.passport_display_name || "";
+    updates.passport_surname = body.passport_surname || "";
+    updates.ds160_individual_notes = body.ds160_individual_notes || "";
+  }
+
   if (body.action === "update_process_steps") {
     updates.status = body.status || oldClient?.status || "not_started";
     updates.stage_ds160_completed = !!body.stage_ds160_completed;

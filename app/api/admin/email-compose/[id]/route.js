@@ -147,7 +147,7 @@ export async function GET(request, context) {
   const clientWithGroup = { ...client, process_group: processGroup };
 
   const formLink = client.access_token ? `${origin}/acesso/${client.access_token}` : "";
-  const preparationLink = `${origin}/preparacao/${client.access_token || client.id}`;
+  const preparationLink = `${origin}/preparacao/${client.id}`;
   const feedbackLink = isFeedbackTemplate(templateId)
     ? await ensureFeedbackLink(client, origin)
     : (client.feedback_token ? `${origin}/feedback/${client.feedback_token}` : "");

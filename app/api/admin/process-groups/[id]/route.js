@@ -74,6 +74,14 @@ export async function PATCH(request, context) {
     video_call_date: body.video_call_date || null,
     passport_tracking_code: body.passport_tracking_code || "",
     data_inicio_processo: body.data_inicio_processo || null,
+    ds160_travel_date: body.ds160_travel_date || null,
+    ds160_trip_duration_days: body.ds160_trip_duration_days ? Number(body.ds160_trip_duration_days) : null,
+    ds160_destination_city: body.ds160_destination_city || "",
+    ds160_selected_hotel_name: body.ds160_selected_hotel_name || "",
+    ds160_selected_hotel_address: body.ds160_selected_hotel_address || "",
+    ds160_selected_hotel_phone: body.ds160_selected_hotel_phone || "",
+    ds160_common_notes: body.ds160_common_notes || "",
+    ds160_common_security_answers: body.ds160_common_security_answers || "",
     updated_at: new Date().toISOString()
   };
   Object.keys(updates).forEach((key) => typeof updates[key] === "undefined" && delete updates[key]);
