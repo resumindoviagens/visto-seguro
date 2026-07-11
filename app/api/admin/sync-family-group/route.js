@@ -39,9 +39,7 @@ const SYNC_FIELDS = [
 
   // Dados operacionais internos do processo
   "data_final_processo",
-  "observacoes_gerais",
-  "tipo_processo",
-  "feedback_service"
+  "observacoes_gerais"
 ];
 
 function pickSyncData(client) {
@@ -90,7 +88,7 @@ export async function POST(request) {
 
     const { data: members, error: membersError } = await supabaseAdmin
       .from("clients")
-      .select("id, name, sincronizar_com_grupo")
+      .select("id, name, sincronizar_com_grupo, tipo_processo, feedback_service")
       .eq("group_process_id", groupId)
       .neq("id", masterId);
 
@@ -98,8 +96,12 @@ export async function POST(request) {
       return Response.json({ error: membersError.message }, { status: 500 });
     }
 
+    const masterService = String(master.feedback_service || master.tipo_processo || "").toLowerCase();
     const targetIds = (members || [])
       .filter((m) => m.sincronizar_com_grupo !== false)
+      // V118: defesa adicional. Mesmo que dados antigos tenham reutilizado por engano
+      // um group_process_id entre serviços, nunca sincronizar Visto x Passaporte.
+      .filter((m) => String(m.feedback_service || m.tipo_processo || "").toLowerCase() === masterService)
       .map((m) => m.id);
 
     if (targetIds.length === 0) {

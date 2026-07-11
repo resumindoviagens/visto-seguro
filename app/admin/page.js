@@ -578,7 +578,8 @@ function Dashboard({ logout }) {
     is_renewal: false,
     tipo_processo: "Primeiro visto",
     passport_expiration_date: "",
-    observacoes_gerais: ""
+    observacoes_gerais: "",
+    also_create_passport: false
   });
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://visto-seguro.vercel.app";
@@ -1117,8 +1118,31 @@ function Dashboard({ logout }) {
       return;
     }
 
-    setForm({ name: "", cpf: "", birth_date: "", phone: "", email: "", notes: "", group_process_id: "", no_form_required: false, is_renewal: false, tipo_processo: "Primeiro visto", data_inicio_processo: "", observacoes_gerais: "" });
+    setForm((current) => ({
+      name: "",
+      cpf: "",
+      birth_date: "",
+      phone: "",
+      email: "",
+      notes: "",
+      group_process_id: current.group_process_id || "",
+      no_form_required: current.tipo_processo === "Passaporte" ? true : false,
+      is_renewal: current.is_renewal,
+      tipo_processo: current.tipo_processo || "Primeiro visto",
+      data_inicio_processo: "",
+      observacoes_gerais: "",
+      also_create_passport: !!current.also_create_passport
+    }));
+    if (data.combined_process_created) {
+      const passportMessage = data.passport_existing
+        ? "O processo de visto foi cadastrado e o processo de passaporte desta pessoa já existia no grupo correspondente."
+        : `Visto + Passaporte cadastrados. O passaporte foi criado no grupo “${data.passport_group?.nome || "Passaporte"}”.`;
+      alert(passportMessage);
+    } else if (data.existing) {
+      alert("Este processo já existia para a pessoa dentro do grupo selecionado. Nenhum processo duplicado foi criado.");
+    }
     await loadClients();
+    await loadGroups();
   }
 
   async function actionClient(id, action) {
@@ -2012,7 +2036,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v117 — operação DS-160 e link estável</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v118 — cadastro combinado Visto + Passaporte</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -2030,11 +2054,23 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
           <button type="button" className="btn-light" onClick={createProcessGroup}>+ Criar grupo de processo</button>
           <textarea className="wide" placeholder="Observações internas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <label className="admin-checkbox"><input type="checkbox" disabled={form.tipo_processo === "Passaporte"} checked={form.tipo_processo === "Passaporte" || !!form.no_form_required} onChange={(e) => setForm({ ...form, no_form_required: e.target.checked })} /> Cadastro de controle — não enviar formulário{form.tipo_processo === "Passaporte" ? " (obrigatório para passaporte)" : ""}</label>
+          <label className="admin-checkbox" style={{ alignItems: "flex-start" }}>
+            <input
+              type="checkbox"
+              disabled={form.tipo_processo === "Passaporte"}
+              checked={!!form.also_create_passport}
+              onChange={(e) => setForm({ ...form, also_create_passport: e.target.checked })}
+            />
+            <span><strong>Esta família também contratou Passaporte</strong><br/><small>Ao cadastrar cada membro no grupo do visto, o sistema cria automaticamente um segundo processo de Passaporte, vinculado ao mesmo cliente único, em um grupo separado “— Passaporte”. A opção e o grupo permanecem selecionados para cadastrar os próximos membros da família.</small></span>
+          </label>
+          {form.also_create_passport && !form.group_process_id && <div className="wide" style={{ background: "#fff7ed", border: "1px solid #fdba74", borderRadius: 12, padding: 12, color: "#9a3412", fontWeight: 700 }}>Selecione ou crie o Grupo de processo do visto. O grupo familiar de Passaporte será criado automaticamente e ficará totalmente separado.</div>}
           <label className="admin-checkbox"><input type="checkbox" checked={!!form.is_renewal} onChange={(e) => setForm({ ...form, is_renewal: e.target.checked })} /> Processo de renovação sem entrevista</label>
         </div>
 
-        <button className="btn-primary" onClick={createClient}>
-          {form.no_form_required ? "Cadastrar controle sem link" : "Cadastrar cliente e gerar link seguro"}
+        <button className="btn-primary" onClick={createClient} disabled={form.also_create_passport && !form.group_process_id}>
+          {form.also_create_passport
+            ? "Cadastrar Visto + Passaporte"
+            : (form.no_form_required ? "Cadastrar controle sem link" : "Cadastrar cliente e gerar link seguro")}
         </button>
       </div>
 
