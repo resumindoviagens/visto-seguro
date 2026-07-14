@@ -578,8 +578,7 @@ function Dashboard({ logout }) {
     is_renewal: false,
     tipo_processo: "Primeiro visto",
     passport_expiration_date: "",
-    observacoes_gerais: "",
-    also_create_passport: false
+    observacoes_gerais: ""
   });
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://visto-seguro.vercel.app";
@@ -849,6 +848,7 @@ function Dashboard({ logout }) {
       passport_pf_location: client.passport_pf_location || "",
       passport_pf_datetime: client.passport_pf_datetime || "",
       passport_gru_paid_at: client.passport_gru_paid_at || "",
+      passport_protocol: client.passport_protocol || "",
       ds160_travel_date: group?.ds160_travel_date || "",
       ds160_trip_duration_days: group?.ds160_trip_duration_days || "",
       ds160_destination_city: group?.ds160_destination_city || "",
@@ -1118,31 +1118,8 @@ function Dashboard({ logout }) {
       return;
     }
 
-    setForm((current) => ({
-      name: "",
-      cpf: "",
-      birth_date: "",
-      phone: "",
-      email: "",
-      notes: "",
-      group_process_id: current.group_process_id || "",
-      no_form_required: current.tipo_processo === "Passaporte" ? true : false,
-      is_renewal: current.is_renewal,
-      tipo_processo: current.tipo_processo || "Primeiro visto",
-      data_inicio_processo: "",
-      observacoes_gerais: "",
-      also_create_passport: !!current.also_create_passport
-    }));
-    if (data.combined_process_created) {
-      const passportMessage = data.passport_existing
-        ? "O processo de visto foi cadastrado e o processo de passaporte desta pessoa já existia no grupo correspondente."
-        : `Visto + Passaporte cadastrados. O passaporte foi criado no grupo “${data.passport_group?.nome || "Passaporte"}”.`;
-      alert(passportMessage);
-    } else if (data.existing) {
-      alert("Este processo já existia para a pessoa dentro do grupo selecionado. Nenhum processo duplicado foi criado.");
-    }
+    setForm({ name: "", cpf: "", birth_date: "", phone: "", email: "", notes: "", group_process_id: "", no_form_required: false, is_renewal: false, tipo_processo: "Primeiro visto", data_inicio_processo: "", observacoes_gerais: "" });
     await loadClients();
-    await loadGroups();
   }
 
   async function actionClient(id, action) {
@@ -1185,6 +1162,7 @@ function Dashboard({ logout }) {
       passport_pf_location: client.passport_pf_location || "",
       passport_pf_datetime: client.passport_pf_datetime || "",
       passport_gru_paid_at: client.passport_gru_paid_at || "",
+      passport_protocol: client.passport_protocol || "",
       grupo_familiar_master: !!client.grupo_familiar_master,
       sincronizar_com_grupo: client.sincronizar_com_grupo !== false
     });
@@ -1265,7 +1243,8 @@ function Dashboard({ logout }) {
         passport_pf_city: fields.passport_pf_city ?? client.passport_pf_city ?? "",
         passport_pf_location: fields.passport_pf_location ?? client.passport_pf_location ?? "",
         passport_pf_datetime: fields.passport_pf_datetime ?? client.passport_pf_datetime ?? "",
-        passport_gru_paid_at: fields.passport_gru_paid_at ?? client.passport_gru_paid_at ?? ""
+        passport_gru_paid_at: fields.passport_gru_paid_at ?? client.passport_gru_paid_at ?? "",
+        passport_protocol: fields.passport_protocol ?? client.passport_protocol ?? ""
       })
     });
 
@@ -2036,7 +2015,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v118 — cadastro combinado Visto + Passaporte</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v117A — ficha DS-160 corrigida + protocolo</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -2054,23 +2033,11 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
           <button type="button" className="btn-light" onClick={createProcessGroup}>+ Criar grupo de processo</button>
           <textarea className="wide" placeholder="Observações internas" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <label className="admin-checkbox"><input type="checkbox" disabled={form.tipo_processo === "Passaporte"} checked={form.tipo_processo === "Passaporte" || !!form.no_form_required} onChange={(e) => setForm({ ...form, no_form_required: e.target.checked })} /> Cadastro de controle — não enviar formulário{form.tipo_processo === "Passaporte" ? " (obrigatório para passaporte)" : ""}</label>
-          <label className="admin-checkbox" style={{ alignItems: "flex-start" }}>
-            <input
-              type="checkbox"
-              disabled={form.tipo_processo === "Passaporte"}
-              checked={!!form.also_create_passport}
-              onChange={(e) => setForm({ ...form, also_create_passport: e.target.checked })}
-            />
-            <span><strong>Esta família também contratou Passaporte</strong><br/><small>Ao cadastrar cada membro no grupo do visto, o sistema cria automaticamente um segundo processo de Passaporte, vinculado ao mesmo cliente único, em um grupo separado “— Passaporte”. A opção e o grupo permanecem selecionados para cadastrar os próximos membros da família.</small></span>
-          </label>
-          {form.also_create_passport && !form.group_process_id && <div className="wide" style={{ background: "#fff7ed", border: "1px solid #fdba74", borderRadius: 12, padding: 12, color: "#9a3412", fontWeight: 700 }}>Selecione ou crie o Grupo de processo do visto. O grupo familiar de Passaporte será criado automaticamente e ficará totalmente separado.</div>}
           <label className="admin-checkbox"><input type="checkbox" checked={!!form.is_renewal} onChange={(e) => setForm({ ...form, is_renewal: e.target.checked })} /> Processo de renovação sem entrevista</label>
         </div>
 
-        <button className="btn-primary" onClick={createClient} disabled={form.also_create_passport && !form.group_process_id}>
-          {form.also_create_passport
-            ? "Cadastrar Visto + Passaporte"
-            : (form.no_form_required ? "Cadastrar controle sem link" : "Cadastrar cliente e gerar link seguro")}
+        <button className="btn-primary" onClick={createClient}>
+          {form.no_form_required ? "Cadastrar controle sem link" : "Cadastrar cliente e gerar link seguro"}
         </button>
       </div>
 
@@ -2134,6 +2101,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                       <small><b>Data agendamento passaporte:</b> {formatDateTimeBR(processInfo(client).passport_pf_datetime) || "-"}</small><br />
                       <small>Grupo de processo: {processInfo(client).groupName || "-"}</small><br />
                       {client.grupo_familiar_master && <><small style={{ color: "#166534", fontWeight: 700 }}>Contato principal</small><br /></>}
+                      <small><b>Protocolo do passaporte:</b> {processInfo(client).passport_protocol || "-"}</small><br />
                       <small><b>Rastreio passaporte:</b> {processInfo(client).passport_tracking_code || "-"}</small>
                     </>
                   ) : (
@@ -2250,6 +2218,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                             <label><small>Local / unidade da Polícia Federal</small><input defaultValue={processInfo(client).passport_pf_location || ""} placeholder="Ex.: Shopping Eldorado / PF" onBlur={(e) => updateProcessSchedule(client, { passport_pf_location: e.target.value })} /></label>
                             <label><small>Data e hora do atendimento na PF</small><input type="datetime-local" defaultValue={toDatetimeLocal(processInfo(client).passport_pf_datetime)} onBlur={(e) => updateProcessSchedule(client, { passport_pf_datetime: e.target.value, interview_date: e.target.value ? String(e.target.value).slice(0,10) : "" })} /></label>
                             <label><small>Data de pagamento da GRU</small><input type="date" defaultValue={processInfo(client).passport_gru_paid_at || ""} onBlur={(e) => updateProcessSchedule(client, { passport_gru_paid_at: e.target.value, stage_fee_paid: !!e.target.value })} /></label>
+                            <label><small>Protocolo do passaporte</small><input defaultValue={processInfo(client).passport_protocol || ""} placeholder="Informe o número do protocolo" onBlur={(e) => updateProcessSchedule(client, { passport_protocol: e.target.value })} /></label>
                           </>
                         )}
                         {!isPassportProcess(client) && (
@@ -2362,14 +2331,14 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
 
       {operationClient && (
         <div className="modal-backdrop" onClick={() => setOperationClient(null)}>
-          <div className="modal-card" style={{ maxWidth: 1120, width: "96vw" }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-card operation-modal-card" onClick={(e) => e.stopPropagation()}>
             <button className="popup-close" onClick={() => setOperationClient(null)}>×</button>
             <h2 style={{ marginTop:0 }}>🗂 Ficha Rápida DS-160 / Operação</h2>
             <p style={{ color:"var(--muted)" }}>
               Área interna da Resumindo Viagens para substituir as fichas rápidas em Word. Os dados comuns valem para o grupo/família; os dados individuais ficam em cada solicitante.
             </p>
 
-            <div className="admin-email-options" style={{ marginTop:14 }}>
+            <section className="operation-section">
               <h3 style={{ margin:"0 0 10px", color:"var(--navy)" }}>Dados comuns do grupo/família</h3>
               {!operationClient.group_process_id && (
                 <div className="admin-date-alert warning">Cliente sem grupo familiar. Os dados comuns serão apenas referência visual nesta tela; para compartilhar dados entre familiares, vincule a um grupo de processo.</div>
@@ -2385,12 +2354,12 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                 <label className="wide"><small>Observações gerais DS-160</small><textarea value={operationGroupForm.ds160_common_notes || ""} onChange={(e) => setOperationGroupForm({ ...operationGroupForm, ds160_common_notes: e.target.value })} placeholder="Ex.: todos viajam juntos; hotel usado no DS-160; observações de preenchimento..." /></label>
                 <label className="wide"><small>Perguntas/respostas comuns</small><textarea value={operationGroupForm.ds160_common_security_answers || ""} onChange={(e) => setOperationGroupForm({ ...operationGroupForm, ds160_common_security_answers: e.target.value })} placeholder="Ex.: pergunta de recuperação, respostas comuns, anotações de acesso..." /></label>
               </div>
-            </div>
+            </section>
 
-            <div className="admin-email-options" style={{ marginTop:14 }}>
+            <section className="operation-section">
               <h3 style={{ margin:"0 0 10px", color:"var(--navy)" }}>Dados individuais</h3>
               <div style={{ overflowX:"auto" }}>
-                <table width="100%" cellPadding="8" style={{ borderCollapse:"collapse", fontSize:13 }}>
+                <table className="operation-members-table" cellPadding="8">
                   <thead>
                     <tr style={{ background:"#f8fafc" }}>
                       <th align="left">Solicitante</th>
@@ -2413,7 +2382,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
 
             <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginTop:16 }}>
               <button className="btn-primary" onClick={saveOperationPanel}>Salvar ficha rápida</button>

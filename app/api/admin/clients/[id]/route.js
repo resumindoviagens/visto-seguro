@@ -134,6 +134,7 @@ export async function PATCH(request, context) {
     if (typeof body.passport_pf_location !== "undefined") updates.passport_pf_location = body.passport_pf_location || "";
     if (typeof body.passport_pf_datetime !== "undefined") updates.passport_pf_datetime = body.passport_pf_datetime || null;
     if (typeof body.passport_gru_paid_at !== "undefined") updates.passport_gru_paid_at = body.passport_gru_paid_at || null;
+    if (typeof body.passport_protocol !== "undefined") updates.passport_protocol = body.passport_protocol || "";
     if (
       body.casv_date !== oldClient?.casv_date ||
       body.interview_date !== oldClient?.interview_date ||
