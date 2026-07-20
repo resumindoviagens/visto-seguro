@@ -288,7 +288,7 @@ export default function AdminLoginPage() {
             </p>
           </div>
 
-          <div className="version">v34 consolidada</div>
+          <div className="version">v119 — protocolo de Passaporte + WhatsApp direto</div>
         </section>
 
         <section className="login">

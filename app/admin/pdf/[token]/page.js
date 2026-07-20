@@ -73,6 +73,7 @@ export default async function AdminPdfPage({ params }) {
             <div className="grid" style={{ marginBottom: 24 }}>
               {client.consulate_city && <div style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}><b>Consulado</b><br />{client.consulate_city}</div>}
               {client.family_group && <div style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}><b>Grupo familiar</b><br />{client.family_group}</div>}
+              {client.passport_protocol && <div style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}><b>Protocolo do passaporte</b><br />{client.passport_protocol}</div>}
               {client.passport_tracking_code && <div style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}><b>Rastreio do passaporte</b><br />{client.passport_tracking_code}</div>}
               {client.client_sedex_tracking && <div style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}><b>Rastreio Sedex do cliente</b><br />{client.client_sedex_tracking}</div>}
             </div>

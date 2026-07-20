@@ -1,1 +1,1 @@
-v117A — correção visual da Ficha DS-160 + protocolo do passaporte
+v117 — Operação DS-160 / link estável preparação
