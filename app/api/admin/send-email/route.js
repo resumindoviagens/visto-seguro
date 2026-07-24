@@ -86,7 +86,7 @@ export async function POST(request) {
     });
 
     const attachments = isAgendaTemplate(template_id) ? agendaAttachmentsForClient(clientWithGroup) : [];
-    const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, subject: template.subject, html: template.html, text: template.text, attachments });
+    const result = await sendWithBrevo({ toEmail: client.email, toName: client.name, ccEmail: client.secondary_email || "", subject: template.subject, html: template.html, text: template.text, attachments });
 
     if (isAgendaTemplate(template_id)) {
       await supabaseAdmin.from("clients").update({ agenda_email_pending_at: null }).eq("id", client_id);
@@ -102,7 +102,7 @@ export async function POST(request) {
     await supabaseAdmin.from("audit_logs").insert({
       client_id,
       action: "email_sent",
-      details: { provider: "brevo", template_id, subject: template.subject, to: client.email, message_id: result?.messageId || null }
+      details: { provider: "brevo", template_id, subject: template.subject, to: client.email, cc: client.secondary_email || "", message_id: result?.messageId || null }
     });
 
     return Response.json({ ok: true, message: "Email enviado com sucesso pela Brevo." });

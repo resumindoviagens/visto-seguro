@@ -91,7 +91,7 @@ export async function POST(request) {
     await supabaseAdmin.from("audit_logs").insert({
       client_id: client.id,
       action: "feedback_email_resent",
-      details: { template_id: templateId, to: client.email, service, messageId: result?.messageId || result?.messageIds || null }
+      details: { template_id: templateId, to: client.email, cc: client.secondary_email || "", service, messageId: result?.messageId || result?.messageIds || null }
     });
 
     return Response.json({ ok: true, message: "Pesquisa reenviada com sucesso.", feedbackLink });

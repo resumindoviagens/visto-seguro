@@ -2,15 +2,56 @@
 
 import { useState } from "react";
 
-const pontos = [
-  "organização do processo",
-  "formulário inteligente",
-  "orientações para entrevista",
-  "videochamada individual",
-  "suporte e atendimento",
-  "agilidade",
-  "outro"
-];
+const pontosPorServico = {
+  visto: [
+    "organização do processo",
+    "formulário inteligente",
+    "orientações para entrevista",
+    "videochamada individual",
+    "suporte e atendimento",
+    "agilidade",
+    "outro"
+  ],
+  passaporte: [
+    "orientações sobre documentos",
+    "preenchimento e conferência do cadastro",
+    "emissão e pagamento da taxa",
+    "agendamento na Polícia Federal",
+    "instruções para comparecimento",
+    "acompanhamento até a retirada",
+    "suporte e atendimento",
+    "agilidade",
+    "outro"
+  ],
+  canadense: [
+    "organização do processo",
+    "conferência dos documentos",
+    "orientações de biometria",
+    "suporte e atendimento",
+    "agilidade",
+    "outro"
+  ]
+};
+
+function pontosDoServico(service) {
+  return pontosPorServico[service] || pontosPorServico.visto;
+}
+
+function perguntaPrincipal(service) {
+  if (service === "passaporte") return "De 0 a 10, quanto você indicaria a assessoria da Resumindo Viagens para emissão de passaporte?";
+  if (service === "canadense") return "De 0 a 10, quanto você indicaria a assessoria da Resumindo Viagens para visto canadense?";
+  return "De 0 a 10, quanto você indicaria a Resumindo Viagens?";
+}
+
+function perguntaPontoForte(service) {
+  if (service === "passaporte") return "Qual etapa da emissão do passaporte mais lhe ajudou?";
+  return "Qual parte do processo mais lhe ajudou?";
+}
+
+function perguntaComentario(service) {
+  if (service === "passaporte") return "Como foi sua experiência com a assessoria para emissão do passaporte?";
+  return "Deseja deixar um comentário?";
+}
 
 const inputStyle = {
   padding: 13,
@@ -31,7 +72,7 @@ export default function FeedbackForm({ token, clientName, service = "visto" }) {
   const [authenticated, setAuthenticated] = useState(false);
   const [form, setForm] = useState({
     nota_nps: "10",
-    ponto_forte: "videochamada individual",
+    ponto_forte: service === "passaporte" ? "orientações sobre documentos" : (service === "canadense" ? "conferência dos documentos" : "videochamada individual"),
     comentario: "",
     autorizou_divulgacao: false,
     instagram_usuario: ""
@@ -134,7 +175,7 @@ export default function FeedbackForm({ token, clientName, service = "visto" }) {
           <h3 style={{ color: "#1f2a60", marginBottom: 0 }}>Avaliação</h3>
 
           <label>
-            De 0 a 10, quanto você indicaria a Resumindo Viagens?
+            {perguntaPrincipal(service)}
             <select
               value={form.nota_nps}
               onChange={(e) => setForm({ ...form, nota_nps: e.target.value })}
@@ -145,18 +186,18 @@ export default function FeedbackForm({ token, clientName, service = "visto" }) {
           </label>
 
           <label>
-            Qual parte do processo mais lhe ajudou?
+            {perguntaPontoForte(service)}
             <select
               value={form.ponto_forte}
               onChange={(e) => setForm({ ...form, ponto_forte: e.target.value })}
               style={{ ...inputStyle, marginTop: 6 }}
             >
-              {pontos.map((p) => <option key={p} value={p}>{p}</option>)}
+              {pontosDoServico(service).map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </label>
 
           <label>
-            Deseja deixar um comentário?
+            {perguntaComentario(service)}
             <textarea
               required
               value={form.comentario}

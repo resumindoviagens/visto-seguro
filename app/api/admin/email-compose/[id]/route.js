@@ -166,6 +166,7 @@ export async function GET(request, context) {
     templates: EMAIL_TEMPLATES,
     templateId,
     toEmail: client.email || "",
+    ccEmail: client.secondary_email || "",
     toName: client.name || "",
     subject: template.subject,
     html: template.html,

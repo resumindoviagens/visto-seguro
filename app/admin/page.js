@@ -572,6 +572,7 @@ function Dashboard({ logout }) {
     birth_date: "",
     phone: "",
     email: "",
+    secondary_email: "",
     notes: "",
     group_process_id: "",
     no_form_required: false,
@@ -583,6 +584,40 @@ function Dashboard({ logout }) {
   });
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || "https://visto-seguro.vercel.app";
+
+  function friendlyRequestError(value, fallback = "O sistema encontrou uma indisponibilidade temporária. Tente novamente em alguns segundos.") {
+    const text = String(value || "").trim();
+    if (!text) return fallback;
+    if (/<(!doctype|html|head|body|title|meta|div|span|h1)/i.test(text) || /SSL handshake failed|Error code 525|cloudflare/i.test(text)) {
+      return "O Supabase apresentou uma indisponibilidade temporária de conexão (erro 525). Os dados permaneceram no formulário. Aguarde alguns segundos e tente salvar novamente.";
+    }
+    return text.length > 500 ? fallback : text;
+  }
+
+  async function requestJsonWithRetry(url, options = {}, attempts = 2) {
+    let lastError = null;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        const response = await fetch(url, options);
+        const raw = await response.text();
+        let data = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch {
+          data = { error: friendlyRequestError(raw) };
+        }
+        if (response.ok) return { response, data };
+        const transient = response.status >= 500 || /525|handshake|temporária|supabase/i.test(String(data?.error || raw));
+        lastError = new Error(friendlyRequestError(data?.error || raw));
+        if (!transient || attempt === attempts) return { response, data: { ...data, error: lastError.message } };
+      } catch (error) {
+        lastError = error;
+        if (attempt === attempts) throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1200 * attempt));
+    }
+    throw lastError || new Error("Erro temporário de comunicação.");
+  }
 
   async function loadClients() {
     const res = await fetch("/api/admin/clients");
@@ -766,6 +801,7 @@ function Dashboard({ logout }) {
           client_id: emailComposer.client.id,
           template_id: emailComposer.templateId,
           to_email: emailComposer.toEmail,
+          cc_email: emailComposer.ccEmail || "",
           to_name: emailComposer.toName,
           subject: emailComposer.subject,
           html: emailComposer.html,
@@ -798,7 +834,10 @@ function Dashboard({ logout }) {
       return;
     }
     const digits = String(client.phone || "").replace(/\D/g, "");
-    const message = encodeURIComponent(`Olá, ${client.name}. Tudo bem?\n\nSeu processo com a Resumindo Viagens foi concluído e gostaríamos muito de ouvir sua opinião.\n\nA pesquisa é rápida e leva menos de 1 minuto:\n${data.feedbackLink}\n\nMuito obrigado pela confiança!`);
+    const passport = isPassportProcess(client);
+    const message = encodeURIComponent(passport
+      ? `Olá, ${client.name}. Tudo bem?\n\nA assessoria para emissão do seu passaporte foi concluída e gostaríamos muito de conhecer sua experiência.\n\nA pesquisa é rápida e contém perguntas específicas sobre documentação, taxa, agendamento na Polícia Federal, orientações e acompanhamento:\n${data.feedbackLink}\n\nSua resposta nos ajuda a aprimorar o serviço. Muito obrigado pela confiança!`
+      : `Olá, ${client.name}. Tudo bem?\n\nSeu processo com a Resumindo Viagens foi concluído e gostaríamos muito de ouvir sua opinião.\n\nA pesquisa é rápida e leva menos de 1 minuto:\n${data.feedbackLink}\n\nMuito obrigado pela confiança!`);
     window.open(`https://wa.me/${digits}?text=${message}`, "_blank", "noopener,noreferrer");
     await loadClients();
   }
@@ -876,18 +915,23 @@ function Dashboard({ logout }) {
   }
 
   async function syncFamilyGroup(masterClient, silent = true) {
-    if (!masterClient?.grupo_familiar_master || !masterClient?.group_process_id) return;
-    const syncRes = await fetch("/api/admin/sync-family-group", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ masterId: masterClient.id })
-    });
-    const syncData = await syncRes.json();
-    if (!syncRes.ok) {
-      alert(syncData.error || "Alteração salva, mas não foi possível sincronizar o grupo.");
-      return;
+    if (!masterClient?.grupo_familiar_master || !masterClient?.group_process_id) return true;
+    try {
+      const { response, data } = await requestJsonWithRetry("/api/admin/sync-family-group", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ masterId: masterClient.id })
+      }, 3);
+      if (!response.ok) {
+        alert(friendlyRequestError(data.error, "Alteração salva no líder, mas a sincronização do grupo não foi concluída."));
+        return false;
+      }
+      if (!silent) alert(`Grupo sincronizado. ${data.updated || 0} membro(s) atualizado(s).`);
+      return true;
+    } catch (error) {
+      alert(friendlyRequestError(error?.message, "Alteração salva no líder, mas houve falha temporária ao sincronizar o grupo."));
+      return false;
     }
-    if (!silent) alert(`Grupo sincronizado. ${syncData.updated || 0} membro(s) atualizado(s).`);
   }
 
   async function updateProcessSchedule(client, fields) {
@@ -1125,6 +1169,7 @@ function Dashboard({ logout }) {
       birth_date: "",
       phone: "",
       email: "",
+      secondary_email: "",
       notes: "",
       group_process_id: current.group_process_id || "",
       no_form_required: current.tipo_processo === "Passaporte" ? true : false,
@@ -1171,6 +1216,7 @@ function Dashboard({ logout }) {
       birth_date: client.birth_date || "",
       phone: client.phone || "",
       email: client.email || "",
+      secondary_email: client.secondary_email || "",
       notes: client.notes || "",
       group_process_id: client.group_process_id || "",
       no_form_required: !!client.no_form_required,
@@ -1230,7 +1276,8 @@ function Dashboard({ logout }) {
     }
 
     const template = EMAIL_TEMPLATES.find((item) => item.id === templateId);
-    const ok = confirm(`Enviar o email "${template?.label || templateId}" para ${client.name} (${client.email})?`);
+    const recipients = client.secondary_email ? `${client.email} (cópia para ${client.secondary_email})` : client.email;
+    const ok = confirm(`Enviar o email "${template?.label || templateId}" para ${client.name} (${recipients})?`);
     if (!ok) return;
 
     const res = await fetch("/api/admin/send-email", {
@@ -1250,38 +1297,45 @@ function Dashboard({ logout }) {
   }
 
   async function updateClientSchedule(client, fields, options = {}) {
-    const res = await fetch(`/api/admin/clients/${client.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "update_schedule",
-        interview_date: fields.interview_date ?? client.interview_date ?? "",
-        casv_date: fields.casv_date ?? client.casv_date ?? "",
-        video_call_date: fields.video_call_date ?? client.video_call_date ?? "",
-        consulate_city: fields.consulate_city ?? client.consulate_city ?? "",
-        passport_tracking_code: fields.passport_tracking_code ?? client.passport_tracking_code ?? "",
-        data_inicio_processo: fields.data_inicio_processo ?? client.data_inicio_processo ?? "",
-        stage_dates_scheduled: !!((fields.casv_date ?? client.casv_date ?? "") || (fields.interview_date ?? client.interview_date ?? "")),
-        client_sedex_tracking: fields.client_sedex_tracking ?? client.client_sedex_tracking ?? "",
-        is_renewal: fields.is_renewal ?? client.is_renewal ?? false,
-        passport_pf_city: fields.passport_pf_city ?? client.passport_pf_city ?? "",
-        passport_pf_location: fields.passport_pf_location ?? client.passport_pf_location ?? "",
-        passport_pf_datetime: fields.passport_pf_datetime ?? client.passport_pf_datetime ?? "",
-        passport_gru_paid_at: fields.passport_gru_paid_at ?? client.passport_gru_paid_at ?? "",
-        passport_protocol: fields.passport_protocol ?? client.passport_protocol ?? ""
-      })
-    });
+    const payload = {
+      action: "update_schedule",
+      interview_date: fields.interview_date ?? client.interview_date ?? "",
+      casv_date: fields.casv_date ?? client.casv_date ?? "",
+      video_call_date: fields.video_call_date ?? client.video_call_date ?? "",
+      consulate_city: fields.consulate_city ?? client.consulate_city ?? "",
+      passport_tracking_code: fields.passport_tracking_code ?? client.passport_tracking_code ?? "",
+      data_inicio_processo: fields.data_inicio_processo ?? client.data_inicio_processo ?? "",
+      stage_dates_scheduled: !!((fields.casv_date ?? client.casv_date ?? "") || (fields.interview_date ?? client.interview_date ?? "")),
+      client_sedex_tracking: fields.client_sedex_tracking ?? client.client_sedex_tracking ?? "",
+      is_renewal: fields.is_renewal ?? client.is_renewal ?? false,
+      passport_pf_city: fields.passport_pf_city ?? client.passport_pf_city ?? "",
+      passport_pf_location: fields.passport_pf_location ?? client.passport_pf_location ?? "",
+      passport_pf_datetime: fields.passport_pf_datetime ?? client.passport_pf_datetime ?? "",
+      passport_gru_paid_at: fields.passport_gru_paid_at ?? client.passport_gru_paid_at ?? "",
+      passport_protocol: fields.passport_protocol ?? client.passport_protocol ?? ""
+    };
 
-    const data = await res.json();
-    if (!res.ok) {
-      alert(data.error || "Erro ao salvar datas. Confira se as colunas novas foram criadas no Supabase.");
-      return;
-    }
-    if (options.syncGroup !== false && client.grupo_familiar_master && client.group_process_id) {
-      await syncFamilyGroup(client, true);
-    }
-    await loadClients();
+    try {
+      const { response, data } = await requestJsonWithRetry(`/api/admin/clients/${client.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }, 3);
 
+      if (!response.ok) {
+        alert(friendlyRequestError(data.error, "Não foi possível salvar os dados. Os valores permanecem na tela para nova tentativa."));
+        return false;
+      }
+
+      if (options.syncGroup !== false && client.grupo_familiar_master && client.group_process_id) {
+        await syncFamilyGroup({ ...client, ...payload }, true);
+      }
+      await loadClients();
+      return true;
+    } catch (error) {
+      alert(friendlyRequestError(error?.message, "Falha temporária de conexão. Os valores permanecem na tela; tente salvar novamente."));
+      return false;
+    }
   }
 
   function daysUntil(dateValue) {
@@ -2049,7 +2103,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v119 — protocolo de Passaporte + WhatsApp direto</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v120B — avaliação de passaporte no menu Email</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -2061,7 +2115,8 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
           <label className="admin-field-label"><span>Data de nascimento</span><input type="date" value={form.birth_date} onChange={(e) => setForm({ ...form, birth_date: e.target.value })} /></label>
         <label className="admin-field-label"><span>Validade do passaporte</span><input type="date" value={form.passport_expiration_date || ""} onChange={(e) => setForm({ ...form, passport_expiration_date: e.target.value })} /></label>
           <input placeholder="Celular" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <input placeholder="E-mail" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input placeholder="E-mail principal" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input placeholder="E-mail secundário (opcional)" type="email" value={form.secondary_email || ""} onChange={(e) => setForm({ ...form, secondary_email: e.target.value })} />
           <label className="admin-field-label"><span>Tipo de processo</span><select value={form.tipo_processo} onChange={(e) => setForm({ ...form, tipo_processo: e.target.value, no_form_required: e.target.value === "Passaporte" ? true : form.no_form_required })}><option value="Primeiro visto">Primeiro visto</option><option value="Renovação">Renovação</option><option value="Passaporte">Passaporte</option><option value="Canadá">Canadá</option><option value="Outro">Outro</option></select><small>Mesmo CPF e nascimento podem ter mais de um processo: ex. Passaporte agora e Visto depois. Passaporte não gera link de formulário.</small></label>
           <label className="admin-field-label"><span>Grupo de processo</span><select value={form.group_process_id} onChange={(e) => setForm({ ...form, group_process_id: e.target.value })}><option value="">Sem grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.nome}</option>)}</select></label>
           <button type="button" className="btn-light" onClick={createProcessGroup}>+ Criar grupo de processo</button>
@@ -2139,7 +2194,8 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                   <small>CPF: {client.cpf}</small><br />
                   <small>Nascimento: {formatDateBR(client.birth_date)}</small><br />
                   <small>Celular: {client.phone || "-"}</small><br />
-                  <small>E-mail: {client.email || "-"}</small><br />
+                  <small>E-mail principal: {client.email || "-"}</small><br />
+                  {client.secondary_email && <><small>E-mail secundário: {client.secondary_email}</small><br /></>}
                   {isPassportProcess(client) ? (
                     <>
                       <small><b>Cidade do agendamento:</b> {processInfo(client).passport_pf_city || "-"}</small><br />
@@ -2245,7 +2301,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                         <button className="btn-light" onClick={() => openClientWhatsApp(client, "formulario")}>Formulário</button>
                         <button className="btn-light" onClick={() => openClientWhatsApp(client, "pendente")}>Lembrete de formulário</button>
                         <button className="btn-light" onClick={() => openClientWhatsApp(client, "videochamada")}>Videochamada</button>
-                        <button className="btn-light" disabled={!client.phone} onClick={() => openFeedbackWhatsApp(client)}>Avaliação / pesquisa de satisfação</button>
+                        <button className="btn-light" disabled={!client.phone} onClick={() => openFeedbackWhatsApp(client)}>{isPassportProcess(client) ? "WhatsApp — avaliação passaporte" : "Avaliação / pesquisa de satisfação"}</button>
                       </div>
                     )}
 
@@ -2354,7 +2410,8 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
               <label className="admin-field-label"><span>Validade do visto</span><input type="date" disabled={!canFillVisaExpiration(editForm)} value={editForm.visa_expiration_date || ""} onChange={(e) => setEditForm({ ...editForm, visa_expiration_date: e.target.value })} /></label>
               {!canFillVisaExpiration(editForm) && <small className="wide" style={{ color: "#64748b" }}>A validade do visto fica disponível somente após marcar Visto aprovado e Visto/passaporte devolvido.</small>}
               <input placeholder="Celular" value={editForm.phone || ""} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} />
-              <input placeholder="E-mail" type="email" value={editForm.email || ""} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+              <input placeholder="E-mail principal" type="email" value={editForm.email || ""} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+              <input placeholder="E-mail secundário (opcional)" type="email" value={editForm.secondary_email || ""} onChange={(e) => setEditForm({ ...editForm, secondary_email: e.target.value })} />
               <label className="admin-field-label"><span>Tipo de processo</span><select value={editForm.tipo_processo || "Primeiro visto"} onChange={(e) => setEditForm({ ...editForm, tipo_processo: e.target.value })}><option value="Primeiro visto">Primeiro visto</option><option value="Renovação">Renovação</option><option value="Passaporte">Passaporte</option><option value="Canadá">Canadá</option><option value="Outro">Outro</option></select></label>
               <label className="admin-field-label"><span>Grupo de processo</span><select value={editForm.group_process_id || ""} onChange={(e) => setEditForm({ ...editForm, group_process_id: e.target.value })}><option value="">Sem grupo</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.nome}</option>)}</select></label>
               <label className="admin-checkbox"><input type="checkbox" checked={!!editForm.grupo_familiar_master} onChange={(e) => setEditForm({ ...editForm, grupo_familiar_master: e.target.checked })} /> Contato principal do grupo familiar</label>
@@ -2511,6 +2568,10 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
               <label className="admin-field-label">
                 <span>Para</span>
                 <input value={emailComposer.toEmail || ""} onChange={(e) => setEmailComposer({ ...emailComposer, toEmail: e.target.value })} />
+              </label>
+              <label className="admin-field-label">
+                <span>CC — e-mail secundário</span>
+                <input value={emailComposer.ccEmail || ""} onChange={(e) => setEmailComposer({ ...emailComposer, ccEmail: e.target.value })} placeholder="Opcional" />
               </label>
               <label className="admin-field-label wide">
                 <span>Assunto</span>

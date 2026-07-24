@@ -99,6 +99,7 @@ export async function PATCH(request, context) {
     updates.birth_date = body.birth_date;
     updates.phone = body.phone || "";
     updates.email = body.email || "";
+    updates.secondary_email = body.secondary_email || "";
     updates.passport_expiration_date = body.passport_expiration_date || null;
     const canSaveVisaExpiration = (oldClient?.visa_result === "approved" && !!oldClient?.stage_passport_returned) || (body.visa_result === "approved" && !!body.stage_passport_returned);
     if (canSaveVisaExpiration || typeof body.visa_expiration_date !== "undefined") updates.visa_expiration_date = body.visa_expiration_date || null;

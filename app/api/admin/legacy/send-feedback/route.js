@@ -77,7 +77,7 @@ export async function POST(request) {
       await supabaseAdmin.from("audit_logs").insert({
         client_id: client.id,
         action: "legacy_feedback_email_sent",
-        details: { to: client.email, message_id: result?.messageId || null }
+        details: { to: client.email, cc: client.secondary_email || "", message_id: result?.messageId || null }
       });
 
       results.push({ id: client.id, name: client.name, sent: true });

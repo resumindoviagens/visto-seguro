@@ -41,7 +41,10 @@ export async function POST(request) {
     const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "";
     const userAgent = request.headers.get("user-agent") || "";
 
-    const tipo_feedback = client.feedback_service === "passaporte" ? "passaporte" : (client.feedback_service === "canadense" ? "canadense" : (client.visa_result === "denied" ? "negado" : "aprovado"));
+    const service = client.feedback_service === "passaporte" || client.tipo_processo === "Passaporte"
+      ? "passaporte"
+      : (client.feedback_service === "canadense" || String(client.tipo_processo || "").toLowerCase().includes("canad") ? "canadense" : "visto");
+    const tipo_feedback = service === "passaporte" ? "passaporte" : (service === "canadense" ? "canadense" : (client.visa_result === "denied" ? "negado" : "aprovado"));
 
     const { error: insertError } = await supabaseAdmin.from("feedbacks").insert({
       client_id: client.id,
@@ -51,13 +54,18 @@ export async function POST(request) {
       comentario,
       autorizou_divulgacao: !!autorizou_divulgacao,
       instagram_usuario: instagram_usuario || "",
-      service: client.feedback_service || "visto",
+      service,
       ip,
       user_agent: userAgent
     });
 
     if (insertError) {
-      return Response.json({ error: insertError.message }, { status: 500 });
+      const constraintError = String(insertError.message || "").includes("feedbacks_tipo_feedback_check");
+      return Response.json({
+        error: constraintError
+          ? "A pesquisa de passaporte ainda não foi habilitada no banco. Execute o SQL da V120A no Supabase e tente novamente."
+          : insertError.message
+      }, { status: 500 });
     }
 
     await supabaseAdmin

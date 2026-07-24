@@ -122,6 +122,7 @@ export async function POST(request) {
     const body = await request.json();
     const clientId = body.client_id;
     const toEmail = body.to_email;
+    const ccEmail = body.cc_email || "";
     const toName = body.to_name || "";
     const subject = body.subject || "";
     const html = body.html || "";
@@ -149,6 +150,7 @@ export async function POST(request) {
     const result = await sendWithBrevo({
       toEmail,
       toName,
+      ccEmail: ccEmail || client.secondary_email || "",
       subject,
       html,
       text,
@@ -161,7 +163,7 @@ export async function POST(request) {
     });
 
     const updates = {};
-    if (templateId === "pesquisa_satisfacao") updates.stage_feedback_sent = true;
+    if (isFeedbackTemplate(templateId)) updates.stage_feedback_sent = true;
     if (isAgendaTemplate(templateId)) updates.agenda_email_pending_at = null;
 
     if (Object.keys(updates).length > 0) {
@@ -171,7 +173,7 @@ export async function POST(request) {
     await supabaseAdmin.from("audit_logs").insert({
       client_id: clientId,
       action: "email_editor_sent",
-      details: { template_id: templateId, to: toEmail, temp_attachment_count: tempAttachments.length, temp_attachments: tempAttachments.map((item) => item.name), messageId: result?.messageId || result?.messageIds || null }
+      details: { template_id: templateId, to: toEmail, cc: ccEmail || client.secondary_email || "", temp_attachment_count: tempAttachments.length, temp_attachments: tempAttachments.map((item) => item.name), messageId: result?.messageId || result?.messageIds || null }
     });
 
     return Response.json({ ok: true, result });

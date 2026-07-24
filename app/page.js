@@ -288,7 +288,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="version">v119 — protocolo de Passaporte + WhatsApp direto</div>
+          <div className="version">v120B avaliação passaporte</div>
         </section>
 
         <section className="login">

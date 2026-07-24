@@ -101,6 +101,7 @@ export async function POST(request) {
     const personUpdates = { updated_at: now };
     if (body.name && body.name !== person.name) personUpdates.name = body.name;
     if (body.email && !person.email) personUpdates.email = body.email;
+    if (body.secondary_email && !person.secondary_email) personUpdates.secondary_email = body.secondary_email;
     if (body.phone && !person.phone) personUpdates.phone = body.phone;
     if (body.passport_expiration_date && !person.passport_expiry_date) {
       personUpdates.passport_expiry_date = body.passport_expiration_date;
@@ -126,6 +127,7 @@ export async function POST(request) {
         cpf,
         birth_date: body.birth_date,
         email: body.email || "",
+        secondary_email: body.secondary_email || "",
         phone: body.phone || "",
         passport_number: "",
         passport_issue_date: null,
@@ -173,6 +175,7 @@ export async function POST(request) {
       birth_date: body.birth_date,
       phone: body.phone || "",
       email: body.email || "",
+      secondary_email: body.secondary_email || "",
       passport_expiration_date: body.passport_expiration_date || null,
       notes: companion
         ? (body.notes || "Criado automaticamente com o processo de visto — V118.")
