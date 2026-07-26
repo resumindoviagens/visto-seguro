@@ -7,7 +7,7 @@ import { sections } from "../../../lib/formSchema";
 
 const HIGHLIGHTED_QUESTIONS = new Set([
   "1.6", "1.9",
-  "2.12", "2.13", "2.14", "2.15", "2.16", "2.17", "2.18",
+  "2.12", "2.13", "2.14", "2.15", "2.16", "2.17", "2.18.a", "2.18.b", "2.18.c", "2.18.d", "2.18.e", "2.18.f",
   "3.12", "3.13", "3.14", "3.15", "3.16", "3.17", "3.18",
   "3.20", "3.21", "3.22",
   "6.3", "6.7", "6.9", "6.10", "6.11",
@@ -74,7 +74,8 @@ const PAGE2_COMPANION_FIELDS = [
 ];
 
 const PAGADOR_FIELDS = [
-  "pagadorSobrenome", "pagadorNome", "pagadorTelefone", "pagadorEmail", "pagadorRelacao", "pagadorEndereco"
+  "pagadorSobrenome", "pagadorNome", "pagadorTelefone", "pagadorEmail", "pagadorRelacao",
+  "pagadorEndereco1", "pagadorEndereco2", "pagadorCidade", "pagadorUF", "pagadorCep", "pagadorPais"
 ];
 
 const USA_TRAVEL_FIELDS = [
@@ -92,8 +93,10 @@ const SOCIAL_FIELDS = [
   "redeSocial5","usuarioRedeSocial5","redeSocial6","usuarioRedeSocial6","redeSocial7","usuarioRedeSocial7","redeSocial8","usuarioRedeSocial8"
 ];
 
-const PAGE7_AFTER_ESTUDO_FIELDS = ["formacao", "outrosCursosConcluidos", "dadosOutrosCursos"];
-const PAGE7_AFTER_OUTROS_CURSOS_FIELDS = ["dadosOutrosCursos"];
+const PAGE7_FORMACAO_FIELDS = ["formacaoNomeInstituicao", "formacaoEndereco1", "formacaoEndereco2", "formacaoCidade", "formacaoUF", "formacaoCep", "formacaoPais"];
+const PAGE7_OUTROS_CURSOS_FIELDS = ["outrosCursosNomeInstituicao", "outrosCursosEndereco1", "outrosCursosEndereco2", "outrosCursosCidade", "outrosCursosUF", "outrosCursosCep", "outrosCursosPais"];
+const PAGE7_AFTER_ESTUDO_FIELDS = [...PAGE7_FORMACAO_FIELDS, "outrosCursosConcluidos", ...PAGE7_OUTROS_CURSOS_FIELDS];
+const PAGE7_AFTER_OUTROS_CURSOS_FIELDS = [...PAGE7_OUTROS_CURSOS_FIELDS];
 
 const CONJUGE_FIELDS = [
   "conjugeSobrenome", "conjugeNome", "conjugeNascimento", "conjugeNacionalidade",
@@ -135,10 +138,15 @@ function hasAnySecurityYes(answers) {
 }
 
 function applyDefaultAnswers(rawAnswers = {}) {
+  const migrated = { ...rawAnswers };
+  if (!migrated.pagadorEndereco1 && migrated.pagadorEndereco) migrated.pagadorEndereco1 = migrated.pagadorEndereco;
+  if (!migrated.empregadorEndereco1 && migrated.enderecoEmpregador) migrated.empregadorEndereco1 = migrated.enderecoEmpregador;
+  if (!migrated.formacaoNomeInstituicao && migrated.formacao) migrated.formacaoNomeInstituicao = migrated.formacao;
+  if (!migrated.outrosCursosNomeInstituicao && migrated.dadosOutrosCursos) migrated.outrosCursosNomeInstituicao = migrated.dadosOutrosCursos;
   return {
     estudoConcluido: "Não",
     outrosCursosConcluidos: "Não",
-    ...rawAnswers
+    ...migrated
   };
 }
 
@@ -224,7 +232,12 @@ function cleanDisabledAnswers(nextAnswers) {
 }
 
 function questionNumberForField(fields, fieldIndex, sectionNumber) {
-  const count = fields.slice(0, fieldIndex + 1).filter((field) => field.type !== "subtitle").length;
+  const field = fields[fieldIndex];
+  if (field?.questionNumber) return field.questionNumber;
+  const count = fields.slice(0, fieldIndex + 1).reduce((total, item) => {
+    if (item.type === "subtitle") return total;
+    return total + (typeof item.numberingWeight === "number" ? item.numberingWeight : 1);
+  }, 0);
   return `${sectionNumber}.${count}`;
 }
 
@@ -445,15 +458,15 @@ export default function ClientAccessPage() {
       <div className="form-layout" style={{ display:"grid", gridTemplateColumns:"280px 1fr", gap:24 }}>
         <aside className="card no-print" style={{ padding:14 }}>
           <button onClick={() => setCurrent(-1)} className={(current === -1 ? "btn-primary" : "btn-light") + " section-nav-button"}>1. Informações prévias</button>
-          <button onClick={() => setCurrent(-2)} className={(current === -2 ? "btn-primary" : "btn-light") + " section-nav-button"}>2. Upload de documentos</button>
+          <button disabled title="Funcionalidade em implementação" className="btn-light section-nav-button" style={{ opacity:.55, cursor:"not-allowed" }}>2. Upload de documentos (implementação)</button>
           {sections.map((item, index) => <button key={item.title} onClick={() => setCurrent(index)} className={(index === current ? "btn-primary" : "btn-light") + " section-nav-button"}>{numberedTitle(index, item.title)}</button>)}
         </aside>
         <section className="card" style={{ padding:28 }}>
-          {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(-2)} /> : current === -2 ? <DocumentUploadPage documents={documents} uploadingDoc={uploadingDoc} pendingExtraction={pendingExtraction} onApplyExtraction={applyExtractedData} onDismissExtraction={() => setPendingExtraction(null)} onUpload={uploadDocument} onContinue={() => setCurrent(0)} onBack={() => setCurrent(-1)} /> : <>
+          {current === -1 ? <PreInfoPage client={client} onContinue={() => setCurrent(0)} /> : current === -2 ? <DocumentUploadPage documents={documents} uploadingDoc={uploadingDoc} pendingExtraction={pendingExtraction} onApplyExtraction={applyExtractedData} onDismissExtraction={() => setPendingExtraction(null)} onUpload={uploadDocument} onContinue={() => setCurrent(0)} onBack={() => setCurrent(-1)} /> : <>
             <h1 style={{ color:"var(--navy)" }}>{numberedTitle(current, section.title)}</h1>
             <div className="grid">{section.fields.map((field, fieldIndex) => <Field key={field.id} field={{ ...field, help: helpOverrides[field.id] || field.help }} questionNumber={questionNumberForField(section.fields, fieldIndex, current + 1)} value={answers[field.id]} onChange={setValue} disabled={isFieldDisabled(field.id, answers)} answers={answers} />)}</div>
             <div className="no-print mobile-bottom-nav" style={{ display:"flex", justifyContent:"space-between", gap:12, marginTop:22, position:"sticky", bottom:0, zIndex:20, background:"rgba(255,255,255,.96)", padding:"12px 0", borderTop:"1px solid #e5e7eb" }}>
-              <button className="btn-light" onClick={() => setCurrent(current === 0 ? -2 : current - 1)}>Voltar</button>
+              <button className="btn-light" onClick={() => setCurrent(current === 0 ? -1 : current - 1)}>Voltar</button>
               {current < sections.length - 1 ? (
                 <button className="btn-dark" onClick={() => { if (canGoNextFromCurrent()) setCurrent(current + 1); }}>Próxima</button>
               ) : (
@@ -609,7 +622,7 @@ function PDFView({ client, answers }) {
       <div className="card" style={{ padding:34 }}>
         <BrandHeader clientName={client?.name} />
         <h2 style={{ color:"var(--navy)", marginTop:28 }}>Respostas do formulário</h2>
-        {sections.map((section, sectionIndex) => <section key={section.title} style={{ breakInside:"avoid", marginTop:28 }}><h3 style={{ background:"var(--navy)", color:"#fff", padding:12, borderRadius:10 }}>{numberedTitle(sectionIndex, section.title)}</h3><div className="grid">{section.fields.map((field, fieldIndex) => <div key={field.id} className={field.wide || field.full ? "wide" : ""} style={{ border:"1px solid #E4E8F0", borderRadius:12, padding:12 }}><b style={{ color:"var(--navy)" }}><span style={{ color:"var(--orange)" }}>{sectionIndex + 1}.{fieldIndex + 1}</span> {field.label}</b><br/><span style={{ color: isAnswerFilled(answers[field.id]) ? "inherit" : "#b91c1c", fontWeight: isAnswerFilled(answers[field.id]) ? 400 : 700 }}>{formatAnswerForDisplay(answers[field.id])}</span></div>)}</div></section>)}
+        {sections.map((section, sectionIndex) => <section key={section.title} style={{ breakInside:"avoid", marginTop:28 }}><h3 style={{ background:"var(--navy)", color:"#fff", padding:12, borderRadius:10 }}>{numberedTitle(sectionIndex, section.title)}</h3><div className="grid">{section.fields.map((field, fieldIndex) => <div key={field.id} className={field.wide || field.full ? "wide" : ""} style={{ border:"1px solid #E4E8F0", borderRadius:12, padding:12 }}><b style={{ color:"var(--navy)" }}><span style={{ color:"var(--orange)" }}>{questionNumberForField(section.fields, fieldIndex, sectionIndex + 1)}</span> {field.label}</b><br/><span style={{ color: isAnswerFilled(answers[field.id]) ? "inherit" : "#b91c1c", fontWeight: isAnswerFilled(answers[field.id]) ? 400 : 700 }}>{formatAnswerForDisplay(answers[field.id])}</span></div>)}</div></section>)}
         <div className="print-footer">Resumindo Viagens • contato@resumindoviagens.com.br • Instagram: @resumindoviagens</div>
       </div>
     </main>

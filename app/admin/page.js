@@ -689,6 +689,7 @@ function Dashboard({ logout }) {
         templateId,
         templates: (data.templates || []).filter((template) => !isTemplateDisabledForClient(client, template)),
         toEmail: data.toEmail || client.email || "",
+        ccEmail: data.ccEmail || client.secondary_email || "",
         toName: data.toName || client.name || "",
         subject: data.subject || "",
         html: data.html || "",
@@ -722,6 +723,7 @@ function Dashboard({ logout }) {
         ...current,
         templateId,
         toEmail: data.toEmail || current.toEmail,
+        ccEmail: data.ccEmail || current.client?.secondary_email || current.ccEmail || "",
         toName: data.toName || current.toName,
         subject: data.subject || "",
         html: data.html || "",
@@ -881,6 +883,8 @@ function Dashboard({ logout }) {
       consulate_city: group?.consulate_city || client.consulate_city || "",
       casv_date: group?.casv_date || client.casv_date || "",
       interview_date: group?.interview_date || client.interview_date || "",
+      casv_datetime: group?.casv_datetime || client.casv_datetime || "",
+      interview_datetime: group?.interview_datetime || client.interview_datetime || "",
       video_call_date: group?.video_call_date || client.video_call_date || "",
       passport_tracking_code: group?.passport_tracking_code || client.passport_tracking_code || "",
       data_inicio_processo: group?.data_inicio_processo || client.data_inicio_processo || "",
@@ -957,10 +961,14 @@ function Dashboard({ logout }) {
           consulate_city: fields.consulate_city ?? info.consulate_city ?? "",
           casv_date: fields.casv_date ?? info.casv_date ?? "",
           interview_date: fields.interview_date ?? info.interview_date ?? "",
+          casv_datetime: fields.casv_datetime ?? info.casv_datetime ?? "",
+          interview_datetime: fields.interview_datetime ?? info.interview_datetime ?? "",
           video_call_date: fields.video_call_date ?? info.video_call_date ?? "",
           passport_tracking_code: fields.passport_tracking_code ?? info.passport_tracking_code ?? "",
           data_inicio_processo: fields.data_inicio_processo ?? info.data_inicio_processo ?? "",
-          stage_dates_scheduled: !!((fields.casv_date ?? info.casv_date ?? "") || (fields.interview_date ?? info.interview_date ?? ""))
+          stage_dates_scheduled: ["recife", "porto alegre"].some((city) => String(fields.consulate_city ?? info.consulate_city ?? "").toLowerCase().includes(city))
+            ? !!(fields.interview_datetime ?? info.interview_datetime ?? "")
+            : !!(fields.casv_datetime ?? info.casv_datetime ?? "") && !!(fields.interview_datetime ?? info.interview_datetime ?? "")
         })
       });
       const data = await res.json();
@@ -973,6 +981,8 @@ function Dashboard({ logout }) {
             consulate_city: fields.consulate_city ?? info.consulate_city ?? "",
             casv_date: fields.casv_date ?? info.casv_date ?? "",
             interview_date: fields.interview_date ?? info.interview_date ?? "",
+            casv_datetime: fields.casv_datetime ?? info.casv_datetime ?? "",
+            interview_datetime: fields.interview_datetime ?? info.interview_datetime ?? "",
             video_call_date: fields.video_call_date ?? info.video_call_date ?? "",
             passport_tracking_code: fields.passport_tracking_code ?? info.passport_tracking_code ?? "",
             data_inicio_processo: fields.data_inicio_processo ?? info.data_inicio_processo ?? ""
@@ -981,14 +991,6 @@ function Dashboard({ logout }) {
         const fallbackData = await fallbackClientSchedule.json();
         if (!fallbackClientSchedule.ok) { alert(fallbackData.error || data.error || "Erro ao salvar grupo de processo."); return; }
       }
-      if ((fields.casv_date ?? info.casv_date ?? "") || (fields.interview_date ?? info.interview_date ?? "")) {
-        await fetch(`/api/admin/clients/${client.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "update_process_steps", stage_dates_scheduled: true })
-        });
-      }
-      await syncFamilyGroup(client, true);
       await loadGroups();
       await loadClients();
       return;
@@ -1301,11 +1303,13 @@ function Dashboard({ logout }) {
       action: "update_schedule",
       interview_date: fields.interview_date ?? client.interview_date ?? "",
       casv_date: fields.casv_date ?? client.casv_date ?? "",
+      interview_datetime: fields.interview_datetime ?? client.interview_datetime ?? "",
+      casv_datetime: fields.casv_datetime ?? client.casv_datetime ?? "",
       video_call_date: fields.video_call_date ?? client.video_call_date ?? "",
       consulate_city: fields.consulate_city ?? client.consulate_city ?? "",
       passport_tracking_code: fields.passport_tracking_code ?? client.passport_tracking_code ?? "",
       data_inicio_processo: fields.data_inicio_processo ?? client.data_inicio_processo ?? "",
-      stage_dates_scheduled: !!((fields.casv_date ?? client.casv_date ?? "") || (fields.interview_date ?? client.interview_date ?? "")),
+      stage_dates_scheduled: !!((fields.casv_datetime ?? client.casv_datetime ?? "") || (fields.interview_datetime ?? client.interview_datetime ?? "")),
       client_sedex_tracking: fields.client_sedex_tracking ?? client.client_sedex_tracking ?? "",
       is_renewal: fields.is_renewal ?? client.is_renewal ?? false,
       passport_pf_city: fields.passport_pf_city ?? client.passport_pf_city ?? "",
@@ -2103,7 +2107,7 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
     <main className="admin-premium-page" style={{ maxWidth: 1280, margin: "0 auto", padding: 24 }}>
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
         <BrandHeader />
-        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v120B — avaliação de passaporte no menu Email</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
+        <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}><div className="version-badge">v121 — automações de agenda + horários reais + formulário</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><a className="btn-primary" href="/admin/clientes" target="_blank">Clientes</a><a className="btn-primary" href="/admin/viagens" target="_blank">Administração de Viagens</a><button className="btn-secondary" onClick={logout}>Sair</button></div></div>
       </div>
 
       <div className="card premium-header-card" style={{ padding: 22, marginBottom: 22 }}>
@@ -2208,8 +2212,8 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                   ) : (
                     <>
                       <small><b>Consulado:</b> {processInfo(client).consulate_city || "-"}</small><br />
-                      <small>CASV: {formatDateBR(processInfo(client).casv_date) || "-"}</small><br />
-                      <small>Entrevista: {formatDateBR(processInfo(client).interview_date) || "-"}</small><br />
+                      <small>CASV: {processInfo(client).casv_datetime ? formatDateTimeBR(processInfo(client).casv_datetime) : (formatDateBR(processInfo(client).casv_date) || "-")}</small><br />
+                      <small>Entrevista: {processInfo(client).interview_datetime ? formatDateTimeBR(processInfo(client).interview_datetime) : (formatDateBR(processInfo(client).interview_date) || "-")}</small><br />
                       <small>Videochamada: {formatDateTimeBR(processInfo(client).video_call_date) || "-"}</small><br />
                       <small>Grupo de processo: {processInfo(client).groupName || "-"}</small><br />
                       {client.grupo_familiar_master && <><small style={{ color: "#166534", fontWeight: 700 }}>Contato principal</small><br /></>}
@@ -2327,8 +2331,12 @@ Sua resposta nos ajuda a aprimorar nosso atendimento. Muito obrigado pela confia
                         {!isPassportProcess(client) && (
                           <>
                             <label><small>Cidade do consulado</small><select defaultValue={processInfo(client).consulate_city || ""} onChange={(e) => updateProcessSchedule(client, { consulate_city: e.target.value })}><option value="">Selecionar cidade</option>{CONSULATE_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
-                            <label><small>Data CASV</small><input type="date" defaultValue={processInfo(client).casv_date || ""} onBlur={(e) => updateProcessSchedule(client, { casv_date: e.target.value })} /></label>
-                            <label><small>Data da entrevista no consulado</small><input disabled={shouldDisableRenewalField(client, "interview_date")} type="date" defaultValue={processInfo(client).interview_date || ""} onBlur={(e) => updateProcessSchedule(client, { interview_date: e.target.value })} /></label>
+                            {!["recife", "porto alegre"].some((city) => String(processInfo(client).consulate_city || "").toLowerCase().includes(city)) ? (
+                              <label><small>Data e horário do compromisso no CASV</small><input type="datetime-local" defaultValue={toDatetimeLocal(processInfo(client).casv_datetime)} onBlur={(e) => updateProcessSchedule(client, { casv_datetime: e.target.value, casv_date: e.target.value ? String(e.target.value).slice(0,10) : "" })} /></label>
+                            ) : (
+                              <div style={{ padding:10, borderRadius:10, background:"#eef2ff", color:"#334155", fontSize:12 }}><strong>Compromisso único:</strong> Recife e Porto Alegre não possuem agendamento separado no CASV.</div>
+                            )}
+                            <label><small>{["recife", "porto alegre"].some((city) => String(processInfo(client).consulate_city || "").toLowerCase().includes(city)) ? "Data e horário do compromisso único no consulado" : "Data e horário da entrevista no consulado"}</small><input disabled={shouldDisableRenewalField(client, "interview_date")} type="datetime-local" defaultValue={toDatetimeLocal(processInfo(client).interview_datetime)} onBlur={(e) => updateProcessSchedule(client, { interview_datetime: e.target.value, interview_date: e.target.value ? String(e.target.value).slice(0,10) : "" })} /></label>
                             <label><small>Data da videochamada</small><input disabled={shouldDisableRenewalField(client, "video_call_date")} type="datetime-local" defaultValue={toDatetimeLocal(processInfo(client).video_call_date)} onBlur={(e) => updateProcessSchedule(client, { video_call_date: e.target.value })} /></label>
                           </>
                         )}

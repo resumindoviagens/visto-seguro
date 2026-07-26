@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { loadFutureClientsForAgenda, sendClientAgendaEmail, sendClientReminders } from "../../../../lib/agendaAutomation";
+import { loadFutureClientsForAgenda, sendClientAgendaEmail, sendClientReminders, sendInternalAgendaICS } from "../../../../lib/agendaAutomation";
 
 function authorized(request) {
   const secret = process.env.CRON_SECRET;
@@ -9,11 +9,11 @@ function authorized(request) {
   return !secret || provided === secret || !!vercelCron;
 }
 
-function pendingOlderThan20h(client) {
+function pendingOlderThan5Minutes(client) {
   if (!client.agenda_email_pending_at) return false;
   const pending = new Date(client.agenda_email_pending_at).getTime();
   if (!Number.isFinite(pending)) return false;
-  return Date.now() - pending >= 20 * 60 * 60 * 1000;
+  return Date.now() - pending >= 5 * 60 * 1000;
 }
 
 export async function GET(request) {
@@ -24,9 +24,11 @@ export async function GET(request) {
 
   for (const client of clients) {
     try {
-      if (pendingOlderThan20h(client)) {
+      if (pendingOlderThan5Minutes(client)) {
         const agenda = await sendClientAgendaEmail(client, { mode: "auto", onlyMissing: true });
         results.push({ client_id: client.id, name: client.name, type: "agenda_cliente", result: agenda });
+        const internalAgenda = await sendInternalAgendaICS(client, { mode: "auto" });
+        results.push({ client_id: client.id, name: client.name, type: "agenda_interna", result: internalAgenda });
       }
 
       const reminder = await sendClientReminders(client, { mode: "auto" });

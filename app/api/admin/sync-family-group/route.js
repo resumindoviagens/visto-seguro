@@ -19,6 +19,8 @@ const SYNC_FIELDS = [
   // Processo, datas e rastreios
   "interview_date",
   "casv_date",
+  "interview_datetime",
+  "casv_datetime",
   "video_call_date",
   "consulate_city",
   "passport_tracking_code",

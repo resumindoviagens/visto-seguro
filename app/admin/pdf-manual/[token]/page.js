@@ -11,6 +11,13 @@ function answerLines(field) {
   return "\u00a0";
 }
 
+function questionNumberForField(fields, fieldIndex, sectionNumber) {
+  const field = fields[fieldIndex];
+  if (field?.questionNumber) return field.questionNumber;
+  const count = fields.slice(0, fieldIndex + 1).reduce((total, item) => item.type === "subtitle" ? total : total + (typeof item.numberingWeight === "number" ? item.numberingWeight : 1), 0);
+  return `${sectionNumber}.${count}`;
+}
+
 export default async function AdminManualPdfPage({ params }) {
   const authenticated = await isAdminAuthenticated();
 
@@ -47,7 +54,7 @@ export default async function AdminManualPdfPage({ params }) {
             <div className="grid">
               {section.fields.map((field, fieldIndex) => (
                 <div key={field.id} className={field.wide || field.full ? "wide" : ""} style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12, minHeight: field.type === "textarea" || field.wide || field.full ? 96 : 70 }}>
-                  <b style={{ color: "var(--navy)" }}><span style={{ color: "var(--orange)" }}>{sectionIndex + 1}.{fieldIndex + 1}</span> {field.label}</b><br />
+                  <b style={{ color: "var(--navy)" }}><span style={{ color: "var(--orange)" }}>{questionNumberForField(section.fields, fieldIndex, sectionIndex + 1)}</span> {field.label}</b><br />
                   <div style={{ marginTop: 10, borderBottom: "1px solid #CBD5E1", whiteSpace: "pre-line" }}>{answerLines(field)}</div>
                 </div>
               ))}

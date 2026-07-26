@@ -55,6 +55,12 @@ function fmtDateTime(value) {
 }
 
 
+
+function isSingleAppointmentCity(city = "") {
+  const value = String(city || "").trim().toLowerCase();
+  return value.includes("recife") || value.includes("porto alegre");
+}
+
 function cleanCPF(value) {
   return (value || "").replace(/\D/g, "");
 }
@@ -120,13 +126,19 @@ export async function PATCH(request, context) {
   }
 
   if (body.action === "update_schedule") {
-    updates.interview_date = body.interview_date || null;
-    updates.casv_date = body.casv_date || null;
+    const singleAppointment = isSingleAppointmentCity(body.consulate_city || oldClient?.consulate_city || "");
+    updates.interview_datetime = body.interview_datetime || null;
+    updates.casv_datetime = singleAppointment ? null : (body.casv_datetime || null);
+    updates.interview_date = updates.interview_datetime ? String(updates.interview_datetime).slice(0, 10) : (body.interview_date || null);
+    updates.casv_date = updates.casv_datetime ? String(updates.casv_datetime).slice(0, 10) : (singleAppointment ? null : (body.casv_date || null));
     updates.video_call_date = body.video_call_date || null;
     updates.consulate_city = body.consulate_city || "";
     updates.passport_tracking_code = body.passport_tracking_code || "";
     if (typeof body.data_inicio_processo !== "undefined") updates.data_inicio_processo = body.data_inicio_processo || null;
-    if (body.casv_date || body.interview_date) updates.stage_dates_scheduled = true;
+    const scheduleComplete = singleAppointment
+      ? !!updates.interview_datetime
+      : !!updates.casv_datetime && !!updates.interview_datetime;
+    updates.stage_dates_scheduled = scheduleComplete;
     if (body.video_call_date) updates.stage_video_call_scheduled = true;
     // O rastreio Sedex do cliente e o checkbox de renovação ficam em Editar dados.
     if (typeof body.client_sedex_tracking !== "undefined") updates.client_sedex_tracking = body.client_sedex_tracking || "";
@@ -137,6 +149,8 @@ export async function PATCH(request, context) {
     if (typeof body.passport_gru_paid_at !== "undefined") updates.passport_gru_paid_at = body.passport_gru_paid_at || null;
     if (typeof body.passport_protocol !== "undefined") updates.passport_protocol = String(body.passport_protocol || "").trim();
     if (
+      body.casv_datetime !== oldClient?.casv_datetime ||
+      body.interview_datetime !== oldClient?.interview_datetime ||
       body.casv_date !== oldClient?.casv_date ||
       body.interview_date !== oldClient?.interview_date ||
       body.video_call_date !== oldClient?.video_call_date ||
@@ -196,39 +210,14 @@ export async function PATCH(request, context) {
     details: updates
   });
 
-  if (body.action === "update_schedule" && updates.video_call_date && updates.video_call_date !== oldClient?.video_call_date) {
-    try {
-      const title = `Videochamada Resumindo Viagens — ${data.name}`;
-      const description = `Videochamada de preparação/orientação com a Resumindo Viagens para ${data.name}.`;
-      await sendWithBrevo({
-        toEmail: process.env.ALERT_EMAIL_TO || "contato@resumindoviagens.com.br",
-        toName: "Resumindo Viagens",
-        subject: `Videochamada agendada — ${data.name}`,
-        html: simpleHtml(`Videochamada agendada — ${data.name}`, [
-          `Foi informada/alterada a data de videochamada do cliente <strong>${data.name}</strong>.`,
-          `<strong>Data da videochamada:</strong> ${fmtDateTime(updates.video_call_date)}`,
-          `<strong>CPF:</strong> ${data.cpf || "-"}<br /><strong>E-mail:</strong> ${data.email || "-"}<br /><strong>Telefone:</strong> ${data.phone || "-"}`,
-          "Este email possui arquivo .ics para adicionar a videochamada à agenda."
-        ]),
-        text: `Videochamada agendada para ${data.name}: ${updates.video_call_date}`,
-        tags: ["resumindo-viagens", "alerta-videochamada", "agenda-interna"],
-        attachments: [icsAttachment({ title, description, location: "Online", start: updates.video_call_date })],
-        fromEmail: process.env.SYSTEM_EMAIL_FROM || process.env.ALERT_EMAIL_FROM || "alertas@resumindoviagens.com.br",
-        fromName: process.env.ALERT_EMAIL_FROM_NAME || "Resumindo Viagens - Alertas",
-        replyToEmail: process.env.SYSTEM_EMAIL_REPLY_TO || process.env.ALERT_EMAIL_REPLY_TO || "contato@resumindoviagens.com.br"
-      });
-      await supabaseAdmin.from("audit_logs").insert({ client_id: params.id, action: "internal_email_sent", details: { tipo: "videochamada", video_call_date: updates.video_call_date } });
-    } catch (emailError) {
-      await supabaseAdmin.from("audit_logs").insert({ client_id: params.id, action: "internal_email_failed", details: { tipo: "videochamada", error: emailError.message } });
-    }
-  }
+  // V121: o envio de agenda é processado pelo cron após janela de segurança, sem bloquear o salvamento.
 
-  if (body.action === "update_schedule" && updates.casv_date && updates.casv_date !== oldClient?.casv_date) {
+  if (body.action === "update_schedule" && updates.casv_datetime && updates.casv_datetime !== oldClient?.casv_datetime) {
     await supabaseAdmin.from("audit_logs").insert({
       client_id: params.id,
       action: "casv_video_planning_scheduled_for_daily_cron",
       details: {
-        casv_date: updates.casv_date,
+        casv_datetime: updates.casv_datetime,
         message: "O compromisso interno de marcar videochamada será enviado no cron diário, 20 dias antes do CASV."
       }
     });

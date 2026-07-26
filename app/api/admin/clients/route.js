@@ -200,8 +200,10 @@ export async function POST(request) {
     };
 
     if (!passport) {
-      if (body.interview_date) insertData.interview_date = body.interview_date;
-      if (body.casv_date) insertData.casv_date = body.casv_date;
+      if (body.interview_datetime) { insertData.interview_datetime = body.interview_datetime; insertData.interview_date = String(body.interview_datetime).slice(0,10); }
+      else if (body.interview_date) insertData.interview_date = body.interview_date;
+      if (body.casv_datetime) { insertData.casv_datetime = body.casv_datetime; insertData.casv_date = String(body.casv_datetime).slice(0,10); }
+      else if (body.casv_date) insertData.casv_date = body.casv_date;
       if (body.video_call_date) insertData.video_call_date = body.video_call_date;
       if (body.consulate_city) insertData.consulate_city = body.consulate_city;
     }

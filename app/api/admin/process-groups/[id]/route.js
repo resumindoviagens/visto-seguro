@@ -54,6 +54,11 @@ function fmtDateTime(value) {
 }
 
 
+function isSingleAppointmentCity(city = "") {
+  const value = String(city || "").trim().toLowerCase();
+  return value.includes("recife") || value.includes("porto alegre");
+}
+
 export async function PATCH(request, context) {
   const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
@@ -66,11 +71,15 @@ export async function PATCH(request, context) {
     .eq("id", params.id)
     .maybeSingle();
 
+  const city = body.consulate_city || oldGroup?.consulate_city || "";
+  const singleAppointment = isSingleAppointmentCity(city);
   const updates = {
     nome: body.nome,
-    consulate_city: body.consulate_city || "",
-    casv_date: body.casv_date || null,
-    interview_date: body.interview_date || null,
+    consulate_city: city,
+    casv_datetime: singleAppointment ? null : (body.casv_datetime || null),
+    interview_datetime: body.interview_datetime || null,
+    casv_date: singleAppointment ? null : ((body.casv_datetime || body.casv_date) ? String(body.casv_datetime || body.casv_date).slice(0,10) : null),
+    interview_date: (body.interview_datetime || body.interview_date) ? String(body.interview_datetime || body.interview_date).slice(0,10) : null,
     video_call_date: body.video_call_date || null,
     passport_tracking_code: body.passport_tracking_code || "",
     data_inicio_processo: body.data_inicio_processo || null,
@@ -95,31 +104,52 @@ export async function PATCH(request, context) {
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
-  if (updates.video_call_date && updates.video_call_date !== oldGroup?.video_call_date) {
-    try {
-      const title = `Videochamada Resumindo Viagens — ${data.nome}`;
-      const description = `Videochamada de preparação/orientação com a Resumindo Viagens para o grupo ${data.nome}.`;
-      await sendWithBrevo({
-        toEmail: process.env.ALERT_EMAIL_TO || "contato@resumindoviagens.com.br",
-        toName: "Resumindo Viagens",
-        subject: `Videochamada agendada — ${data.nome}`,
-        html: simpleHtml(`Videochamada agendada — ${data.nome}`, [
-          `Foi informada/alterada a data de videochamada do grupo de processo <strong>${data.nome}</strong>.`,
-          `<strong>Data da videochamada:</strong> ${fmtDateTime(updates.video_call_date)}`,
-          data.consulate_city ? `<strong>Consulado:</strong> ${data.consulate_city}` : "",
-          "Este email possui arquivo .ics para adicionar a videochamada à agenda."
-        ].filter(Boolean)),
-        text: `Videochamada agendada para ${data.nome}: ${updates.video_call_date}`,
-        tags: ["resumindo-viagens", "alerta-videochamada", "agenda-interna"],
-        attachments: [icsAttachment({ title, description, location: "Online", start: updates.video_call_date })],
-        fromEmail: process.env.SYSTEM_EMAIL_FROM || process.env.ALERT_EMAIL_FROM || "alertas@resumindoviagens.com.br",
-        fromName: process.env.ALERT_EMAIL_FROM_NAME || "Resumindo Viagens - Alertas",
-        replyToEmail: process.env.SYSTEM_EMAIL_REPLY_TO || process.env.ALERT_EMAIL_REPLY_TO || "contato@resumindoviagens.com.br"
-      });
-    } catch (emailError) {
-      // Não bloqueia o salvamento da data se o email falhar.
+  const scheduleComplete = singleAppointment
+    ? !!updates.interview_datetime
+    : !!updates.casv_datetime && !!updates.interview_datetime;
+
+  const sharedClientUpdates = {
+    consulate_city: updates.consulate_city,
+    casv_datetime: updates.casv_datetime,
+    interview_datetime: updates.interview_datetime,
+    casv_date: updates.casv_date,
+    interview_date: updates.interview_date,
+    video_call_date: updates.video_call_date,
+    passport_tracking_code: updates.passport_tracking_code,
+    data_inicio_processo: updates.data_inicio_processo,
+    stage_dates_scheduled: scheduleComplete,
+    updated_at: new Date().toISOString()
+  };
+
+  const { error: membersUpdateError } = await supabaseAdmin
+    .from("clients")
+    .update(sharedClientUpdates)
+    .eq("group_process_id", params.id);
+
+  if (membersUpdateError) {
+    return Response.json({ error: `Grupo salvo, mas houve falha ao sincronizar os clientes: ${membersUpdateError.message}` }, { status: 500 });
+  }
+
+  const scheduleChanged =
+    updates.casv_datetime !== oldGroup?.casv_datetime ||
+    updates.interview_datetime !== oldGroup?.interview_datetime ||
+    updates.video_call_date !== oldGroup?.video_call_date;
+
+  if (scheduleChanged) {
+    const { data: master } = await supabaseAdmin
+      .from("clients")
+      .select("id")
+      .eq("group_process_id", params.id)
+      .eq("grupo_familiar_master", true)
+      .limit(1)
+      .maybeSingle();
+
+    if (master?.id) {
+      await supabaseAdmin.from("clients").update({ agenda_email_pending_at: new Date().toISOString() }).eq("id", master.id);
     }
   }
+
+  // V121: os e-mails são enviados pelo cron após a janela de segurança.
 
   return Response.json({ group: data });
 }

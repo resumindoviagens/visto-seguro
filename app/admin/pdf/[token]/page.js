@@ -29,6 +29,13 @@ function formatAnswer(value) {
 }
 
 
+function questionNumberForField(fields, fieldIndex, sectionNumber) {
+  const field = fields[fieldIndex];
+  if (field?.questionNumber) return field.questionNumber;
+  const count = fields.slice(0, fieldIndex + 1).reduce((total, item) => item.type === "subtitle" ? total : total + (typeof item.numberingWeight === "number" ? item.numberingWeight : 1), 0);
+  return `${sectionNumber}.${count}`;
+}
+
 export default async function AdminPdfPage({ params }) {
   const authenticated = await isAdminAuthenticated();
 
@@ -88,7 +95,7 @@ export default async function AdminPdfPage({ params }) {
               {section.fields
                 .map((field, fieldIndex) => (
                   <div key={field.id} className={field.wide || field.full ? "wide" : ""} style={{ border: "1px solid #E4E8F0", borderRadius: 12, padding: 12 }}>
-                    <b style={{ color: "var(--navy)" }}><span style={{ color: "var(--orange)" }}>{sectionIndex + 1}.{fieldIndex + 1}</span> {field.label}</b><br />
+                    <b style={{ color: "var(--navy)" }}><span style={{ color: "var(--orange)" }}>{questionNumberForField(section.fields, fieldIndex, sectionIndex + 1)}</span> {field.label}</b><br />
                     <span style={{ color: isFilled(answers[field.id]) ? "inherit" : "#b91c1c", fontWeight: isFilled(answers[field.id]) ? 400 : 700 }}>{formatAnswer(answers[field.id])}</span>
                   </div>
                 ))}
