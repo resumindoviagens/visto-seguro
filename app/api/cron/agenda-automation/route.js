@@ -9,6 +9,7 @@ function authorized(request) {
   return !secret || provided === secret || !!vercelCron;
 }
 
+// No Hobby, esta rota roda uma vez ao dia. Pendências são recuperadas aqui quando o envio imediato falha.
 function pendingOlderThan5Minutes(client) {
   if (!client.agenda_email_pending_at) return false;
   const pending = new Date(client.agenda_email_pending_at).getTime();

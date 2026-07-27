@@ -2,6 +2,7 @@ import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../../lib/auth";
 import { createAccessToken } from "../../../../../lib/tokens";
 import { sendWithBrevo, simpleHtml } from "../../../../../lib/brevoEmail";
+import { sendClientAgendaEmail, sendInternalAgendaICS } from "../../../../../lib/agendaAutomation";
 
 function padICS(value) {
   return String(value).padStart(2, "0");
@@ -210,7 +211,35 @@ export async function PATCH(request, context) {
     details: updates
   });
 
-  // V121: o envio de agenda é processado pelo cron após janela de segurança, sem bloquear o salvamento.
+  // V121C: no plano Hobby, o cron só pode executar uma vez ao dia.
+  // Por isso, a agenda é enviada imediatamente após o salvamento.
+  // Falhas da Brevo não desfazem nem bloqueiam os dados já gravados.
+  let agendaAutomation = null;
+  if (body.action === "update_schedule" && updates.agenda_email_pending_at) {
+    try {
+      const agendaCliente = await sendClientAgendaEmail(data, { mode: "immediate_after_save", onlyMissing: true });
+      const agendaInterna = await sendInternalAgendaICS(data, { mode: "immediate_after_save" });
+      agendaAutomation = { ok: true, agendaCliente, agendaInterna };
+
+      await supabaseAdmin.from("audit_logs").insert({
+        client_id: params.id,
+        action: "agenda_automation_after_schedule_save",
+        details: agendaAutomation
+      });
+    } catch (agendaError) {
+      agendaAutomation = {
+        ok: false,
+        error: agendaError?.message || String(agendaError),
+        recovery: "O cron diário tentará novamente."
+      };
+
+      await supabaseAdmin.from("audit_logs").insert({
+        client_id: params.id,
+        action: "agenda_automation_after_schedule_save_failed",
+        details: agendaAutomation
+      });
+    }
+  }
 
   if (body.action === "update_schedule" && updates.casv_datetime && updates.casv_datetime !== oldClient?.casv_datetime) {
     await supabaseAdmin.from("audit_logs").insert({
@@ -223,7 +252,7 @@ export async function PATCH(request, context) {
     });
   }
 
-  return Response.json({ client: data });
+  return Response.json({ client: data, agendaAutomation });
 }
 
 export async function DELETE(request, context) {

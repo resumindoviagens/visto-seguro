@@ -288,7 +288,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="version">v121B automações e formulário</div>
+          <div className="version">v121C cron Hobby + envio imediato</div>
         </section>
 
         <section className="login">

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../../lib/auth";
 import { sendWithBrevo, simpleHtml } from "../../../../../lib/brevoEmail";
+import { sendClientAgendaEmail, sendInternalAgendaICS } from "../../../../../lib/agendaAutomation";
 
 function padICS(value) {
   return String(value).padStart(2, "0");
@@ -149,9 +150,46 @@ export async function PATCH(request, context) {
     }
   }
 
-  // V121: os e-mails são enviados pelo cron após a janela de segurança.
+  // V121C: envio imediato pelo contato principal do grupo.
+  // O cron diário fica apenas como recuperação de falhas e para lembretes.
+  let agendaAutomation = null;
+  if (scheduleChanged) {
+    try {
+      const { data: masterClient } = await supabaseAdmin
+        .from("clients")
+        .select("*")
+        .eq("group_process_id", params.id)
+        .eq("grupo_familiar_master", true)
+        .limit(1)
+        .maybeSingle();
 
-  return Response.json({ group: data });
+      if (masterClient) {
+        const agendaCliente = await sendClientAgendaEmail(masterClient, { mode: "immediate_after_group_save", onlyMissing: true });
+        const agendaInterna = await sendInternalAgendaICS(masterClient, { mode: "immediate_after_group_save" });
+        agendaAutomation = { ok: true, agendaCliente, agendaInterna };
+
+        await supabaseAdmin.from("audit_logs").insert({
+          client_id: masterClient.id,
+          action: "agenda_automation_after_group_schedule_save",
+          details: { group_process_id: params.id, ...agendaAutomation }
+        });
+      } else {
+        agendaAutomation = {
+          ok: false,
+          error: "Grupo sem contato principal definido.",
+          recovery: "O cron diário tentará novamente quando houver contato principal."
+        };
+      }
+    } catch (agendaError) {
+      agendaAutomation = {
+        ok: false,
+        error: agendaError?.message || String(agendaError),
+        recovery: "O cron diário tentará novamente."
+      };
+    }
+  }
+
+  return Response.json({ group: data, agendaAutomation });
 }
 
 export async function DELETE(request, context) {

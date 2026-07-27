@@ -1,1 +1,1 @@
-v121B — automações, horários CASV/Consulado, formulário corrigido e pacote com raiz de deploy
+v121C — compatível com Vercel Hobby: crons diários + envio imediato após salvar agendamentos
