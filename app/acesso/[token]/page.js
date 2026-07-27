@@ -457,8 +457,8 @@ export default function ClientAccessPage() {
 
       <div className="form-layout" style={{ display:"grid", gridTemplateColumns:"280px 1fr", gap:24 }}>
         <aside className="card no-print" style={{ padding:14 }}>
-          <button onClick={() => setCurrent(-1)} className={(current === -1 ? "btn-primary" : "btn-light") + " section-nav-button"}>1. Informações prévias</button>
-          <button disabled title="Funcionalidade em implementação" className="btn-light section-nav-button" style={{ opacity:.55, cursor:"not-allowed" }}>2. Upload de documentos (implementação)</button>
+          <button onClick={() => setCurrent(-1)} className={(current === -1 ? "btn-primary" : "btn-light") + " section-nav-button"}>Informações prévias</button>
+          <button disabled aria-disabled="true" title="Funcionalidade em implementação" className="btn-light section-nav-button" style={{ opacity:.55, cursor:"not-allowed" }}>Upload de documentos (implementação)</button>
           {sections.map((item, index) => <button key={item.title} onClick={() => setCurrent(index)} className={(index === current ? "btn-primary" : "btn-light") + " section-nav-button"}>{numberedTitle(index, item.title)}</button>)}
         </aside>
         <section className="card" style={{ padding:28 }}>
@@ -571,10 +571,6 @@ function PreInfoPage({ client, onContinue }) {
     <p style={{ color:"var(--muted)", lineHeight:1.6 }}>Olá, <strong>{client?.name}</strong>. Antes de iniciar o preenchimento do formulário, veja o vídeo e leia atentamente as orientações abaixo.</p>
     <div className="pwa-install-hint no-print">
       <strong>Dica para celular:</strong> toque em compartilhar e escolha “Adicionar à Tela de Início” para salvar este formulário como um app. Se estiver preenchendo formulários de familiares, use nomes como <strong>Resumindo - João</strong>.
-    </div>
-    <div className="pwa-install-hint no-print">
-      <strong>Dica para celular:</strong> você pode adicionar este formulário à tela inicial do celular como se fosse um app.
-      Se estiver preenchendo formulários de familiares, salve cada ícone com o primeiro nome, por exemplo: <strong>Resumindo - João</strong>.
     </div>
     <div style={{ background:"#fff9ec", border:"1px solid #fed7aa", borderRadius:16, padding:18, margin:"18px 0", color:"#7c2d12", lineHeight:1.55 }}>
       As perguntas estão numeradas para facilitar o atendimento. Em caso de dúvida, informe o número da pergunta, por exemplo: 2.4 ou 5.7.
