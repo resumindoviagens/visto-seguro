@@ -1,1 +1,1 @@
-v121C — compatível com Vercel Hobby: crons diários + envio imediato após salvar agendamentos
+v122 — correção definitiva de fuso Brasília em emails e arquivos ICS

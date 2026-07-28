@@ -1,44 +1,11 @@
 import { supabaseAdmin } from "../../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../../lib/auth";
-import { sendWithBrevo, simpleHtml } from "../../../../../lib/brevoEmail";
+import { buildICS, sendWithBrevo, simpleHtml } from "../../../../../lib/brevoEmail";
 import { sendClientAgendaEmail, sendInternalAgendaICS } from "../../../../../lib/agendaAutomation";
-
-function padICS(value) {
-  return String(value).padStart(2, "0");
-}
-
-function toICSDate(value) {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "";
-  return `${date.getUTCFullYear()}${padICS(date.getUTCMonth() + 1)}${padICS(date.getUTCDate())}T${padICS(date.getUTCHours())}${padICS(date.getUTCMinutes())}00Z`;
-}
-
-function buildICSLocal({ title, description = "", location = "", start, end }) {
-  const startDate = new Date(start);
-  const endDate = end ? new Date(end) : new Date(startDate.getTime() + 60 * 60 * 1000);
-  const uid = `${Date.now()}-${Math.random().toString(16).slice(2)}@resumindoviagens.com.br`;
-
-  return [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//Resumindo Viagens//Sistema de Vistos//PT-BR",
-    "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
-    "BEGIN:VEVENT",
-    `UID:${uid}`,
-    `DTSTAMP:${toICSDate(new Date())}`,
-    `DTSTART:${toICSDate(startDate)}`,
-    `DTEND:${toICSDate(endDate)}`,
-    `SUMMARY:${String(title).replace(/\n/g, " ")}`,
-    `DESCRIPTION:${String(description).replace(/\n/g, "\\n")}`,
-    location ? `LOCATION:${String(location).replace(/\n/g, " ")}` : "",
-    "END:VEVENT",
-    "END:VCALENDAR"
-  ].filter(Boolean).join("\r\n");
-}
+import { formatBrasiliaDateTime } from "../../../../../lib/brasiliaDateTime";
 
 function icsAttachment({ title, description, location, start }) {
-  const ics = buildICSLocal({ title, description, location, start });
+  const ics = buildICS({ title, description, location, start });
   return {
     name: "videochamada-resumindo.ics",
     content: Buffer.from(ics, "utf-8").toString("base64")
@@ -46,12 +13,7 @@ function icsAttachment({ title, description, location, start }) {
 }
 
 function fmtDateTime(value) {
-  if (!value) return "";
-  try {
-    return new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-  } catch {
-    return String(value);
-  }
+  return formatBrasiliaDateTime(value);
 }
 
 
