@@ -4,6 +4,16 @@ import { supabaseAdmin } from "../../../../lib/supabaseAdmin";
 import { requireAdmin } from "../../../../lib/auth";
 import { defaultHelpTexts, sections } from "../../../../lib/formSchema";
 
+function questionNumberForField(fields, fieldIndex, sectionNumber) {
+  const field = fields[fieldIndex];
+  if (field?.questionNumber) return field.questionNumber;
+  const count = fields.slice(0, fieldIndex + 1).reduce((total, item) => {
+    if (item.type === "subtitle") return total;
+    return total + (typeof item.numberingWeight === "number" ? item.numberingWeight : 1);
+  }, 0);
+  return `${sectionNumber}.${count}`;
+}
+
 export async function GET() {
   const unauthorized = await requireAdmin();
   if (unauthorized) return unauthorized;
@@ -20,7 +30,7 @@ export async function GET() {
     section.fields.forEach((field, fieldIndex) => {
       fields.push({
         field_id: field.id,
-        question: `${sectionIndex + 1}.${fieldIndex + 1}`,
+        question: questionNumberForField(section.fields, fieldIndex, sectionIndex + 1),
         section: section.title,
         label: field.label,
         default_help: defaultHelpTexts[field.id] || field.help || "",

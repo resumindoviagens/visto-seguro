@@ -1,4 +1,4 @@
-const CACHE_NAME = "rv-pwa-v121b";
+const CACHE_NAME = "rv-pwa-v123";
 const APP_SHELL = [
   "/",
   "/offline.html",

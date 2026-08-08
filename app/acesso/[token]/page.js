@@ -93,8 +93,8 @@ const SOCIAL_FIELDS = [
   "redeSocial5","usuarioRedeSocial5","redeSocial6","usuarioRedeSocial6","redeSocial7","usuarioRedeSocial7","redeSocial8","usuarioRedeSocial8"
 ];
 
-const PAGE7_FORMACAO_FIELDS = ["formacaoNomeInstituicao", "formacaoEndereco1", "formacaoEndereco2", "formacaoCidade", "formacaoUF", "formacaoCep", "formacaoPais"];
-const PAGE7_OUTROS_CURSOS_FIELDS = ["outrosCursosNomeInstituicao", "outrosCursosEndereco1", "outrosCursosEndereco2", "outrosCursosCidade", "outrosCursosUF", "outrosCursosCep", "outrosCursosPais"];
+const PAGE7_FORMACAO_FIELDS = ["formacaoNomeInstituicao", "formacaoEndereco1", "formacaoEndereco2", "formacaoCidade", "formacaoUF", "formacaoCep", "formacaoPais", "formacaoNomeCurso", "formacaoDataInicioCurso", "formacaoDataTerminoCurso"];
+const PAGE7_OUTROS_CURSOS_FIELDS = ["outrosCursosNomeInstituicao", "outrosCursosEndereco1", "outrosCursosEndereco2", "outrosCursosCidade", "outrosCursosUF", "outrosCursosCep", "outrosCursosPais", "outrosCursosNomeCurso", "outrosCursosDataInicioCurso", "outrosCursosDataTerminoCurso"];
 const PAGE7_AFTER_ESTUDO_FIELDS = [...PAGE7_FORMACAO_FIELDS, "outrosCursosConcluidos", ...PAGE7_OUTROS_CURSOS_FIELDS];
 const PAGE7_AFTER_OUTROS_CURSOS_FIELDS = [...PAGE7_OUTROS_CURSOS_FIELDS];
 
@@ -252,6 +252,11 @@ function formatAnswerForDisplay(value) {
   if (iso) {
     const month = MONTHS_PT[Number(iso[2]) - 1] || iso[2];
     return `${iso[3]}/${month}/${iso[1]}`;
+  }
+  const isoMonth = raw.match(/^(\d{4})-(\d{2})$/);
+  if (isoMonth) {
+    const month = MONTHS_PT[Number(isoMonth[2]) - 1] || isoMonth[2];
+    return `${month}/${isoMonth[1]}`;
   }
   return raw;
 }

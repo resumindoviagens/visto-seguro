@@ -288,7 +288,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="version">v121C cron Hobby + envio imediato</div>
+          <div className="version">v123 novos campos de formação</div>
         </section>
 
         <section className="login">
